@@ -106,16 +106,22 @@ window.addEventListener('unhandledrejection', (e) => {
 
 // ── เปลือกหน้าจอ ────────────────────────────────────────────
 
+/** จอกว้าง = เมนูไปอยู่ในแถบหัวสีเข้ม (ตามดีไซน์ PC) · จอแคบ = เมนูล่างจอ */
+const wide = () => {
+  try { return matchMedia('(min-width: 900px)').matches; } catch (e) { return false; }
+};
+
 function appbar() {
   const online = navigator.onLine;
   const pending = api.queue.size;
   return h('header', { class: 'appbar' },
     h('div', { class: 'brand' }, 'A'),
-    h('div', { style: { flex: '1', minWidth: '0' } },
+    h('div', { style: wide() ? { minWidth: '0' } : { flex: '1', minWidth: '0' } },
       h('div', { class: 'appbar-title' }, 'AssignCheck'),
       h('div', { class: 'appbar-sub' },
-        state.config.year ? `ปีการศึกษา ${state.config.year} · ภาคเรียนที่ ${state.config.term || '-'}` : 'เช็คชื่อ · เช็คงาน · สรุป SGS')
+        state.config.year ? `${state.config.year} · เทอม ${state.config.term || '-'}` : 'เช็คชื่อ · เช็คงาน · สรุป SGS')
     ),
+    wide() && nav(),
     pending > 0 && h('span', { class: 'sync-pill' + (online ? '' : ' off') },
       isSyncing() ? 'กำลังซิงค์…' : `ค้าง ${pending}`),
     !online && h('span', { class: 'sync-pill off' }, 'ออฟไลน์'),
@@ -178,7 +184,7 @@ function render() {
         class: 'alert-bar' + (alert.level === 'warn' ? ' warn' : ''),
         onclick: () => go('health')
       }, h('span', null, (alert.level === 'warn' ? '⚠️ ' : '❌ ') + alert.text), h('b', null, 'แก้ ›')),
-      nav(),
+      !wide() && nav(),
       classPicker(),
       view()
     )
@@ -192,6 +198,14 @@ try { applyTheme(); } catch (e) {}
 try { watchSystemTheme(() => render()); } catch (e) {}
 
 subscribe(render);
+
+// สลับ mobile ↔ desktop แล้วต้องวาดใหม่ เพราะเมนูอยู่คนละที่
+// ใช้ event ของ media query โดยตรง — เชื่อถือได้กว่าดัก resize
+try {
+  matchMedia('(min-width: 900px)').addEventListener('change', () => render());
+} catch (e) {
+  window.addEventListener('resize', () => render());
+}
 
 window.addEventListener('ac:rerender', render);
 auth.onChange(render);
@@ -1476,18 +1490,22 @@ __exp(exports, { viewSetup });
   __defs["js/views/home.js"] = function (exports, __req) {
 /* หน้าแรก — จัดการห้องเรียน/รายวิชา และภาพรวม */
 
-const { h, modal, toast, confirmBox } = __req("js/dom.js");
+const { h, modal, toast, confirmBox, todayISO } = __req("js/dom.js");
 const { state, go, loadClass, createClass, updateClassMeta, deleteClass, setStudents, settings } = __req("js/state.js");
 const { computeClass } = __req("js/score.js");
 
 function viewHome() {
+  // ลำดับตามดีไซน์: เปิดแอปมาต้องเห็น "สิ่งที่ต้องทำต่อ" ก่อน
+  // แล้วค่อยเป็นรายการห้องไว้สลับ
   return h('div', { class: 'page' },
-    h('div', { style: { display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' } },
+    state.cls && overviewCard(),
+
+    h('div', { style: { display: 'flex', alignItems: 'center', gap: '10px', margin: '18px 0 10px' } },
       h('div', { style: { flex: '1' } },
-        h('div', { style: { fontSize: '18px', fontWeight: '700' } }, 'ห้องเรียนของฉัน'),
+        h('div', { style: { fontSize: '16px', fontWeight: '700' } }, 'ห้องเรียนของฉัน'),
         h('div', { style: { fontSize: '12.5px', color: 'var(--ink-2)' } },
           `${state.classes.length} ห้อง-วิชา`)),
-      h('button', { class: 'btn btn-sm', onclick: () => openClassForm() }, '+ เพิ่มห้อง')
+      h('button', { class: 'btn btn-ghost btn-sm', onclick: () => openClassForm() }, '+ เพิ่มห้อง')
     ),
 
     state.classes.length === 0
@@ -1497,9 +1515,7 @@ function viewHome() {
           h('div', { style: { fontSize: '13px', marginBottom: '14px' } },
             'สร้างห้องแรก เช่น "ม.1/1 · คณิตศาสตร์พื้นฐาน"'),
           h('button', { class: 'btn', onclick: () => openClassForm() }, 'สร้างห้องเรียนแรก'))
-      : state.classes.map(classCard),
-
-    state.cls && overviewCard()
+      : state.classes.map(classCard)
   );
 }
 
@@ -1537,8 +1553,43 @@ function overviewCard() {
   const avg   = graded.length ? graded.reduce((a, r) => a + r.total, 0) / graded.length : null;
   const zero  = rows.filter(r => r.flag.includes('เสี่ยงติด 0')).length;
 
+  const cls = state.cls;
+  const attToday = (cls.columns || []).some(c => c.kind === 'ATT' && c.date === todayISO());
+
+  // ── การ์ดหลัก: ห้องที่เลือกอยู่ + ปุ่มที่ควรกดตอนนี้ ──
+  // ไลม์คือปุ่มหลักสีเดียวของแอป จึงมีได้จุดเดียวในหน้าจอ
+  const hero = h('div', { class: 'hero' },
+    h('div', { class: 'hero-kicker' },
+      [cls.meta.grade, cls.meta.room].filter(Boolean).join('/') + ' · ' + (cls.meta.subjectCode || 'ห้องที่เลือกอยู่')),
+    h('div', { class: 'hero-title' }, cls.meta.subject),
+    h('div', { class: 'hero-meta' },
+      `${rows.length} คน · ` + (attToday ? 'เช็คชื่อวันนี้แล้ว' : 'ยังไม่ได้เช็คชื่อวันนี้')),
+    h('button', { class: 'btn', onclick: () => go('att') },
+      attToday ? 'เปิดหน้าเช็คชื่อ' : '✓ เริ่มเช็คชื่อวันนี้'),
+    h('button', { class: 'hero-alt', onclick: () => go('work') }, 'กรอกงาน / คะแนน')
+  );
+
+  // ── สิ่งที่ยังค้าง ──
+  const pending = rows.reduce((a, r) => a + r.pending, 0);
+  const todos = [];
+  if (pending > 0) {
+    todos.push({ c: 'var(--st-late)', t: `ยังไม่ตรวจ ${pending} ช่อง`, go: 'work' });
+  }
+  if (!String(state.config.mid_date || '').trim()) {
+    todos.push({ c: 'var(--st-miss)', t: 'ยังไม่ได้ตั้งวันสอบกลางภาค', go: 'settings' });
+  }
+  if (risk > 0) {
+    todos.push({ c: 'var(--st-miss)', t: `เสี่ยงติด มส ${risk} คน`, go: 'report' });
+  }
+
   return h('div', null,
-    h('div', { class: 'section-title' }, 'ภาพรวมห้องที่เลือก · ' + state.cls.meta.subject),
+    hero,
+
+    todos.length > 0 && h('div', { class: 'card' },
+      h('div', { style: { fontWeight: '700', fontSize: '13.5px', marginBottom: '6px' } }, 'ค้างอยู่'),
+      todos.map(t => h('button', { class: 'todo-row', onclick: () => go(t.go) },
+        h('i', { style: { background: t.c } }), t.t, h('b', null, '›')))),
+
     h('div', { class: 'stats' },
       stat('g', rows.length, 'นักเรียน'),
       stat('b', avg === null ? '—' : avg.toFixed(1), 'คะแนนเฉลี่ย'),
@@ -1547,12 +1598,12 @@ function overviewCard() {
     ),
     avg === null && h('div', { class: 'hint', style: { marginTop: '8px' } },
       'ยังไม่ได้เช็คชื่อหรือกรอกคะแนนในห้องนี้ — ตัวเลขจะขึ้นเมื่อเริ่มบันทึกข้อมูล'),
+
     h('div', { class: 'card', style: { marginTop: '12px' } },
       h('div', { class: 'btn-row' },
-        h('button', { class: 'btn btn-soft btn-sm', onclick: () => go('att') }, '🕐 เช็คชื่อ'),
-        h('button', { class: 'btn btn-soft btn-sm', onclick: () => go('work') }, '📝 กรอกคะแนน'),
-        h('button', { class: 'btn btn-soft btn-sm', onclick: () => go('summary') }, '📊 สรุป SGS'),
-        h('button', { class: 'btn btn-ghost btn-sm', onclick: () => openRoster(state.cls) }, '👥 รายชื่อ')
+        h('button', { class: 'btn btn-soft btn-sm', onclick: () => go('summary') }, 'สรุป SGS'),
+        h('button', { class: 'btn btn-soft btn-sm', onclick: () => go('report') }, 'รายงาน'),
+        h('button', { class: 'btn btn-ghost btn-sm', onclick: () => openRoster(state.cls) }, 'รายชื่อนักเรียน')
       ))
   );
 }
@@ -1978,9 +2029,9 @@ function checkScreen() {
         : h('div', { class: 'empty', style: { padding: '26px' } }, 'เช็คครบแล้ว 🎉')),
 
     h('button', {
-      class: 'btn btn-block', style: { marginTop: '4px' },
+      class: 'btn btn-solid btn-block', style: { marginTop: '4px' },
       onclick: () => { ui.mode = 'list'; ui.onlyBlank = false; emit(); }
-    }, 'เสร็จสิ้น')
+    }, 'เสร็จสิ้น · บันทึกแล้ว')
   );
 }
 
@@ -2179,7 +2230,7 @@ function listScreen() {
         h('div', { style: { fontWeight: '700' } }, `${b.label} · ${b.phase === 1 ? 'ก่อนกลางภาค' : 'หลังกลางภาค'}`),
         h('div', { style: { fontSize: '12.5px', color: 'var(--ink-2)' } },
           `${cols.length} รายการ · คะแนนดิบรวม ${totalMax} → เทียบเป็น ${S.weight[ui.bucket]} คะแนน (SGS ${b.sgs})`)),
-      h('button', { class: 'btn btn-sm', onclick: () => openItemForm() }, '+ เพิ่ม')
+      h('button', { class: 'btn btn-soft btn-sm', onclick: () => openItemForm() }, '+ เพิ่ม')
     ),
 
     cols.length === 0
@@ -2301,13 +2352,14 @@ function gradeScreen(col) {
       refreshProgress(col);
     }
 
-    return h('div', { class: 'stu-row' },
-      h('div', { class: 'stu-no' }, s.no),
-      h('div', { style: { flex: '1', minWidth: '0' } },
-        h('div', { class: 'stu-name' }, s.name || '—'),
-        h('div', { class: 'stu-sid' }, s.sid)),
-      group,
-      h('div', { class: 'score-cell' }, inp, h('span', { class: 'score-max' }, '/' + col.max))
+    // ชื่อ+คะแนนบรรทัดบน · ปุ่มสถานะเต็มความกว้างบรรทัดล่าง
+    // (แบบเดิมยัดทุกอย่างบรรทัดเดียว ชื่อนักเรียนเลยถูกบีบจนอ่านไม่ออกบนมือถือ)
+    return h('div', { class: 'work-row' },
+      h('div', { class: 'work-head' },
+        h('div', { class: 'stu-no' }, s.no),
+        h('div', { class: 'work-name' }, s.name || '—'),
+        h('div', { class: 'score-cell' }, inp, h('span', { class: 'score-max' }, '/' + col.max))),
+      group
     );
   });
 
@@ -2535,7 +2587,7 @@ function viewSummary() {
 
     h('div', { class: 'card', style: { padding: '10px 12px' } },
       h('div', { class: 'btn-row' },
-        h('button', { class: 'btn btn-sm', onclick: () => openFillMode(rows, cols) }, '⌨️ โหมดกรอก SGS'),
+        h('button', { class: 'btn btn-solid btn-sm', onclick: () => openFillMode(rows, cols) }, '⌨️ โหมดกรอก SGS'),
         h('button', { class: 'btn btn-soft btn-sm', onclick: () => copyTable(rows, cols) }, '📋 คัดลอกทั้งตาราง'),
         h('button', { class: 'btn btn-ghost btn-sm', onclick: () => downloadCSV(rows) }, '⬇️ CSV'),
         h('button', {
@@ -3729,7 +3781,7 @@ __exp(exports, { viewHealth });
  * ⚠️ เวลาแก้โค้ดที่กระทบทั้ง 2 ฝั่ง ให้บวกเลขนี้ และแก้ SERVER_VERSION
  *    ใน apps-script/00_Constants.gs ให้ตรงกันด้วย
  */
-const APP_VERSION = '2.8.0';
+const APP_VERSION = '3.0.0';
 
 /** เวอร์ชันต่ำสุดของฝั่งชีตที่หน้าเว็บนี้ทำงานด้วยได้ครบทุกฟีเจอร์ */
 const NEEDS_SERVER = '2.8.0';
