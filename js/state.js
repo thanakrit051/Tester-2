@@ -400,12 +400,17 @@ export async function recalcOnServer() {
   return res.rows;
 }
 
-export async function saveConfig(entries) {
+/**
+ * @param quiet true = บันทึกแล้วไม่วาดหน้าใหม่
+ *   ใช้ตอนที่ครูยังอยู่ในช่องกรอก การวาดใหม่จะทำลาย element ที่โฟกัสอยู่
+ *   ซึ่งกับ <input type="date"> แปลว่าปฏิทินที่เปิดค้างอยู่ถูกปิดทิ้งกลางคัน
+ */
+export async function saveConfig(entries, { quiet = false } = {}) {
   const cfg = await api.call('saveConfig', { entries });
   state.config = cfg;
   const boot = api.cache.get('bootstrap') || {};
   api.cache.set('bootstrap', { ...boot, config: cfg });
-  emit();
+  if (!quiet) emit();
 }
 
 // ซิงค์อัตโนมัติเมื่อกลับมาออนไลน์

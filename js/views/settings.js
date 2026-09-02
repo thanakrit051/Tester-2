@@ -41,9 +41,9 @@ const weightSum = () => WEIGHTS.reduce((a, w) => a + num(w.k), 0);
 const midSet = () => /^\d{4}-\d{2}-\d{2}$/.test(String(cfg('mid_date')).trim());
 
 /** บันทึกทีละช่อง ทันทีที่แก้เสร็จ */
-async function put(k, v) {
+async function put(k, v, opts) {
   try {
-    await saveConfig({ [k]: v });
+    await saveConfig({ [k]: v }, opts);
     ui.savedAt = new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
     const el = document.querySelector('[data-savedat]');
     if (el) el.textContent = 'ล่าสุด ' + ui.savedAt + ' น.';
@@ -126,7 +126,21 @@ function secScore() {
         h('input', {
           type: 'date', value: String(cfg('mid_date')),
           style: midSet() ? null : { borderColor: 'var(--st-miss)', color: 'var(--st-miss)' },
-          onchange: (e) => { state.config.mid_date = e.target.value; put('mid_date', e.target.value); emit(); }
+          // ห้ามวาดหน้าใหม่ขณะที่ยังอยู่ในช่องนี้
+          // การวาดใหม่จะสร้าง input ตัวใหม่แทนตัวเดิม ปฏิทินของเครื่องที่เปิด
+          // ค้างอยู่จึงถูกปิดทิ้งกลางคัน — บนมือถือคือกดตั้งวันแล้วเด้งออกทันที
+          // (บางเครื่องยิง change ตั้งแต่ตอนเลื่อนเลือกวัน ยังไม่ทันกดตกลง)
+          //
+          // จึงบันทึกเงียบ ๆ ก่อน แล้วค่อยวาดใหม่ทีหลัง
+          // ต้องเช็คโฟกัสด้วย ไม่ใช่รอ blur อย่างเดียว เพราะบนเดสก์ท็อป
+          // โฟกัสมักหลุดไปแล้วตั้งแต่ตอนปิดปฏิทิน blur จะไม่มายิงให้
+          onchange: async (e) => {
+            const el = e.target;
+            state.config.mid_date = el.value;
+            await put('mid_date', el.value, { quiet: true });
+            if (document.activeElement === el) el.addEventListener('blur', () => emit(), { once: true });
+            else emit();
+          }
         }),
         !midSet())
     ),

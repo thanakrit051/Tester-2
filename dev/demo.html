@@ -109,6 +109,11 @@
   function dispatch(action, payload) {
     switch (action) {
       case 'bootstrap': return { config, classes, webAppUrl: '' };
+      // ของจริงคืน config ทั้งก้อนกลับมาเสมอ ถ้าตอบ {ok:true} เฉย ๆ
+      // ฝั่งแอปจะเอาไปทับ state.config จนค่าที่ตั้งไว้หายหมด
+      case 'saveConfig':
+        Object.keys(payload.entries || {}).forEach(k => { config[k] = payload.entries[k]; });
+        return config;
       case 'getClass':  return JSON.parse(JSON.stringify(cls));
       case 'batch':     return {
         results: (payload.ops || []).map((op, i) => ({ i, ok: true, data: dispatch(op.action, op.payload || {}) }))
