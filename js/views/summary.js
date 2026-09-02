@@ -183,8 +183,8 @@ function table(rows, cols, S, pend) {
   return h('table', { class: 'grid' },
     h('thead', null,
       h('tr', { class: 'group' },
-        h('th', { class: 'sticky-l' }, '#'),
-        h('th', { class: 'sticky-l', style: { left: '46px', textAlign: 'left' } }, 'ชื่อ-นามสกุล'),
+        h('th', { class: 'sticky-l c-no' }, '#'),
+        h('th', { class: 'sticky-l c-name' }, 'ชื่อ-นามสกุล'),
         cols.map(c => h('th', {
           class: c.cls,
           title: `แตะเพื่อคัดลอกช่องนี้ทั้งห้อง · เต็ม ${S.weight[c.id]}`,
@@ -192,7 +192,7 @@ function table(rows, cols, S, pend) {
           onclick: () => copyColumn(rows, c)
         },
           h('div', { style: { fontWeight: '700' } }, c.head),
-          h('div', { style: { fontWeight: '400', fontSize: '10px', opacity: '.75' } },
+          h('div', { style: { fontWeight: '400', fontSize: '11px', opacity: '.8' } },
             c.sub || String(S.weight[c.id]))
         )),
         h('th', { class: 'h-total' }, 'รวม'),
@@ -200,10 +200,9 @@ function table(rows, cols, S, pend) {
       )
     ),
     h('tbody', null, rows.map(r => h('tr', null,
-      h('td', { class: 'sticky-l num', style: { color: 'var(--ink-3)' } }, r.no),
+      h('td', { class: 'sticky-l c-no num' }, r.no),
       h('td', {
-        class: 'sticky-l',
-        style: { left: '46px', minWidth: '150px' },
+        class: 'sticky-l c-name',
         title: r.flag || null
       },
         r.name,

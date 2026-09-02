@@ -521,6 +521,7 @@ select {
   background: var(--surface-2); color: var(--ink-3);
 }
 
+
 /* ── ตารางสรุป SGS ────────────────────────────────────────── */
 .tablewrap { overflow: auto; -webkit-overflow-scrolling: touch; max-height: 72vh; }
 table.grid { border-collapse: separate; border-spacing: 0; font-size: 13px; width: 100%; }
@@ -543,7 +544,22 @@ table.grid thead tr.group th.h4 { background: var(--bar-2); }
 table.grid thead tr.group th.h5 { background: var(--bar-3); }
 table.grid thead tr.group th.sticky-l { background: var(--bar); }
 
-table.grid .sticky-l { position: sticky; left: 0; background: var(--surface); z-index: 1; text-align: left; }
+/* คอลัมน์ซ้ายที่ตรึงไว้ (# กับ ชื่อ)
+   ระยะ left ต้องเท่ากับความกว้างจริงของคอลัมน์ก่อนหน้าเป๊ะ ๆ
+   ของเดิมเขียน left:46px ตายตัวใน summary.js แต่คอลัมน์ # กว้างจริง 32px บนมือถือ
+   คอลัมน์ชื่อจึงถูกดันไปขวา 14px ไปทับคอลัมน์คะแนนแรก แล้ว z-index บังหลักหน้าไว้
+   ครูอ่าน 8.25 เป็น .25 — ผูกไว้กับตัวแปรเดียวเพื่อไม่ให้หลุดกันได้อีก */
+table.grid { --c-no-w: 38px; }
+table.grid .sticky-l { position: sticky; background: var(--surface); z-index: 1; text-align: left; }
+table.grid .c-no   { left: 0; width: var(--c-no-w); min-width: var(--c-no-w); max-width: var(--c-no-w);
+                     padding-left: 6px; padding-right: 6px; text-align: center; color: var(--ink-3); }
+table.grid .c-name { left: var(--c-no-w); min-width: 148px; }
+/* เส้นคั่นให้รู้ว่าฝั่งขวาเลื่อนได้ และกันตัวเลขไหลไปติดกับชื่อจนอ่านปนกัน */
+table.grid .c-name::after {
+  content: ''; position: absolute; top: 0; right: 0; bottom: -1px; width: 1px;
+  background: var(--line-2); box-shadow: 6px 0 8px -6px rgb(0 0 0 / .28);
+}
+table.grid .c-name { position: sticky; }
 table.grid thead .sticky-l { background: var(--surface-2); z-index: 3; }
 table.grid tbody tr:hover td { background: var(--surface-2); }
 table.grid tbody tr:nth-child(even) td { background: var(--surface-2); }
@@ -865,10 +881,13 @@ table.grid td.total { background: var(--accent-soft) !important; font-weight: 70
 .tally .t-miss  { color: var(--st-miss); }
 
 /* ── รายชื่อเช็คชื่อ — การ์ดใบเล็กเรียงกัน (PC 2 คอลัมน์) ── */
-.att-list { display: grid; gap: 8px; }
+/* minmax(0,1fr) จำเป็น — ไม่ใช่ 1fr เฉย ๆ
+   grid item มี min-width:auto โดยปริยาย แถวจึงไม่ยอมหดต่ำกว่า min-content
+   พอปุ่มเช็คชื่อโตเป็น 44px แถวเลยกว้าง 345px ในจอ 320px แล้วดันทั้งหน้าให้เลื่อนแนวนอน */
+.att-list { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
 .att-list .stu-row { margin-bottom: 0; }
 @media (min-width: 900px) {
-  .att-list { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .att-list { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
   .att-list .stu-row { padding: 9px 12px; border-radius: 14px; }
   .att-list .att-btn { width: 34px; height: 34px; border-radius: 10px; }
 }
@@ -1283,6 +1302,37 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
   .set-ctl .seg-inline { display: grid; width: 100%; }
   .set-ctl .seg-inline button { padding: 9px 4px; }
   .set-ctl input, .set-ctl select { flex: 1; min-width: 0; }
+}
+
+
+/* ── เป้าแตะบนอุปกรณ์สัมผัส (ต้องอยู่ท้ายไฟล์) ──────────────
+   วัดของเดิมบนมือถือได้ .att-btn 33x34, .icon-btn 32x32, .ph-back 26x32
+   ต่ำกว่าเกณฑ์ที่นิ้วกดแม่น (iOS 44pt · Android 48dp) อย่างมีนัยสำคัญ
+   .att-btn คือปุ่มที่ถูกกดหนักที่สุดในแอป — ครูกด 20-40 ครั้งต่อคาบ
+   กดพลาดทีหมายถึงเช็คชื่อผิดคน แล้วไปโผล่ที่คะแนนเข้าเรียนตอนปลายเทอม
+
+   ขยายเฉพาะเครื่องที่ใช้นิ้ว เมาส์ยังได้ความกระชับเท่าเดิม
+   ⚠️ ต้องวางท้ายไฟล์ เพราะกฎอย่าง .phase-pick select อยู่ล่าง ๆ
+      specificity เท่ากันแล้วตัวที่มาทีหลังชนะ */
+@media (pointer: coarse) {
+  .att-btn,
+  .att-list .att-btn        { width: 44px; height: 44px; border-radius: 12px; font-size: 15px; }
+  .icon-btn,
+  .appbar .icon-btn         { width: 44px; height: 44px; }
+  .ph-back                  { min-width: 44px; min-height: 44px; }
+  .chip, .kind-pill, .ph-chip,
+  .todo-row, .btn, .btn-dark,
+  .st-btn, .ctx-step        { min-height: 44px; }
+  select,
+  .pickbox select,
+  .phase-pick select        { min-height: 44px; }
+}
+
+/* จอแคบมาก (320-360px) — คงความสูง 44px ไว้เพราะเป็นตัวชี้วัดความแม่นในการกด
+   แต่ลดความกว้างปุ่มลง เพื่อให้ชื่อนักเรียนเหลือที่พออ่านออก */
+@media (pointer: coarse) and (max-width: 360px) {
+  .att-btn, .att-list .att-btn { width: 40px; }
+  .att-group { gap: 4px; }
 }
 
 /* สไตล์เฉพาะหน้าของนักเรียน — ต่อยอดจาก styles.css (ใช้ตัวแปรสีชุดเดียวกัน) */
