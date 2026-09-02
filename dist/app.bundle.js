@@ -2352,11 +2352,17 @@ viewAttendance.head = function () {
       h('div', { class: 'ph-badge' }, `${done}/${cls.students.length}`),
       h('button', { class: 'ph-back', 'aria-label': 'ตัวเลือกเพิ่มเติม', onclick: () => openMenu(available, key) }, '⋯')
     ),
+    // คาบเรียนใช้ dropdown — จำนวนคาบไม่จำกัด ถ้าเรียงเป็นชิปจะกินที่แถบหัว
+    // ไปเรื่อย ๆ ตามจำนวนคาบ และหาคาบที่ต้องการยากขึ้นเมื่อมีหลายคาบ
     available.length > 1 && h('div', { class: 'ph-chips' },
-      available.map(pn => h('button', {
-        class: 'ph-chip', 'data-on': ui.period === pn ? '1' : '0',
-        onclick: () => { ui.period = pn; ui.onlyBlank = false; emit(); }
-      }, 'คาบ ' + pn)),
+      h('label', { class: 'ph-pick' },
+        h('span', null, 'คาบ'),
+        h('select', {
+          'aria-label': 'เลือกคาบเรียน',
+          onchange: (e) => { ui.period = Number(e.target.value); ui.onlyBlank = false; emit(); }
+        }, available.map(pn => h('option', {
+          value: String(pn), selected: pn === ui.period
+        }, String(pn))))),
       h('button', { class: 'ph-chip add', onclick: () => addPeriod(available, ui.date) }, '+ เพิ่มคาบ')
     ),
     h('div', { class: 'ph-actions' },
@@ -2525,10 +2531,14 @@ function checkScreen() {
       h('button', { class: 'ctx-step', 'aria-label': 'วันถัดไป', onclick: () => stepDay(1) }, '›'),
 
       h('div', { class: 'ph-chips', style: { marginTop: '0', gap: '6px' } },
-        available.map(pn => h('button', {
-          class: 'chip', 'data-on': ui.period === pn ? '1' : '0',
-          onclick: () => { ui.period = pn; ui.onlyBlank = false; emit(); }
-        }, 'คาบ ' + pn)),
+        available.length > 1 && h('label', { class: 'pickbox' },
+          h('span', null, 'คาบ'),
+          h('select', {
+            'aria-label': 'เลือกคาบเรียน',
+            onchange: (e) => { ui.period = Number(e.target.value); ui.onlyBlank = false; emit(); }
+          }, available.map(pn => h('option', {
+            value: String(pn), selected: pn === ui.period
+          }, String(pn))))),
         h('button', { class: 'chip', onclick: () => addPeriod(available, ui.date) }, '+ เพิ่มคาบ')),
 
       h('div', { class: 'ctx-end' },

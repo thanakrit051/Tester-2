@@ -837,15 +837,36 @@ table.grid td.total { background: var(--accent-soft) !important; font-weight: 70
 }
 .ph-seg button[data-on="1"] { background: var(--lime); color: var(--on-lime); font-weight: 600; }
 
-/* คาบเรียนต้องเห็นครบในครั้งเดียว — ของเดิมเลื่อนแนวนอน พอคาบเยอะขึ้น
-   คาบท้าย ๆ จะหลุดออกนอกจอโดยไม่มีอะไรบอก ตัดบรรทัดแทนจะหาง่ายกว่า */
-.ph-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
-.ph-chips::-webkit-scrollbar { display: none; }
+/* แถวเลือกคาบ — ใช้ dropdown แทนชิป จำนวนคาบจึงไม่กระทบความสูงแถบหัว */
+.ph-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
+
+/* dropdown เลือกคาบบนแถบหัวสีเข้ม — ต้องเขียนสีเองทั้งชุด
+   เพราะ select สืบสีจากธีมสว่างมา แล้วตัวหนังสือจะจมหายไปกับพื้นเข้ม */
+.ph-pick {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 6px 4px 12px; border-radius: 11px;
+  background: var(--bar-2); border: 1px solid var(--bar-3);
+}
+.ph-pick > span { flex: none; font-size: 12.5px; color: var(--bar-ink-2); }
+.ph-pick select {
+  border: none; background: none; box-shadow: none;
+  padding: 5px 22px 5px 2px; width: auto; min-height: 0;
+  font-size: 13.5px; font-weight: 600; color: #fff;
+  /* ลูกศรของเบราว์เซอร์เป็นสีเข้ม มองไม่เห็นบนพื้นเข้ม จึงวาดเอง */
+  appearance: none; -webkit-appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--bar-ink-2) 50%),
+                    linear-gradient(135deg, var(--bar-ink-2) 50%, transparent 50%);
+  background-position: right 10px top 50%, right 5px top 50%;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+.ph-pick select:focus { box-shadow: none; }
+/* รายการที่กางออกวาดด้วยธีมของระบบ ต้องบังคับให้อ่านออกทั้งสองโหมด */
+.ph-pick select option { background: var(--surface); color: var(--ink); }
 .ph-chip {
   flex: none; padding: 6px 13px; border-radius: 20px; font-size: 13px;
   background: var(--bar-2); color: var(--bar-ink-2);
 }
-.ph-chip[data-on="1"] { background: var(--lime); color: var(--on-lime); font-weight: 600; }
 .ph-chip.add { background: none; border: 1px dashed var(--bar-3); color: var(--bar-ink-2); }
 
 @media (min-width: 900px) { .pagehead { display: none; } }
@@ -1333,7 +1354,8 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
   .todo-row, .btn, .btn-dark,
   .st-btn, .ctx-step        { min-height: 44px; }
   select,
-  .pickbox select           { min-height: 44px; }
+  .pickbox select,
+  .ph-pick select           { min-height: 44px; }
   .phase-seg .ps-btns button { min-height: 40px; }
 }
 
