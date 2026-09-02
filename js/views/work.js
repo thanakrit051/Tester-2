@@ -133,22 +133,32 @@ function bucketBar(openFirst) {
     emit();
   };
 
+  // ถังคะแนนมี 4 อันตายตัว จึงวางเป็นตาราง 4 ช่องเท่ากันให้เห็นครบในครั้งเดียว
+  // ของเดิมเป็นแถวเลื่อนแนวนอน ซึ่งตัดคำว่า "กลางภาค" ทิ้งไว้ที่ขอบจอ
+  // และไม่มีอะไรบอกว่าเลื่อนได้ ครูจึงไม่รู้ว่ามีถังที่ 4 อยู่
   return h('div', { class: 'kind-bar' },
-    h('div', { class: 'kind-scroll' }, KINDS.map(k => {
+    h('div', { class: 'kind-grid' }, KINDS.map(k => {
       const b = BUCKETS.find(x => x.kind === k.kind && x.half === (k.fixed || ui.phase));
       return h('button', {
-        class: 'kind-pill', 'data-on': ui.kind === k.kind ? '1' : '0',
+        class: 'kind-cell', 'data-on': ui.kind === k.kind ? '1' : '0',
         onclick: () => { ui.kind = k.kind; jump(); }
-      }, `${k.ic} ${k.label}`, h('span', null, ' · ' + (b ? S.weight[b.id] : 0)));
-    })),
-    h('label', { class: 'phase-pick', 'data-off': fixed ? '1' : '0' },
-      h('span', null, 'ช่วง:'),
-      h('select', {
-        'aria-label': 'ช่วงคะแนน', disabled: !!fixed,
-        onchange: (e) => { ui.phase = Number(e.target.value); jump(); }
       },
-        h('option', { value: '1', selected: curPhase() === 1 }, 'ก่อนกลางภาค'),
-        h('option', { value: '2', selected: curPhase() === 2 }, 'หลังกลางภาค')))
+        h('span', { class: 'kc-ic' }, k.ic),
+        h('span', { class: 'kc-label' }, k.label),
+        h('span', { class: 'kc-w' }, b ? S.weight[b.id] : 0));
+    })),
+
+    // ช่วงมีแค่ 2 ตัวเลือก — ปุ่มคู่อ่านง่ายและกดได้เร็วกว่า select
+    // ถังกลางภาค/ปลายภาคผูกช่วงไว้ตายตัวอยู่แล้ว จึงหรี่ลงและกดไม่ได้
+    h('div', { class: 'phase-seg', 'data-off': fixed ? '1' : '0' },
+      h('span', { class: 'ps-label' }, 'ช่วง'),
+      h('div', { class: 'ps-btns', role: 'group', 'aria-label': 'ช่วงคะแนน' },
+        [[1, 'ก่อนกลางภาค'], [2, 'หลังกลางภาค']].map(([v, label]) => h('button', {
+          'data-on': curPhase() === v ? '1' : '0',
+          disabled: !!fixed,
+          'aria-pressed': curPhase() === v ? 'true' : 'false',
+          onclick: () => { if (fixed) return; ui.phase = v; jump(); }
+        }, label))))
   );
 }
 

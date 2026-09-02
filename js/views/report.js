@@ -38,14 +38,11 @@ export function viewReport() {
       h('div', { class: 'empty-icon' }, '👥'), 'ห้องนี้ยังไม่มีรายชื่อนักเรียน'));
   }
 
-  // มือถือโหมดรายคนมีปุ่มสลับอยู่ในแถบเข้มแล้ว ไม่ต้องซ้ำอีกแถว
-  const showTabs = wide() || ui.tab === 'class';
-
   return h('div', { class: 'page' },
     // แท็บ + ปุ่มส่งออก — ดีไซน์วางไว้แถวบนสุด ปุ่มส่งออกชิดขวา
     h('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' } },
-      showTabs && h('button', { class: 'chip', 'data-on': ui.tab === 'class' ? '1' : '0', onclick: () => { ui.tab = 'class'; emit(); } }, 'ทั้งห้อง'),
-      showTabs && h('button', { class: 'chip', 'data-on': ui.tab === 'student' ? '1' : '0', onclick: () => { ui.tab = 'student'; emit(); } }, 'รายคน'),
+      h('button', { class: 'chip', 'data-on': ui.tab === 'class' ? '1' : '0', onclick: () => { ui.tab = 'class'; emit(); } }, 'ทั้งห้อง'),
+      h('button', { class: 'chip', 'data-on': ui.tab === 'student' ? '1' : '0', onclick: () => { ui.tab = 'student'; emit(); } }, 'รายคน'),
       h('button', {
         class: 'chip', style: { marginLeft: 'auto' },
         onclick: () => exportReport(computeClass(cls, settings()))
@@ -56,28 +53,6 @@ export function viewReport() {
 }
 
 const wide = () => { try { return matchMedia('(min-width: 900px)').matches; } catch (e) { return false; } };
-
-/** แถบหัวสีเข้ม (มือถือ) — โหมดรายคนแสดงชื่อนักเรียนที่กำลังดูอยู่ */
-viewReport.head = function () {
-  const cls = state.cls;
-  if (!cls || !cls.students.length || ui.tab !== 'student') return null;
-  const rows = computeClass(cls, settings());
-  const r = rows.find(x => x.sid === ui.sid) || rows[0];
-  if (!r) return null;
-
-  return h('header', { class: 'pagehead' },
-    h('div', { class: 'ph-row' },
-      h('button', { class: 'ph-back', 'aria-label': 'กลับไปดูทั้งห้อง', onclick: () => { ui.tab = 'class'; emit(); } }, '‹'),
-      h('div', { class: 'ph-grow' },
-        h('div', { class: 'ph-title' }, r.name || '—'),
-        h('div', { class: 'ph-sub' },
-          `เลขที่ ${r.no}${r.sid ? ' · ' + r.sid : ''} · ${[cls.meta.grade, cls.meta.room].filter(Boolean).join('/')}`))
-    ),
-    h('div', { class: 'ph-seg' },
-      h('button', { 'data-on': '0', onclick: () => { ui.tab = 'class'; emit(); } }, 'ทั้งห้อง'),
-      h('button', { 'data-on': '1' }, 'รายคน'))
-  );
-};
 
 // ── ตัวช่วยรวมข้อมูล ────────────────────────────────────────
 
@@ -303,6 +278,28 @@ function studentReport() {
       h('div', { class: 'ctx-end' },
         h('button', { class: 'btn btn-ghost btn-sm', onclick: () => moveStudent(-1, rows) }, '‹'),
         h('button', { class: 'btn btn-ghost btn-sm', onclick: () => moveStudent(1, rows) }, '›'))),
+
+    // เลือกคนได้ตรง ๆ เหมือนโหมดรายคนของหน้างาน/คะแนน
+    // เดิมบนมือถือ .ctxbar ถูกซ่อน (max-width:899px) จึงไม่มีทางเปลี่ยนคนเลย
+    // ต้องถอยกลับไปหน้าทั้งห้องแล้วเข้ามาใหม่เท่านั้น
+    h('div', { class: 'pick2row pc-hide' },
+      h('button', {
+        class: 'btn btn-ghost btn-sm', 'aria-label': 'คนก่อนหน้า',
+        disabled: rows.findIndex(x => x.sid === ui.sid) <= 0,
+        onclick: () => moveStudent(-1, rows)
+      }, '‹'),
+      h('label', { class: 'pickbox grow' },
+        h('span', null, 'นักเรียน'),
+        h('select', {
+          'aria-label': 'เลือกนักเรียน',
+          onchange: (e) => { ui.sid = e.target.value; emit(); }
+        }, rows.map(x => h('option', { value: x.sid, selected: x.sid === ui.sid },
+          `${x.no}. ${x.name || '—'}`)))),
+      h('button', {
+        class: 'btn btn-ghost btn-sm', 'aria-label': 'คนถัดไป',
+        disabled: rows.findIndex(x => x.sid === ui.sid) >= rows.length - 1,
+        onclick: () => moveStudent(1, rows)
+      }, '›')),
 
     // ── ธงเตือน — พื้นหลังบอกระดับตามดีไซน์ ──
     r.flag && h('div', {

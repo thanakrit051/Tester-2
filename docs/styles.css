@@ -510,7 +510,15 @@ select {
 
 
 /* ── ตารางสรุป SGS ────────────────────────────────────────── */
-.tablewrap { overflow: auto; -webkit-overflow-scrolling: touch; max-height: 72vh; }
+/* ตารางเลื่อนในกล่องตัวเอง เพื่อให้หัวคอลัมน์ (sticky) ค้างอยู่ตลอด
+   เคยคิดจะเอา scroll ซ้อนออกแล้วใช้ scroll ของหน้าแทน แต่ตารางนี้กว้าง 12 คอลัมน์
+   พอหัวตารางเลื่อนหายครูจะไม่รู้ว่าตัวเลขที่มองอยู่คือช่องไหนของ SGS
+   ซึ่งอันตรายกว่าความงงเรื่อง scroll ซ้อน — จึงเก็บไว้ แต่ปรับให้พอดีจอจริง
+   dvh ตามความสูงที่ใช้ได้จริงตอนแถบที่อยู่ของเบราว์เซอร์มือถือยุบ/กาง */
+.tablewrap {
+  overflow: auto; -webkit-overflow-scrolling: touch;
+  max-height: 72vh; max-height: 72dvh;
+}
 table.grid { border-collapse: separate; border-spacing: 0; font-size: 13px; width: 100%; }
 table.grid th, table.grid td {
   padding: 9px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; text-align: center;
@@ -829,7 +837,9 @@ table.grid td.total { background: var(--accent-soft) !important; font-weight: 70
 }
 .ph-seg button[data-on="1"] { background: var(--lime); color: var(--on-lime); font-weight: 600; }
 
-.ph-chips { display: flex; gap: 6px; margin-top: 12px; overflow-x: auto; scrollbar-width: none; }
+/* คาบเรียนต้องเห็นครบในครั้งเดียว — ของเดิมเลื่อนแนวนอน พอคาบเยอะขึ้น
+   คาบท้าย ๆ จะหลุดออกนอกจอโดยไม่มีอะไรบอก ตัดบรรทัดแทนจะหาง่ายกว่า */
+.ph-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
 .ph-chips::-webkit-scrollbar { display: none; }
 .ph-chip {
   flex: none; padding: 6px 13px; border-radius: 20px; font-size: 13px;
@@ -1202,42 +1212,54 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
 }
 
 /* ── แถวเลือกชนิดคะแนน + ช่วง (หน้างาน/คะแนน) ──────────────── */
-.kind-bar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
-.kind-scroll {
-  display: flex; gap: 8px; flex: 1; min-width: 0;
-  overflow-x: auto; scrollbar-width: none;
+/* ── แถบเลือกถังคะแนน (งาน/คะแนน) ──────────────────────────
+   ถังมี 4 อันตายตัว จึงเป็นตาราง 4 ช่องเท่ากัน ไม่ใช่แถวเลื่อน
+   แถวเลื่อนเดิมตัดคำว่า "กลางภาค" ไว้ที่ขอบจอโดยไม่มีสัญญาณว่าเลื่อนได้ */
+.kind-bar { display: grid; gap: 8px; margin-bottom: 12px; }
+.kind-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.kind-cell {
+  display: grid; justify-items: center; align-content: center; gap: 1px;
+  padding: 8px 4px; border-radius: 12px; min-width: 0;
+  background: var(--surface); box-shadow: var(--sh-1); color: var(--ink-2);
+  transition: background .15s, color .15s;
 }
-.kind-scroll::-webkit-scrollbar { display: none; }
-.kind-pill {
-  flex: none; padding: 9px 15px; border-radius: 12px; white-space: nowrap;
-  background: var(--surface); color: var(--ink-2); font-size: 13.5px;
-  box-shadow: var(--sh-1);
-}
-.kind-pill:hover { color: var(--ink); }
-.kind-pill[data-on="1"] { background: var(--ink); color: var(--on-ink); font-weight: 600; }
-.kind-pill span { opacity: .65; font-weight: 400; }
+.kind-cell .kc-ic    { font-size: 14px; line-height: 1.1; }
+.kind-cell .kc-label { font-size: 12px; font-weight: 600; line-height: 1.25;
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kind-cell .kc-w     { font-size: 11px; font-weight: 700; opacity: .6; font-variant-numeric: tabular-nums; }
+.kind-cell:hover     { color: var(--ink); }
+.kind-cell[data-on="1"] { background: var(--ink); color: var(--on-ink); }
+.kind-cell[data-on="1"] .kc-w { opacity: .8; }
 
-.phase-pick {
-  flex: none; margin-left: auto; display: inline-flex; align-items: center; gap: 6px;
-  padding: 4px 6px 4px 13px; border-radius: 12px;
-  background: var(--surface-2); border: 1px solid var(--line-2);
-  font-size: 13.5px; color: var(--ink);
+/* ช่วงมีแค่ 2 ตัวเลือก ปุ่มคู่จึงอ่านง่ายและกดเร็วกว่า select */
+.phase-seg { display: flex; align-items: center; gap: 8px; }
+.phase-seg .ps-label { flex: none; font-size: 12.5px; color: var(--ink-2); }
+.phase-seg .ps-btns {
+  flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 3px;
+  padding: 3px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--line-2);
 }
-.phase-pick > span { color: var(--ink-2); }
-.phase-pick select {
-  border: none; background: none; min-height: 0; padding: 4px 24px 4px 2px;
-  font-size: 13.5px; font-weight: 600; color: var(--ink); width: auto;
+.phase-seg .ps-btns button {
+  padding: 7px 8px; border-radius: 9px; font-size: 12.5px; font-weight: 600;
+  color: var(--ink-2); min-width: 0;
 }
-.phase-pick select:focus { box-shadow: none; }
-.phase-pick[data-off="1"] { opacity: .5; }
+.phase-seg .ps-btns button[data-on="1"] { background: var(--surface); color: var(--ink); box-shadow: var(--sh-1); }
+.phase-seg[data-off="1"] { opacity: .45; }
+.phase-seg[data-off="1"] .ps-btns button { cursor: default; }
+
+@media (min-width: 900px) {
+  /* จอกว้าง: ถังกับช่วงอยู่แถวเดียวกัน */
+  .kind-bar { grid-template-columns: 1fr auto; align-items: center; }
+  .kind-cell { grid-template-columns: auto auto auto; justify-content: center; gap: 6px; padding: 9px 12px; }
+  .kind-cell .kc-label { font-size: 13px; }
+  .phase-seg .ps-btns { width: 260px; flex: none; }
+}
+
 
 .pc-only-block { display: none; }
 @media (min-width: 900px) { .pc-only-block { display: block; } }
 /* จอแคบ: ตัวเลือกช่วงลงมาอยู่บรรทัดล่าง ไม่ให้หลุดออกนอกจอไปกับแถวที่เลื่อนได้ */
 @media (max-width: 620px) {
   .kind-bar { flex-wrap: wrap; }
-  .kind-scroll { flex-basis: 100%; }
-  .phase-pick { margin-left: 0; }
 }
 
 /* ป้ายเล็กใต้ชื่อชิ้นงาน (ดีไซน์หน้า 03) */
@@ -1299,7 +1321,7 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
    กดพลาดทีหมายถึงเช็คชื่อผิดคน แล้วไปโผล่ที่คะแนนเข้าเรียนตอนปลายเทอม
 
    ขยายเฉพาะเครื่องที่ใช้นิ้ว เมาส์ยังได้ความกระชับเท่าเดิม
-   ⚠️ ต้องวางท้ายไฟล์ เพราะกฎอย่าง .phase-pick select อยู่ล่าง ๆ
+   ⚠️ ต้องวางท้ายไฟล์ เพราะกฎที่กำหนดความสูงของตัวควบคุมอยู่ล่าง ๆ
       specificity เท่ากันแล้วตัวที่มาทีหลังชนะ */
 @media (pointer: coarse) {
   .att-btn,
@@ -1307,12 +1329,12 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
   .icon-btn,
   .appbar .icon-btn         { width: 44px; height: 44px; }
   .ph-back                  { min-width: 44px; min-height: 44px; }
-  .chip, .kind-pill, .ph-chip,
+  .chip, .kind-cell, .ph-chip,
   .todo-row, .btn, .btn-dark,
   .st-btn, .ctx-step        { min-height: 44px; }
   select,
-  .pickbox select,
-  .phase-pick select        { min-height: 44px; }
+  .pickbox select           { min-height: 44px; }
+  .phase-seg .ps-btns button { min-height: 40px; }
 }
 
 /* จอแคบมาก (320-360px) — คงความสูง 44px ไว้เพราะเป็นตัวชี้วัดความแม่นในการกด
