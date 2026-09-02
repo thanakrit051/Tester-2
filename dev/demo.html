@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AssignCheck — ตัวอย่างหน้าจอ (ไม่ต่อชีตจริง)</title>
+<script>try{var t=localStorage.getItem('ac.theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+
+<div id="boot" class="boot">
+  <div class="boot-mark">A<span>✓</span></div>
+  <div class="boot-title">AssignCheck</div>
+  <div class="boot-spin"></div>
+</div>
+
+<div id="app" hidden></div>
+<div id="toasts" class="toasts"></div>
+<div id="modal-root"></div>
+
+<!--
+  หน้าตรวจดีไซน์เท่านั้น — ปลอม fetch ให้ตอบข้อมูลจำลอง
+  ไม่ได้ต่อกับ Google Sheet ของจริง และไม่ได้อยู่ในไฟล์ที่ deploy
+-->
+<script>
+(function () {
+  const today = new Date().toISOString().slice(0, 10);
+  const d = (n) => { const x = new Date(); x.setDate(x.getDate() - n); return x.toISOString().slice(0, 10); };
+
+  const NAMES = ['กฤตภาส คงพลอย','คมกริช พิลา','จิรภัทร แสงทอง','ชนากานต์ ใจดี','ณัฐวุฒิ บุญมี',
+    'ธนกฤต วงศ์คำ','นภสร ทองแท้','ปาริชาต ศรีสุข','พิมพ์ชนก อ่อนหวาน','ภาณุพงศ์ ดีมาก',
+    'มนัสนันท์ แก้วใส','ยุทธนา สุขสันต์','รวิสรา พันธ์ดี','วรินทร ชัยมงคล','ศิริพร ทองคำ',
+    'สหรัฐ บุญเรือง','อนุชา พรมมา','อรวรรณ นิลกาฬ','เอกราช สายทอง','ไอลดา จันทร์เพ็ญ'];
+
+  const students = NAMES.map((name, i) => ({ no: String(i + 1), sid: String(61475 + i), name }));
+
+  const columns = [
+    { key: 'ATT|1|' + d(7).replace(/-/g, '') + '-2', kind: 'ATT', half: 1, id: 'a1', date: d(7), period: 2, max: null },
+    { key: 'ATT|1|' + d(3).replace(/-/g, '') + '-2', kind: 'ATT', half: 1, id: 'a2', date: d(3), period: 2, max: null },
+    { key: 'ATT|1|' + today.replace(/-/g, '') + '-2', kind: 'ATT', half: 1, id: 'a3', date: today, period: 2, max: null },
+    { key: 'ATT|1|' + today.replace(/-/g, '') + '-5', kind: 'ATT', half: 1, id: 'a4', date: today, period: 5, max: null },
+    { key: 'WORK|1|w1', kind: 'WORK', half: 1, id: 'w1', label: 'แบบฝึกหัด 2.1', max: 5, desc: 'ทำข้อ 1–8 หน้า 21' },
+    { key: 'WORK|1|w2', kind: 'WORK', half: 1, id: 'w2', label: 'ใบงานที่ 3', max: 10 },
+    { key: 'WORK|1|w3', kind: 'WORK', half: 1, id: 'w3', label: 'ใบงานที่ 4', max: 10,
+      desc: 'ทำข้อ 1–12 ในเอกสาร เขียนวิธีทำทุกข้อ ส่งเป็นสมุดหรือรูปถ่ายในไดรฟ์' },
+    { key: 'QUIZ|1|q1', kind: 'QUIZ', half: 1, id: 'q1', label: 'สอบเก็บคะแนน ครั้งที่ 1', max: 10 },
+    { key: 'QUIZ|1|q2', kind: 'QUIZ', half: 1, id: 'q2', label: 'สอบเก็บคะแนน ครั้งที่ 2', max: 10 },
+    { key: 'MID|1|mid', kind: 'MID', half: 1, id: 'mid', label: 'สอบกลางภาค', max: 20 },
+    { key: 'WORK|2|w4', kind: 'WORK', half: 2, id: 'w4', label: 'ใบงานที่ 5', max: 10 },
+    { key: 'QUIZ|2|q3', kind: 'QUIZ', half: 2, id: 'q3', label: 'สอบเก็บคะแนน ครั้งที่ 3', max: 10 },
+    { key: 'FIN|2|fin', kind: 'FIN', half: 2, id: 'fin', label: 'สอบปลายภาค', max: 30 }
+  ];
+
+  // สุ่มแบบมีเมล็ด เพื่อให้เปิดกี่ครั้งก็ได้หน้าตาเดิม
+  let seed = 7;
+  const rnd = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
+
+  const values = {};
+  for (const c of columns) {
+    const m = {};
+    students.forEach((s, i) => {
+      const r = rnd();
+      if (c.kind === 'ATT') {
+        m[s.sid] = i === 4 ? (r < .5 ? 'ข' : 'ม') : r < .82 ? 'ม' : r < .89 ? 'ส' : r < .94 ? 'ล' : 'ข';
+      } else if (c.kind === 'FIN') {
+        m[s.sid] = '';                                  // ยังไม่สอบปลายภาค
+      } else if (r < .10) {
+        m[s.sid] = '';                                  // ยังไม่ตรวจ
+      } else if (r < .18) {
+        m[s.sid] = 'x';                                 // ไม่ส่ง / ไม่ได้สอบ
+      } else if (r < .28 && c.kind === 'WORK') {
+        m[s.sid] = 'L' + Math.round(c.max * (.6 + r * .3) * 10) / 10;
+      } else {
+        m[s.sid] = Math.round(c.max * (.55 + r * .45) * 10) / 10;
+      }
+    });
+    values[c.key] = m;
+  }
+
+  const config = {
+    year: '2568', term: '1', mid_date: '',
+    w_work1: 10, w_quiz1: 10, w_att1: 5, w_mid: 20,
+    w_work2: 10, w_quiz2: 10, w_att2: 5, w_fin: 30,
+    late_penalty_pct: 10, round_digits: 2, round_mode: 'half',
+    att_mode: 'ratio', ungraded_mode: 'ignore', att_min_pct: 80,
+    grade_cuts: '80:4, 75:3.5, 70:3, 65:2.5, 60:2, 55:1.5, 50:1, 0:0'
+  };
+
+  const classes = [
+    { classId: 'c1', grade: 'ม.1', room: '1', subject: 'คณิตศาสตร์พื้นฐาน', subjectCode: 'ค21101', studentCount: 20, sheetName: 'ม.1-1 คณิต' },
+    { classId: 'c2', grade: 'ม.2', room: '3', subject: 'คณิตศาสตร์เพิ่มเติม', subjectCode: 'ค22201', studentCount: 18, sheetName: 'ม.2-3 คณิต' },
+    { classId: 'c3', grade: 'ม.3', room: '2', subject: 'วิทยาการคำนวณ', subjectCode: 'ว23103', studentCount: 20, sheetName: 'ม.3-2 วิทย์' }
+  ];
+
+  const cls = { classId: 'c1', meta: classes[0], students, columns, values };
+
+  // เลียนแบบ dispatch_ ของฝั่งชีต รวมถึงคำสั่ง batch ที่แอปใช้ตอนเปิด
+  function dispatch(action, payload) {
+    switch (action) {
+      case 'bootstrap': return { config, classes, webAppUrl: '' };
+      case 'getClass':  return JSON.parse(JSON.stringify(cls));
+      case 'batch':     return {
+        results: (payload.ops || []).map((op, i) => ({ i, ok: true, data: dispatch(op.action, op.payload || {}) }))
+      };
+      case 'setCells':
+        (payload.cells || []).forEach(function (c) { window.__got.push(c.key + '/' + c.sid + '=' + c.value); });
+        return { ok: true };
+      default:          return { ok: true };
+    }
+  }
+
+  window.__got = [];            // cell ที่เซิร์ฟเวอร์จำลองได้รับจริง
+  window.__calls = [];          // ไว้ดูว่าเปิดแอปหนึ่งครั้งยิงกี่รอบ
+  window.fetch = function (url, opt) {
+    const req = JSON.parse((opt && opt.body) || '{}');
+    window.__calls.push(req.action + (req.action === 'batch' ? '[' + (req.payload.ops || []).map(o => o.action).join('+') + ']' : ''));
+    // หน่วงให้เหมือน Apps Script ของจริง จะได้เห็นว่าตอนโหลดหน้าตาเป็นยังไง
+    return new Promise((resolve) => setTimeout(() => resolve({
+      text: () => Promise.resolve(JSON.stringify({
+        ok: true, data: dispatch(req.action, req.payload || {}),
+        version: '3.0.0', user: { email: 'demo@example.com', name: 'ครูตัวอย่าง' }
+      }))
+    }), 450));
+  };
+
+  // เก็บค่าของแอปไว้ในหน่วยความจำล้วน ๆ ห้ามแตะ localStorage จริง
+  // ไม่งั้นเปิดหน้านี้ทีเดียว ลิงก์ชีตของครูที่ตั้งไว้จะถูกทับด้วยลิงก์ปลอม
+  (function () {
+    var mem = {};
+    if (!location.search.includes('setup')) {
+      mem['ac.url'] = 'https://example.invalid/exec';
+      mem['ac.key'] = 'demo';
+      mem['ac.lastClass'] = 'c1';     // จำลองครูที่เคยเปิดแอปแล้ว (กรณีปกติ)
+    }
+    var P = Storage.prototype;
+    var get = P.getItem, set = P.setItem, del = P.removeItem;
+    P.getItem = function (k) { return k.indexOf('ac.') === 0 ? (k in mem ? mem[k] : null) : get.call(this, k); };
+    P.setItem = function (k, v) { if (k.indexOf('ac.') === 0) mem[k] = String(v); else set.call(this, k, v); };
+    P.removeItem = function (k) { if (k.indexOf('ac.') === 0) delete mem[k]; else del.call(this, k); };
+  })();
+})();
+</script>
+
+<script type="module" src="../js/app.js"></script>
+</body>
+</html>

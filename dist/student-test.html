@@ -1,0 +1,1094 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<base target="_top">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<title>ผลการเรียนของฉัน</title>
+<script>try{var t=localStorage.getItem('ac.theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════════════════
+   AssignCheck — ระบบดีไซน์ (mobile-first · รองรับโหมดมืด)
+
+   ธีมทั้งหมดคุมด้วยตัวแปรในบล็อก :root เท่านั้น
+   อยากเปลี่ยนหน้าตาทั้งแอป ให้แก้ตรงนี้ที่เดียว
+
+   สีสถานะ (มา/สาย/ลา/ขาด) ผ่านเครื่องตรวจตาบอดสีแล้วทั้ง 2 โหมด
+   — อย่าแก้ค่าโดยไม่รันตรวจซ้ำ และทุกกราฟต้องมีตัวเลข/ป้ายกำกับเสมอ
+   ═══════════════════════════════════════════════════════════ */
+
+:root,
+[data-theme="light"] {
+  color-scheme: light;
+
+  /* พื้นผิว */
+  --bg:          #f4f6f5;
+  --surface:     #ffffff;
+  --surface-2:   #f7f9f8;
+  --surface-3:   #eef1ef;
+  --line:        #e5e9e7;
+  --line-2:      #d4dad7;
+
+  /* ตัวอักษร */
+  --ink:         #131917;
+  --ink-2:       #56635d;
+  --ink-3:       #69736f;
+
+  /* สีหลัก */
+  --accent:      #0f7a43;
+  --accent-2:    #0b5f34;
+  --accent-ink:  #0b5f34;
+  --accent-soft: #e6f4ec;
+  --on-accent:   #ffffff;
+
+  /* สีสถานะ — ใช้ร่วมกันทั้ง CSS และกราฟใน JS */
+  --st-ok:       #2e7d32;
+  --st-late:     #f57c00;
+  --st-leave:    #1565c0;
+  --st-miss:     #c62828;
+  --st-none:     #c8d0cc;
+
+  /* ส้มสำหรับตัวอักษร — สีแท่งกราฟ (--st-late) จางเกินไปเมื่อเป็นตัวหนังสือ */
+  --warn-ink:    #a35700;
+
+  /* ตัวอักษรบนพื้นสีสถานะ — เลือกให้ผ่าน contrast 4.5:1 ทุกคู่ */
+  --on-ok:       #ffffff;
+  --on-late:     #2a1a06;
+  --on-leave:    #ffffff;
+  --on-miss:     #ffffff;
+
+  /* ชื่อเดิม (ยังมีที่เรียกใช้อยู่) */
+  --green:       var(--accent);
+  --green-2:     var(--accent-2);
+  --green-soft:  var(--accent-soft);
+  --card:        var(--surface);
+  --blue:        var(--st-leave);
+  --amber:       var(--st-late);
+  --red:         var(--st-miss);
+  --purple:      #6a1b9a;
+  --blue-soft:   #e6f0fb;
+  --amber-soft:  #fdf1e0;
+  --red-soft:    #fceceb;
+  --purple-soft: #f3e8fa;
+
+  /* ทรง */
+  --r-1: 10px;
+  --r-2: 14px;
+  --r-3: 20px;
+  --radius: var(--r-2);
+  --sh-1: 0 1px 2px rgba(14,26,20,.05);
+  --sh-2: 0 1px 2px rgba(14,26,20,.05), 0 6px 16px -8px rgba(14,26,20,.16);
+  --sh-3: 0 24px 60px -20px rgba(14,26,20,.35);
+  --shadow: var(--sh-2);
+  --ring: 0 0 0 3px color-mix(in srgb, var(--accent) 26%, transparent);
+
+  --nav-h:    64px;
+  --header-h: 56px;
+  --tap:      44px;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg:          #101211;
+  --surface:     #1a1a19;   /* ตรงกับพื้นที่ใช้ตรวจสีกราฟ */
+  --surface-2:   #212220;
+  --surface-3:   #2a2b28;
+  --line:        #2c2e2b;
+  --line-2:      #3b3e3a;
+
+  --ink:         #ecefed;
+  --ink-2:       #a4ada8;
+  --ink-3:       #8b948f;
+
+  --accent:      #2fa367;
+  --accent-2:    #3fbc79;
+  --accent-ink:  #6ed6a0;
+  --accent-soft: #16301f;
+  --on-accent:   #04150c;
+
+  --st-ok:       #199e70;
+  --st-late:     #c98500;
+  --st-leave:    #3987e5;
+  --st-miss:     #e66767;
+  --st-none:     #454a47;
+
+  --warn-ink:    #e0a43a;
+
+  --on-ok:       #04140d;
+  --on-late:     #1e1400;
+  --on-leave:    #04101d;
+  --on-miss:     #200a0a;
+
+  --blue-soft:   #16263a;
+  --amber-soft:  #2e2410;
+  --red-soft:    #34191a;
+  --purple-soft: #2a1c38;
+
+  --sh-1: 0 1px 2px rgba(0,0,0,.5);
+  --sh-2: 0 1px 2px rgba(0,0,0,.5), 0 8px 20px -10px rgba(0,0,0,.7);
+  --sh-3: 0 24px 60px -20px rgba(0,0,0,.8);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg:          #101211;
+    --surface:     #1a1a19;
+    --surface-2:   #212220;
+    --surface-3:   #2a2b28;
+    --line:        #2c2e2b;
+    --line-2:      #3b3e3a;
+    --ink:         #ecefed;
+    --ink-2:       #a4ada8;
+    --ink-3:       #8b948f;
+    --accent:      #2fa367;
+    --accent-2:    #3fbc79;
+    --accent-ink:  #6ed6a0;
+    --accent-soft: #16301f;
+    --on-accent:   #04150c;
+    --st-ok:       #199e70;
+    --st-late:     #c98500;
+    --st-leave:    #3987e5;
+    --st-miss:     #e66767;
+    --st-none:     #454a47;
+    --warn-ink:    #e0a43a;
+    --on-ok:       #04140d;
+    --on-late:     #1e1400;
+    --on-leave:    #04101d;
+    --on-miss:     #200a0a;
+    --blue-soft:   #16263a;
+    --amber-soft:  #2e2410;
+    --red-soft:    #34191a;
+    --purple-soft: #2a1c38;
+    --sh-1: 0 1px 2px rgba(0,0,0,.5);
+    --sh-2: 0 1px 2px rgba(0,0,0,.5), 0 8px 20px -10px rgba(0,0,0,.7);
+    --sh-3: 0 24px 60px -20px rgba(0,0,0,.8);
+  }
+}
+
+/* ── พื้นฐาน ──────────────────────────────────────────────── */
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  margin: 0; padding: 0;
+  font-family: 'IBM Plex Sans Thai', system-ui, -apple-system, sans-serif;
+  background: var(--bg); color: var(--ink);
+  font-size: 15px; line-height: 1.55;
+  overscroll-behavior-y: none;
+  -webkit-font-smoothing: antialiased;
+  text-size-adjust: 100%;
+}
+
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; border: none; background: none; padding: 0; }
+
+input, select, textarea {
+  border: 1px solid var(--line-2); border-radius: var(--r-1);
+  padding: 11px 13px; background: var(--surface); width: 100%;
+  transition: border-color .15s, box-shadow .15s;
+}
+textarea { line-height: 1.5; resize: vertical; }
+input:focus, select:focus, textarea:focus {
+  outline: none; border-color: var(--accent); box-shadow: var(--ring);
+}
+select {
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
+                    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position: calc(100% - 17px) 50%, calc(100% - 12px) 50%;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  padding-right: 32px;
+}
+::placeholder { color: var(--ink-3); }
+
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.tnum { font-variant-numeric: tabular-nums; }
+.ico { width: 20px; height: 20px; display: block; flex: none; }
+.ico-sm { width: 16px; height: 16px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+
+/* ── หน้าจอโหลด ───────────────────────────────────────────── */
+.boot {
+  position: fixed; inset: 0; display: grid; place-content: center;
+  justify-items: center; gap: 16px; background: var(--bg); z-index: 999;
+}
+.boot-mark {
+  width: 72px; height: 72px; border-radius: 22px;
+  background: linear-gradient(150deg, var(--accent-2), var(--accent));
+  color: #fff; font-size: 33px; font-weight: 700;
+  display: grid; place-content: center; position: relative;
+  box-shadow: 0 12px 30px -10px color-mix(in srgb, var(--accent) 60%, transparent);
+}
+.boot-mark span {
+  position: absolute; right: -7px; bottom: -7px; width: 30px; height: 30px;
+  border-radius: 50%; background: var(--surface); color: var(--accent);
+  font-size: 15px; display: grid; place-content: center; box-shadow: var(--sh-2);
+}
+.boot-title { font-weight: 700; font-size: 19px; letter-spacing: .2px; }
+.boot-spin {
+  width: 22px; height: 22px; border-radius: 50%;
+  border: 2.5px solid var(--line); border-top-color: var(--accent);
+  animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── โครงหน้า ─────────────────────────────────────────────── */
+.shell { padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom)); }
+
+.appbar {
+  position: sticky; top: 0; z-index: 40;
+  background: color-mix(in srgb, var(--surface) 82%, transparent);
+  backdrop-filter: saturate(180%) blur(14px);
+  -webkit-backdrop-filter: saturate(180%) blur(14px);
+  border-bottom: 1px solid var(--line);
+  color: var(--ink);
+  padding: 0 10px 0 12px; height: var(--header-h);
+  display: flex; align-items: center; gap: 8px;
+}
+.brand {
+  width: 32px; height: 32px; border-radius: 10px; flex: none;
+  background: linear-gradient(150deg, var(--accent-2), var(--accent));
+  color: #fff; font-weight: 700; font-size: 15px;
+  display: grid; place-content: center;
+}
+.appbar-title { font-weight: 700; font-size: 15.5px; line-height: 1.2; }
+.appbar-sub { font-size: 11.5px; color: var(--ink-3); font-weight: 500; }
+.appbar button {
+  color: var(--ink-2); border-radius: var(--r-1);
+  background: transparent; transition: background .15s, color .15s;
+}
+.appbar button:hover { background: var(--surface-3); color: var(--ink); }
+.appbar button:active { background: var(--surface-3); }
+.appbar .icon-btn[data-on="1"] { background: var(--accent-soft); color: var(--accent-ink); }
+
+.icon-btn {
+  width: 38px; height: 38px; display: grid; place-content: center;
+  padding: 0 !important; border-radius: var(--r-1); color: var(--ink-3);
+}
+.icon-btn:hover { background: var(--surface-3); color: var(--ink); }
+
+.page { padding: 14px; max-width: 1080px; margin: 0 auto; }
+.page-wide { max-width: none; }
+
+/* ── การ์ด ────────────────────────────────────────────────── */
+.card {
+  background: var(--surface); border-radius: var(--r-2);
+  border: 1px solid var(--line); box-shadow: var(--sh-1);
+  padding: 14px; margin-bottom: 12px;
+}
+.card-tight { padding: 0; overflow: hidden; }
+.card-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 14px; border-bottom: 1px solid var(--line);
+}
+.card-head h2 { margin: 0; font-size: 15px; font-weight: 700; flex: 1; }
+
+.section-title {
+  font-size: 11.5px; font-weight: 700; color: var(--ink-3);
+  letter-spacing: .8px; text-transform: uppercase;
+  margin: 20px 2px 8px;
+}
+
+/* ── ปุ่ม ─────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  min-height: var(--tap); padding: 11px 17px; border-radius: 12px;
+  font-weight: 600; font-size: 14px; letter-spacing: .1px;
+  background: var(--accent); color: var(--on-accent);
+  border: 1px solid transparent;
+  transition: background .15s, box-shadow .15s, transform .06s, border-color .15s;
+}
+.btn:hover  { background: var(--accent-2); }
+.btn:active { transform: scale(.985); }
+.btn:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+
+.btn-ghost  { background: var(--surface); color: var(--ink); border-color: var(--line-2); }
+.btn-ghost:hover { background: var(--surface-2); border-color: var(--ink-3); }
+.btn-soft   { background: var(--accent-soft); color: var(--accent-ink); }
+.btn-soft:hover { background: color-mix(in srgb, var(--accent) 18%, var(--surface)); }
+.btn-danger { background: var(--red-soft); color: var(--st-miss); }
+.btn-danger:hover { background: color-mix(in srgb, var(--st-miss) 18%, var(--surface)); }
+.btn-sm  { min-height: 36px; padding: 7px 13px; font-size: 13px; border-radius: var(--r-1); }
+.btn-block { width: 100%; }
+.btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* ── ตัวเลือกห้องเรียน ────────────────────────────────────── */
+.class-pick {
+  display: flex; align-items: center; gap: 9px; padding: 9px 12px;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--line);
+  position: sticky; top: var(--header-h); z-index: 30;
+}
+.class-pick select { border-radius: var(--r-1); font-weight: 600; background: var(--surface); }
+.class-pick > .ico { color: var(--ink-3); }
+
+.class-card {
+  display: flex; align-items: center; gap: 12px; padding: 12px 12px;
+  background: var(--surface); border-radius: var(--r-2);
+  border: 1px solid var(--line); box-shadow: var(--sh-1);
+  margin-bottom: 10px; text-align: left; width: 100%;
+  transition: border-color .15s, box-shadow .15s, transform .06s;
+}
+.class-card:hover { border-color: var(--line-2); box-shadow: var(--sh-2); }
+.class-card:active { transform: scale(.995); }
+.class-card[data-on="1"] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent), var(--sh-1);
+}
+.class-avatar {
+  width: 46px; height: 46px; border-radius: 13px; flex: none;
+  display: grid; place-content: center; font-weight: 700; font-size: 13px;
+  background: var(--accent-soft); color: var(--accent-ink);
+  letter-spacing: -.2px;
+}
+.class-name { font-weight: 700; font-size: 15px; letter-spacing: -.1px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.class-meta { font-size: 12.5px; color: var(--ink-2); }
+
+/* ── รายการนักเรียน / เช็คชื่อ ────────────────────────────── */
+.stu-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 12px; border-bottom: 1px solid var(--line); background: var(--surface);
+}
+.stu-row:last-child { border-bottom: none; }
+.stu-row:hover { background: var(--surface-2); }
+.stu-no {
+  width: 30px; height: 30px; flex: none; border-radius: 9px;
+  background: var(--surface-3); color: var(--ink-2);
+  display: grid; place-content: center; font-size: 12.5px; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.stu-name { flex: 1; min-width: 0; font-size: 14.5px; font-weight: 500;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stu-sid { font-size: 11.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+
+/* กลุ่มปุ่มแบบ segmented — ปุ่มติดกันเป็นแถบเดียว อ่านง่ายกว่าปุ่มลอย */
+.att-group, .st-group {
+  display: flex; gap: 3px; flex: none; padding: 3px;
+  background: var(--surface-3); border-radius: 11px;
+}
+.att-btn, .st-btn {
+  height: 34px; border-radius: 8px; font-size: 12.5px; font-weight: 700;
+  background: transparent; color: var(--ink-2);
+  transition: background .13s, color .13s, box-shadow .13s;
+}
+.att-btn { width: 36px; }
+.st-btn  { min-width: 42px; padding: 0 9px; }
+.att-btn:hover, .st-btn:hover { color: var(--ink); }
+
+.att-btn[data-on="1"], .st-btn[data-on="1"] { box-shadow: var(--sh-1); }
+.att-btn[data-on="1"][data-code="ม"] { background: var(--st-ok);    color: var(--on-ok); }
+.att-btn[data-on="1"][data-code="ส"] { background: var(--st-late);  color: var(--on-late); }
+.att-btn[data-on="1"][data-code="ล"] { background: var(--st-leave); color: var(--on-leave); }
+.att-btn[data-on="1"][data-code="ข"] { background: var(--st-miss);  color: var(--on-miss); }
+.st-btn.ok[data-on="1"]   { background: var(--st-ok);   color: var(--on-ok); }
+.st-btn.late[data-on="1"] { background: var(--st-late); color: var(--on-late); }
+.st-btn.miss[data-on="1"] { background: var(--st-miss); color: var(--on-miss); }
+
+/* ── ช่องกรอกคะแนน ────────────────────────────────────────── */
+.score-cell { display: flex; align-items: center; gap: 6px; flex: none; }
+.score-inp {
+  width: 64px; text-align: center; padding: 8px 4px; font-weight: 700;
+  font-variant-numeric: tabular-nums; border-radius: var(--r-1);
+}
+.score-inp.filled { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-ink); }
+.score-inp.miss   { background: var(--red-soft); border-color: var(--st-miss); color: var(--st-miss); }
+.score-max { font-size: 12px; color: var(--ink-3); width: 34px; }
+.miss-btn {
+  width: 34px; height: 34px; border-radius: var(--r-1); font-size: 15px; font-weight: 700;
+  background: var(--surface-3); color: var(--ink-3);
+}
+.miss-btn[data-on="1"] { background: var(--st-miss); color: var(--on-miss); }
+
+@media (max-width: 430px) {
+  .st-btn { min-width: 36px; padding: 0 6px; font-size: 11.5px; }
+  .att-btn { width: 33px; }
+  .score-inp { width: 54px; }
+  /* จอแคบ: ตัด "/20" ออก (มีบอกอยู่บนหัวข้ออยู่แล้ว) เอาที่ไปให้ชื่อนักเรียน */
+  .score-max { display: none; }
+  .stu-row { gap: 7px; padding: 8px 9px; }
+  .page { padding: 12px 10px; }
+}
+
+/* ── แถบสถิติ ─────────────────────────────────────────────── */
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.stat {
+  background: var(--surface); border-radius: var(--r-2); padding: 12px 8px;
+  text-align: center; border: 1px solid var(--line); box-shadow: var(--sh-1);
+}
+.stat-num { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums;
+  line-height: 1.15; letter-spacing: -.5px; }
+.stat-lbl { font-size: 11px; color: var(--ink-2); margin-top: 2px; }
+.stat.g .stat-num { color: var(--st-ok); }
+.stat.a .stat-num { color: var(--warn-ink); }
+.stat.b .stat-num { color: var(--st-leave); }
+.stat.r .stat-num { color: var(--st-miss); }
+
+/* ── ชิป / ป้าย ───────────────────────────────────────────── */
+.chips {
+  display: flex; gap: 7px; overflow-x: auto; padding: 2px 0 8px;
+  scrollbar-width: none;
+}
+.chips::-webkit-scrollbar { display: none; }
+.chip {
+  flex: none; padding: 8px 14px; border-radius: 999px; font-size: 13px; font-weight: 600;
+  background: var(--surface); border: 1px solid var(--line-2); color: var(--ink-2);
+  transition: background .15s, color .15s, border-color .15s;
+}
+.chip:hover { border-color: var(--ink-3); color: var(--ink); }
+.chip[data-on="1"] {
+  background: var(--accent); color: var(--on-accent); border-color: var(--accent);
+}
+
+.badge {
+  display: inline-block; padding: 2px 9px; border-radius: 999px;
+  font-size: 11px; font-weight: 700;
+}
+.badge.g { background: var(--accent-soft); color: var(--accent-ink); }
+.badge.b { background: var(--blue-soft);   color: var(--st-leave); }
+.badge.a { background: var(--amber-soft);  color: var(--warn-ink); }
+.badge.r { background: var(--red-soft);    color: var(--st-miss); }
+.badge.p { background: var(--purple-soft); color: var(--purple); }
+
+/* ── รายการทั่วไป ─────────────────────────────────────────── */
+.list-row {
+  display: flex; align-items: center; gap: 11px;
+  padding: 12px 14px; border-bottom: 1px solid var(--line); width: 100%;
+  background: var(--surface); text-align: left;
+}
+.list-row:last-child { border-bottom: none; }
+.list-row:hover { background: var(--surface-2); }
+.list-main { flex: 1; min-width: 0; }
+.list-title { font-weight: 600; font-size: 14.5px; }
+.list-sub { font-size: 12px; color: var(--ink-2); }
+.list-chevron { color: var(--ink-3); font-size: 18px; }
+
+.empty { text-align: center; padding: 42px 20px; color: var(--ink-2); }
+.empty-icon {
+  width: 56px; height: 56px; margin: 0 auto 10px; border-radius: 18px;
+  display: grid; place-content: center; font-size: 26px;
+  background: var(--surface-3); color: var(--ink-3);
+}
+
+/* ── ตารางสรุป SGS ────────────────────────────────────────── */
+.tablewrap { overflow: auto; -webkit-overflow-scrolling: touch; max-height: 72vh; }
+table.grid { border-collapse: separate; border-spacing: 0; font-size: 13px; width: 100%; }
+table.grid th, table.grid td {
+  padding: 8px; border-bottom: 1px solid var(--line); white-space: nowrap; text-align: center;
+}
+table.grid thead th {
+  position: sticky; top: 0; z-index: 2; background: var(--surface-2);
+  font-size: 11.5px; font-weight: 700; border-bottom: 1px solid var(--line-2);
+  color: var(--ink-2);
+}
+/* แถบหัวกลุ่ม — ต้องเจาะจงกว่ากฎ thead th ด้านบน ไม่งั้นพื้นสีถูกทับจนตัวขาวหายไป */
+table.grid thead tr.group th {
+  font-size: 11.5px; padding: 7px 8px; color: #fff; top: 0;
+  letter-spacing: .3px; background: #556b63; border-bottom-color: transparent;
+}
+table.grid thead tr.group th.h1 { background: #2570cc; }
+table.grid thead tr.group th.h2 { background: #17794a; }
+table.grid thead tr.group th.h3 { background: #c96a1e; }
+table.grid thead tr.group th.h4 { background: #c0413f; }
+table.grid thead tr.group th.h5 { background: #6b4bb0; }
+table.grid thead tr.group th.sticky-l { background: #556b63; }
+
+table.grid .sticky-l { position: sticky; left: 0; background: var(--surface); z-index: 1; text-align: left; }
+table.grid thead .sticky-l { background: var(--surface-2); z-index: 3; }
+table.grid tbody tr:hover td { background: var(--surface-2); }
+table.grid tbody tr:nth-child(even) td { background: var(--surface-2); }
+table.grid tbody tr:nth-child(even) td.sticky-l { background: var(--surface-2); }
+table.grid td.num { font-variant-numeric: tabular-nums; font-weight: 600; }
+table.grid td.total {
+  background: var(--accent-soft) !important; font-weight: 700; color: var(--accent-ink);
+}
+.h1 { background: #2570cc; } .h2 { background: #17794a; }
+.h3 { background: #c96a1e; } .h4 { background: #c0413f; }
+.h5 { background: #6b4bb0; }
+.h1, .h2, .h3, .h4, .h5 { color: #fff; }
+
+/* ── หน้ารายงาน ───────────────────────────────────────────── */
+.rep-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 10px; }
+.rep-head h3 { margin: 0; font-size: 14.5px; font-weight: 700; flex: 1; }
+.rep-head span { font-size: 12px; color: var(--ink-3); }
+
+.stackbar {
+  display: flex; gap: 2px; border-radius: 7px; overflow: hidden; background: var(--surface-3);
+}
+.stackseg {
+  display: grid; place-content: center; min-width: 3px; height: 26px;
+  font-size: 11px; font-weight: 700; border-radius: 3px;
+}
+.stackseg:first-child { border-radius: 7px 3px 3px 7px; }
+.stackseg:last-child  { border-radius: 3px 7px 7px 3px; }
+.bar-empty {
+  padding: 18px; text-align: center; color: var(--ink-3); font-size: 13px;
+  background: var(--surface-2); border-radius: var(--r-1);
+  border: 1px dashed var(--line-2);
+}
+
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 9px; font-size: 12px; color: var(--ink-2); }
+.legend-item { display: inline-flex; align-items: center; gap: 5px; }
+.legend-item i { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+.legend-item b { color: var(--ink-3); font-weight: 600; }
+
+.multi-row { margin-bottom: 12px; }
+.multi-label {
+  display: flex; justify-content: space-between; gap: 10px;
+  font-size: 12.5px; font-weight: 600; margin-bottom: 5px;
+}
+.multi-label span { font-weight: 400; color: var(--ink-3); font-size: 11px; text-align: right; }
+
+.meter-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.meter-label { width: 96px; flex: none; font-size: 12.5px; font-weight: 600; line-height: 1.25; }
+.meter-label span { display: block; font-weight: 400; font-size: 10.5px; color: var(--ink-3); }
+.meter-track { flex: 1; height: 12px; background: var(--surface-3); border-radius: 999px; overflow: hidden; }
+.meter-fill { height: 100%; background: var(--accent); border-radius: 999px; transition: width .3s ease; }
+.meter-val { width: 62px; text-align: right; font-size: 12px; font-weight: 700; flex: none; }
+
+.sub-head {
+  padding: 9px 14px; background: var(--surface-2); font-size: 11.5px; font-weight: 700;
+  color: var(--ink-2); border-bottom: 1px solid var(--line); letter-spacing: .4px;
+}
+.rep-details { margin-top: 10px; font-size: 12.5px; }
+.rep-details summary { cursor: pointer; color: var(--accent-ink); font-weight: 600; }
+.rep-line { display: flex; justify-content: space-between; padding: 6px 2px; border-bottom: 1px solid var(--line); }
+.search-hits { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+
+/* ── แถบนำทางล่าง ─────────────────────────────────────────── */
+.nav {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 45;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  backdrop-filter: saturate(180%) blur(16px);
+  -webkit-backdrop-filter: saturate(180%) blur(16px);
+  border-top: 1px solid var(--line);
+  display: grid; grid-template-columns: repeat(5, 1fr);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.nav button {
+  padding: 9px 2px 8px; display: grid; justify-items: center; gap: 4px;
+  color: var(--ink-3); font-size: 10.5px; font-weight: 600;
+  transition: color .15s;
+}
+.nav button .ic {
+  width: 40px; height: 26px; border-radius: 999px;
+  display: grid; place-content: center;
+  transition: background .18s;
+}
+.nav button[data-on="1"] { color: var(--accent-ink); }
+.nav button[data-on="1"] .ic { background: var(--accent-soft); }
+.nav button:hover { color: var(--ink-2); }
+
+/* ── โมดัล ────────────────────────────────────────────────── */
+.modal-back {
+  position: fixed; inset: 0; background: rgba(8,16,12,.5); z-index: 100;
+  display: flex; align-items: flex-end; justify-content: center;
+  animation: fade .16s ease;
+  backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+}
+@keyframes fade { from { opacity: 0; } }
+.modal {
+  background: var(--surface); width: 100%; max-width: 560px;
+  border-radius: var(--r-3) var(--r-3) 0 0;
+  padding: 8px 16px calc(18px + env(safe-area-inset-bottom));
+  max-height: 92vh; overflow: auto;
+  box-shadow: var(--sh-3);
+  animation: rise .22s cubic-bezier(.2,.8,.3,1);
+}
+/* ขีดจับด้านบน — บอกว่าลากปิดได้ และแยกกล่องออกจากพื้นหลัง */
+.modal::before {
+  content: ''; display: block; width: 38px; height: 4px; border-radius: 999px;
+  background: var(--line-2); margin: 6px auto 12px;
+}
+@keyframes rise { from { transform: translateY(28px); } }
+.modal h2 { margin: 0 0 12px; font-size: 17px; letter-spacing: -.2px; }
+.field { margin-bottom: 13px; }
+.field label { display: block; font-size: 12.5px; font-weight: 600; color: var(--ink-2); margin-bottom: 5px; }
+.field-row { display: flex; gap: 10px; }
+.field-row .field { flex: 1; }
+.hint { font-size: 12px; color: var(--ink-3); margin-top: 5px; line-height: 1.5; }
+
+/* ── หน้าตรวจสอบระบบ ──────────────────────────────────────── */
+.check-row {
+  display: flex; gap: 11px; padding: 13px 14px;
+  border-bottom: 1px solid var(--line); align-items: flex-start;
+}
+.check-row:last-child { border-bottom: none; }
+.check-ic { font-size: 17px; line-height: 1.3; flex: none; }
+.check-title { font-weight: 600; font-size: 14px; }
+.check-sub { font-size: 12.5px; color: var(--ink-2); margin-top: 2px; }
+.check-fix {
+  font-size: 12.5px; color: var(--accent-ink); margin-top: 6px;
+  background: var(--accent-soft); padding: 7px 10px; border-radius: var(--r-1);
+}
+
+.alert-bar {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 11px 14px; background: var(--red-soft); color: var(--st-miss);
+  font-size: 13px; font-weight: 600; text-align: left;
+  border-bottom: 1px solid color-mix(in srgb, var(--st-miss) 28%, transparent);
+}
+.alert-bar.warn {
+  background: var(--amber-soft); color: var(--warn-ink);
+  border-bottom-color: color-mix(in srgb, var(--st-late) 30%, transparent);
+}
+.alert-bar span { flex: 1; }
+
+.sep {
+  display: flex; align-items: center; gap: 10px; margin: 18px 0 12px;
+  color: var(--ink-3); font-size: 12px;
+}
+.sep::before, .sep::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+
+/* ── Toast ────────────────────────────────────────────────── */
+.toasts {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(var(--nav-h) + 16px); z-index: 200;
+  display: grid; gap: 8px; width: max-content; max-width: 92vw;
+}
+.toast {
+  background: #22282a; color: #fff; padding: 11px 17px; border-radius: 999px;
+  font-size: 13.5px; font-weight: 500; box-shadow: var(--sh-3);
+  animation: rise .2s ease;
+}
+.toast.ok  { background: #14663f; }
+.toast.err { background: #a32724; }
+
+/* ── สถานะซิงค์ ───────────────────────────────────────────── */
+.sync-pill {
+  font-size: 11px; padding: 4px 10px; border-radius: 999px; font-weight: 700;
+  background: var(--surface-3); color: var(--ink-2);
+}
+.sync-pill.off { background: var(--amber-soft); color: var(--warn-ink); }
+
+/* ── ตัวเลือกธีม ──────────────────────────────────────────── */
+.seg {
+  display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;
+  gap: 3px; padding: 3px; background: var(--surface-3); border-radius: 12px;
+}
+.seg button {
+  padding: 9px 6px; border-radius: 9px; font-size: 13px; font-weight: 600;
+  color: var(--ink-2); display: inline-flex; align-items: center;
+  justify-content: center; gap: 6px; transition: background .15s, color .15s;
+}
+.seg button[data-on="1"] { background: var(--surface); color: var(--ink); box-shadow: var(--sh-1); }
+
+/* ── เดสก์ท็อป ────────────────────────────────────────────── */
+@media (min-width: 820px) {
+  .nav {
+    position: sticky; top: var(--header-h); bottom: auto;
+    grid-template-columns: repeat(5, max-content);
+    justify-content: center; gap: 4px; border-top: none;
+    border-bottom: 1px solid var(--line);
+  }
+  .nav button {
+    flex-direction: row; display: flex; align-items: center; gap: 8px;
+    padding: 9px 16px; font-size: 13.5px; border-radius: 999px; margin: 6px 0;
+  }
+  .nav button .ic { width: auto; height: auto; background: none !important; }
+  .nav button[data-on="1"] { background: var(--accent-soft); }
+  .shell { padding-bottom: 24px; }
+  .class-pick { top: calc(var(--header-h) + 52px); }
+  .modal-back { align-items: center; }
+  .modal { border-radius: var(--r-3); padding-bottom: 18px; }
+  .modal::before { display: none; }
+  .modal h2 { margin-top: 8px; }
+  .toasts { bottom: 24px; }
+  .stats { gap: 10px; }
+}
+
+/* สไตล์เฉพาะหน้าของนักเรียน — ต่อยอดจาก styles.css (ใช้ตัวแปรสีชุดเดียวกัน) */
+
+.stu-wrap { max-width: 620px; margin: 0 auto; padding: 16px 14px 40px; }
+
+/* ── หน้ากรอกเลขประจำตัว ── */
+.gate { min-height: 100dvh; display: grid; align-content: center; gap: 18px; padding: 24px 16px; }
+.gate-mark {
+  width: 68px; height: 68px; border-radius: 22px; margin: 0 auto;
+  background: linear-gradient(150deg, var(--accent-2), var(--accent));
+  color: #fff; display: grid; place-content: center;
+  box-shadow: 0 14px 34px -12px color-mix(in srgb, var(--accent) 65%, transparent);
+}
+.gate-mark svg { width: 32px; height: 32px; }
+.gate h1 { font-size: 21px; margin: 0; text-align: center; letter-spacing: -.3px; }
+.gate p  { margin: 4px 0 0; text-align: center; color: var(--ink-2); font-size: 13.5px; }
+.gate form { display: grid; gap: 10px; max-width: 340px; margin: 4px auto 0; width: 100%; }
+.gate input {
+  text-align: center; font-size: 22px; font-weight: 700; letter-spacing: 3px;
+  padding: 14px 12px; font-variant-numeric: tabular-nums;
+}
+.gate .foot { text-align: center; font-size: 12px; color: var(--ink-3); margin-top: 6px; }
+
+.err {
+  background: var(--red-soft); color: var(--st-miss); border-radius: var(--r-1);
+  padding: 11px 13px; font-size: 13.5px; font-weight: 600; text-align: center;
+}
+
+/* ── หัวข้อมูลนักเรียน ── */
+.who {
+  display: flex; align-items: center; gap: 12px; margin-bottom: 14px;
+}
+.who-av {
+  width: 46px; height: 46px; border-radius: 14px; flex: none;
+  background: var(--accent-soft); color: var(--accent-ink);
+  display: grid; place-content: center; font-size: 19px; font-weight: 700;
+}
+.who-name { font-size: 17px; font-weight: 700; letter-spacing: -.2px; }
+.who-sub  { font-size: 12.5px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+
+/* ── การ์ดรายวิชา ── */
+.subj { margin-bottom: 14px; }
+.subj-head {
+  display: flex; align-items: center; gap: 11px; width: 100%;
+  padding: 13px 14px; text-align: left; background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+.subj-tag {
+  padding: 4px 9px; border-radius: 8px; flex: none; font-size: 11.5px; font-weight: 700;
+  background: var(--accent-soft); color: var(--accent-ink);
+}
+.subj-name { font-weight: 700; font-size: 15px; }
+.subj-meta { font-size: 12px; color: var(--ink-2); }
+.subj-chev { color: var(--ink-3); transition: transform .18s; flex: none; }
+.subj.closed .subj-chev { transform: rotate(-90deg); }
+.subj.closed .subj-body { display: none; }
+.subj.closed .subj-head { border-bottom: none; }
+
+.subj-body { padding: 14px; }
+
+/* ── แถบคะแนนรวม ── */
+.big {
+  text-align: center; padding: 4px 0 14px; border-bottom: 1px solid var(--line); margin-bottom: 14px;
+}
+.big-num {
+  font-size: 40px; font-weight: 700; line-height: 1; letter-spacing: -1.5px;
+  color: var(--accent-ink); font-variant-numeric: tabular-nums;
+}
+.big-num small { font-size: 18px; font-weight: 600; color: var(--ink-3); letter-spacing: 0; }
+.big-lbl { font-size: 12.5px; color: var(--ink-2); margin-top: 5px; }
+
+/* ── รายการงาน/สอบ ── */
+.grp { font-size: 11.5px; font-weight: 700; color: var(--ink-3); letter-spacing: .6px; margin: 16px 0 6px; }
+.grp:first-child { margin-top: 0; }
+
+.item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 0; border-bottom: 1px solid var(--line);
+}
+.item:last-child { border-bottom: none; }
+.item-main { flex: 1; min-width: 0; }
+.item-name { font-size: 14px; font-weight: 600; }
+.item-desc { font-size: 11.5px; color: var(--ink-3); margin-top: 1px; }
+.item-score {
+  font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums;
+  min-width: 56px; text-align: right; flex: none;
+}
+.item-score.none { color: var(--ink-3); font-weight: 500; }
+
+/* ── การมาเรียน ── */
+.att-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 10px; }
+.att-box {
+  text-align: center; padding: 10px 4px; border-radius: 12px; background: var(--surface-2);
+  border: 1px solid var(--line);
+}
+.att-n { font-size: 20px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.att-l { font-size: 11px; color: var(--ink-2); margin-top: 2px; }
+.att-box.ok .att-n    { color: var(--st-ok); }
+.att-box.late .att-n  { color: var(--warn-ink); }
+.att-box.leave .att-n { color: var(--st-leave); }
+.att-box.miss .att-n  { color: var(--st-miss); }
+
+.warn {
+  display: flex; gap: 9px; align-items: flex-start;
+  background: var(--amber-soft); color: var(--warn-ink);
+  border-radius: var(--r-1); padding: 11px 13px; font-size: 13px;
+  font-weight: 600; margin-top: 12px; line-height: 1.5;
+}
+
+.tip { font-size: 12px; color: var(--ink-3); text-align: center; margin-top: 18px; line-height: 1.6; }
+
+</style>
+</head>
+<body>
+
+<script>
+var DB = {"61475":{"sid":"61475","name":"เด็กชายกฤตภาส คงพลอย","updated":"2026-08-09T16:12:42.555Z","classes":[{"subject":"คณิตศาสตร์พื้นฐาน","subjectCode":"ค21101","grade":"ม.1","room":"1","no":"1","buckets":[{"id":"work1","label":"ส่งงาน","phase":1,"sgs":"ช่อง 1","score":10,"max":10,"has":true},{"id":"quiz1","label":"สอบเก็บคะแนน","phase":1,"sgs":"ช่อง 2","score":9,"max":10,"has":true},{"id":"att1","label":"เข้าเรียน","phase":1,"sgs":"ช่อง 3","score":4,"max":5,"has":true},{"id":"mid","label":"สอบกลางภาค","phase":1,"sgs":"กลางภาค","score":17,"max":20,"has":true},{"id":"work2","label":"ส่งงาน","phase":2,"sgs":"ช่อง 10","score":0,"max":10,"has":false},{"id":"quiz2","label":"สอบเก็บคะแนน","phase":2,"sgs":"ช่อง 11","score":0,"max":10,"has":false},{"id":"att2","label":"เข้าเรียน","phase":2,"sgs":"ช่อง 12","score":0,"max":5,"has":false},{"id":"fin","label":"สอบปลายภาค","phase":2,"sgs":"ปลายภาค","score":0,"max":30,"has":false}],"earned":40,"outOf":45,"fullTotal":100,"att":{"present":2,"late":1,"leave":0,"absent":0,"checked":3,"pct":100,"minPct":80,"risk":false},"items":[{"label":"ใบงานที่ 1 เรื่องเศษส่วน","desc":"ทำข้อ 1–10 หน้า 42","kind":"WORK","exam":false,"phase":1,"bucket":"work1","max":10,"status":"ok","score":10},{"label":"ใบงานที่ 2 ทศนิยม","desc":"","kind":"WORK","exam":false,"phase":1,"bucket":"work1","max":10,"status":"ok","score":9},{"label":"สอบเก็บคะแนนบทที่ 1","desc":"ปรนัย 20 ข้อ","kind":"QUIZ","exam":true,"phase":1,"bucket":"quiz1","max":20,"status":"ok","score":18},{"label":"สอบกลางภาค","desc":"","kind":"MID","exam":true,"phase":1,"bucket":"mid","max":40,"status":"ok","score":34}],"pending":0},{"subject":"คณิตศาสตร์เพิ่มเติม","subjectCode":"ค21201","grade":"ม.1","room":"1","no":"1","buckets":[{"id":"work1","label":"ส่งงาน","phase":1,"sgs":"ช่อง 1","score":0,"max":10,"has":false},{"id":"quiz1","label":"สอบเก็บคะแนน","phase":1,"sgs":"ช่อง 2","score":0,"max":10,"has":false},{"id":"att1","label":"เข้าเรียน","phase":1,"sgs":"ช่อง 3","score":4,"max":5,"has":true},{"id":"mid","label":"สอบกลางภาค","phase":1,"sgs":"กลางภาค","score":0,"max":20,"has":false},{"id":"work2","label":"ส่งงาน","phase":2,"sgs":"ช่อง 10","score":0,"max":10,"has":false},{"id":"quiz2","label":"สอบเก็บคะแนน","phase":2,"sgs":"ช่อง 11","score":0,"max":10,"has":false},{"id":"att2","label":"เข้าเรียน","phase":2,"sgs":"ช่อง 12","score":0,"max":5,"has":false},{"id":"fin","label":"สอบปลายภาค","phase":2,"sgs":"ปลายภาค","score":0,"max":30,"has":false}],"earned":4,"outOf":5,"fullTotal":100,"att":{"present":2,"late":1,"leave":0,"absent":0,"checked":3,"pct":100,"minPct":80,"risk":false},"items":[],"pending":0}]},"61476":{"sid":"61476","name":"เด็กชายคมกริช พิลา","updated":"2026-08-09T16:12:42.556Z","classes":[{"subject":"คณิตศาสตร์พื้นฐาน","subjectCode":"ค21101","grade":"ม.1","room":"1","no":"2","buckets":[{"id":"work1","label":"ส่งงาน","phase":1,"sgs":"ช่อง 1","score":0,"max":10,"has":true},{"id":"quiz1","label":"สอบเก็บคะแนน","phase":1,"sgs":"ช่อง 2","score":0,"max":10,"has":true},{"id":"att1","label":"เข้าเรียน","phase":1,"sgs":"ช่อง 3","score":0,"max":5,"has":true},{"id":"mid","label":"สอบกลางภาค","phase":1,"sgs":"กลางภาค","score":0,"max":20,"has":false},{"id":"work2","label":"ส่งงาน","phase":2,"sgs":"ช่อง 10","score":0,"max":10,"has":false},{"id":"quiz2","label":"สอบเก็บคะแนน","phase":2,"sgs":"ช่อง 11","score":0,"max":10,"has":false},{"id":"att2","label":"เข้าเรียน","phase":2,"sgs":"ช่อง 12","score":0,"max":5,"has":false},{"id":"fin","label":"สอบปลายภาค","phase":2,"sgs":"ปลายภาค","score":0,"max":30,"has":false}],"earned":0,"outOf":25,"fullTotal":100,"att":{"present":0,"late":0,"leave":0,"absent":3,"checked":3,"pct":0,"minPct":80,"risk":true},"items":[{"label":"ใบงานที่ 1 เรื่องเศษส่วน","desc":"ทำข้อ 1–10 หน้า 42","kind":"WORK","exam":false,"phase":1,"bucket":"work1","max":10,"status":"miss","score":null},{"label":"ใบงานที่ 2 ทศนิยม","desc":"","kind":"WORK","exam":false,"phase":1,"bucket":"work1","max":10,"status":"miss","score":null},{"label":"สอบเก็บคะแนนบทที่ 1","desc":"ปรนัย 20 ข้อ","kind":"QUIZ","exam":true,"phase":1,"bucket":"quiz1","max":20,"status":"miss","score":null},{"label":"สอบกลางภาค","desc":"","kind":"MID","exam":true,"phase":1,"bucket":"mid","max":40,"status":"none","score":null}],"pending":1},{"subject":"คณิตศาสตร์เพิ่มเติม","subjectCode":"ค21201","grade":"ม.1","room":"1","no":"2","buckets":[{"id":"work1","label":"ส่งงาน","phase":1,"sgs":"ช่อง 1","score":0,"max":10,"has":false},{"id":"quiz1","label":"สอบเก็บคะแนน","phase":1,"sgs":"ช่อง 2","score":0,"max":10,"has":false},{"id":"att1","label":"เข้าเรียน","phase":1,"sgs":"ช่อง 3","score":0,"max":5,"has":true},{"id":"mid","label":"สอบกลางภาค","phase":1,"sgs":"กลางภาค","score":0,"max":20,"has":false},{"id":"work2","label":"ส่งงาน","phase":2,"sgs":"ช่อง 10","score":0,"max":10,"has":false},{"id":"quiz2","label":"สอบเก็บคะแนน","phase":2,"sgs":"ช่อง 11","score":0,"max":10,"has":false},{"id":"att2","label":"เข้าเรียน","phase":2,"sgs":"ช่อง 12","score":0,"max":5,"has":false},{"id":"fin","label":"สอบปลายภาค","phase":2,"sgs":"ปลายภาค","score":0,"max":30,"has":false}],"earned":0,"outOf":5,"fullTotal":100,"att":{"present":0,"late":0,"leave":0,"absent":3,"checked":3,"pct":0,"minPct":80,"risk":true},"items":[],"pending":0}]},"61477":{"sid":"61477","name":"เด็กหญิงจิดาภา อินทร์จันทร์","updated":"2026-08-09T16:12:42.556Z","classes":[{"subject":"คณิตศาสตร์พื้นฐาน","subjectCode":"ค21101","grade":"ม.1","room":"1","no":"3","buckets":[{"id":"work1","label":"ส่งงาน","phase":1,"sgs":"ช่อง 1","score":8,"max":10,"has":true},{"id":"quiz1","label":"สอบเก็บคะแนน","phase":1,"sgs":"ช่อง 2","score":8,"max":10,"has":true},{"id":"att1","label":"เข้าเรียน","phase":1,"sgs":"ช่อง 3","score":4,"max":5,"has":true},{"id":"mid","label":"สอบกลางภาค","phase":1,"sgs":"กลางภาค","score":14,"max":20,"has":true},{"id":"work2","label":"ส่งงาน","phase":2,"sgs":"ช่อง 10","score":0,"max":10,"has":false},{"id":"quiz2","label":"สอบเก็บคะแนน","phase":2,"sgs":"ช่อง 11","score":0,"max":10,"has":false},{"id":"att2","label":"เข้าเรียน","phase":2,"sgs":"ช่อง 12","score":0,"max":5,"has":false},{"id":"fin","label":"สอบปลายภาค","phase":2,"sgs":"ปลายภาค","score":0,"max":30,"has":false}],"earned":34,"outOf":45,"fullTotal":100,"att":{"present":2,"late":1,"leave":0,"absent":0,"checked":3,"pct":100,"minPct":80,"risk":false},"items":[{"label":"ใบงานที่ 1 เรื่องเศษส่วน","desc":"ทำข้อ 1–10 หน้า 42","kind":"WORK","exam":false,"phase":1,"bucket":"work1","max":10,"status":"late","score":8},{"label":"ใบงานที่ 2 ทศนิยม","desc":"","kind":"WORK","exam":false,"phase":1,"bucket":"work1","max":10,"status":"none","score":null},{"label":"สอบเก็บคะแนนบทที่ 1","desc":"ปรนัย 20 ข้อ","kind":"QUIZ","exam":true,"phase":1,"bucket":"quiz1","max":20,"status":"ok","score":15},{"label":"สอบกลางภาค","desc":"","kind":"MID","exam":true,"phase":1,"bucket":"mid","max":40,"status":"ok","score":28}],"pending":1},{"subject":"คณิตศาสตร์เพิ่มเติม","subjectCode":"ค21201","grade":"ม.1","room":"1","no":"3","buckets":[{"id":"work1","label":"ส่งงาน","phase":1,"sgs":"ช่อง 1","score":0,"max":10,"has":false},{"id":"quiz1","label":"สอบเก็บคะแนน","phase":1,"sgs":"ช่อง 2","score":0,"max":10,"has":false},{"id":"att1","label":"เข้าเรียน","phase":1,"sgs":"ช่อง 3","score":4,"max":5,"has":true},{"id":"mid","label":"สอบกลางภาค","phase":1,"sgs":"กลางภาค","score":0,"max":20,"has":false},{"id":"work2","label":"ส่งงาน","phase":2,"sgs":"ช่อง 10","score":0,"max":10,"has":false},{"id":"quiz2","label":"สอบเก็บคะแนน","phase":2,"sgs":"ช่อง 11","score":0,"max":10,"has":false},{"id":"att2","label":"เข้าเรียน","phase":2,"sgs":"ช่อง 12","score":0,"max":5,"has":false},{"id":"fin","label":"สอบปลายภาค","phase":2,"sgs":"ปลายภาค","score":0,"max":30,"has":false}],"earned":4,"outOf":5,"fullTotal":100,"att":{"present":2,"late":1,"leave":0,"absent":0,"checked":3,"pct":100,"minPct":80,"risk":false},"items":[],"pending":0}]}};
+window.google = { script: { run: (function () {
+  var ok=null, fail=null;
+  var api = {
+    withSuccessHandler:function(f){ok=f;return api;},
+    withFailureHandler:function(f){fail=f;return api;},
+    apiCall:function(body){
+      var req=JSON.parse(body), sid=String((req.payload||{}).sid||'').trim();
+      setTimeout(function(){
+        if(!sid) return ok(JSON.stringify({ok:false,error:'กรอกเลขประจำตัวก่อน'}));
+        if(!DB[sid]) return ok(JSON.stringify({ok:false,error:'ไม่พบเลขประจำตัวนี้ — ลองตรวจตัวเลขอีกครั้ง หรือถามครูผู้สอน'}));
+        ok(JSON.stringify({ok:true,data:DB[sid],version:'test'}));
+      }, 120);
+      return api;
+    }
+  };
+  return api;
+})() } };
+</script>
+
+
+<div id="boot" class="boot">
+  <div class="boot-mark">A<span>✓</span></div>
+  <div class="boot-title">ผลการเรียนของฉัน</div>
+  <div class="boot-spin"></div>
+</div>
+
+<div id="app" hidden></div>
+
+<script>
+/* AssignCheck — หน้าดูผลของนักเรียน
+ *
+ * เล็ก จบในไฟล์เดียว ไม่มีโมดูล เพราะหน้านี้ทำอย่างเดียวคือ "ดู"
+ * คุยกับเซิร์ฟเวอร์ด้วยคำสั่งเดียว: studentGet
+ */
+(function () {
+  'use strict';
+
+  // ── ตัวช่วยสร้าง DOM ──────────────────────────────────────
+  function h(tag, props) {
+    var el = document.createElement(tag);
+    if (props) {
+      for (var k in props) {
+        var v = props[k];
+        if (v === null || v === undefined || v === false) continue;
+        if (k === 'class') el.className = v;
+        else if (k === 'style' && typeof v === 'object') Object.assign(el.style, v);
+        else if (k === 'html') el.innerHTML = v;
+        else if (k.slice(0, 2) === 'on' && typeof v === 'function') el.addEventListener(k.slice(2), v);
+        else if (k === 'value' || k === 'disabled') el[k] = v;
+        else el.setAttribute(k, v === true ? '' : v);
+      }
+    }
+    for (var i = 2; i < arguments.length; i++) add(el, arguments[i]);
+    return el;
+  }
+  function add(el, c) {
+    if (c === null || c === undefined || c === false || c === true) return;
+    if (Array.isArray(c)) { c.forEach(function (x) { add(el, x); }); return; }
+    el.appendChild(c instanceof Node ? c : document.createTextNode(String(c)));
+  }
+  function svg(d, cls) {
+    var box = document.createElement('span');
+    box.innerHTML = '<svg class="' + (cls || 'ico') + '" viewBox="0 0 24 24" fill="none" ' +
+      'stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" ' +
+      'aria-hidden="true">' + d + '</svg>';
+    return box.firstElementChild;
+  }
+  var ICON = {
+    book: '<path d="M3 4h6a3 3 0 0 1 3 3v13a2.5 2.5 0 0 0-2.5-2.5H3z"/><path d="M21 4h-6a3 3 0 0 0-3 3v13a2.5 2.5 0 0 1 2.5-2.5H21z"/>',
+    chev: '<path d="m6 9 6 6 6-6"/>',
+    warn: '<path d="M12 9v4.5"/><path d="M12 17h.01"/><path d="M10.3 3.9 2.5 17.4A2 2 0 0 0 4.2 20.5h15.6a2 2 0 0 0 1.7-3.1L13.7 3.9a2 2 0 0 0-3.4 0z"/>'
+  };
+  var nf = function (n) { return String(Math.round(Number(n) * 100) / 100); };
+
+  /** ตัวย่อบนวงกลม — ตัดคำนำหน้า (เด็กชาย/นางสาว/ด.ช.) ออกก่อน ไม่งั้นได้ "เ" ทุกคน */
+  function initial(name) {
+    var s = String(name || '').replace(/^(เด็กชาย|เด็กหญิง|นางสาว|นาง|นาย|ด\.ช\.|ด\.ญ\.|น\.ส\.)\s*/, '').trim();
+    return (s || String(name || '?').trim() || '?').charAt(0);
+  }
+
+  // ── เรียกเซิร์ฟเวอร์ ──────────────────────────────────────
+  function ask(sid) {
+    return new Promise(function (resolve, reject) {
+      if (!(window.google && google.script && google.script.run)) {
+        reject(new Error('เปิดหน้านี้จากลิงก์ที่ครูให้เท่านั้น'));
+        return;
+      }
+      google.script.run
+        .withSuccessHandler(function (raw) {
+          var res;
+          try { res = JSON.parse(raw); } catch (e) { reject(new Error('อ่านคำตอบไม่ได้')); return; }
+          if (res && res.ok) resolve(res.data);
+          else reject(new Error((res && res.error) || 'เกิดข้อผิดพลาด'));
+        })
+        .withFailureHandler(function (err) {
+          reject(new Error((err && err.message) || 'เชื่อมต่อไม่ได้ ลองใหม่อีกครั้ง'));
+        })
+        .apiCall(JSON.stringify({ action: 'studentGet', payload: { sid: sid } }));
+    });
+  }
+
+  // ── หน้ากรอกเลขประจำตัว ───────────────────────────────────
+  var root = document.getElementById('app');
+  var LAST = 'ac.stu.last';
+
+  function gate(errMsg) {
+    var input = h('input', {
+      type: 'text', inputmode: 'numeric', autocomplete: 'off',
+      placeholder: '00000', maxlength: '20',
+      value: (function () { try { return localStorage.getItem(LAST) || ''; } catch (e) { return ''; } })()
+    });
+    var btn = h('button', { class: 'btn btn-block', type: 'submit' }, 'ดูผลของฉัน');
+
+    var form = h('form', {
+      onsubmit: function (e) {
+        e.preventDefault();
+        var sid = input.value.trim();
+        if (!sid) { input.focus(); return; }
+        btn.disabled = true; btn.textContent = 'กำลังค้นหา…';
+        ask(sid).then(function (data) {
+          try { localStorage.setItem(LAST, sid); } catch (e2) {}
+          show(data);
+        }).catch(function (err) {
+          gate(err.message);
+        });
+      }
+    }, input, btn);
+
+    root.replaceChildren(h('div', { class: 'gate' },
+      h('div', { class: 'gate-mark' }, svg(ICON.book)),
+      h('div', null,
+        h('h1', null, 'ผลการเรียนของฉัน'),
+        h('p', null, 'กรอกเลขประจำตัวนักเรียนเพื่อดูงาน คะแนน และการมาเรียน')),
+      errMsg ? h('div', { class: 'err', style: { maxWidth: '340px', margin: '0 auto', width: '100%' } }, errMsg) : null,
+      form,
+      h('div', { class: 'foot' }, 'เห็นเฉพาะข้อมูลของตัวเอง · ดูอย่างเดียว แก้ไขไม่ได้')
+    ));
+    setTimeout(function () { input.focus(); input.select(); }, 80);
+  }
+
+  // ── หน้าแสดงผล ────────────────────────────────────────────
+  function show(d) {
+    root.replaceChildren(h('div', { class: 'stu-wrap' },
+      h('div', { class: 'who' },
+        h('div', { class: 'who-av' }, initial(d.name)),
+        h('div', { style: { flex: '1', minWidth: '0' } },
+          h('div', { class: 'who-name' }, d.name || '—'),
+          h('div', { class: 'who-sub' }, 'เลขประจำตัว ' + d.sid)),
+        h('button', {
+          class: 'btn btn-ghost btn-sm',
+          onclick: function () { gate(); }
+        }, 'ออก')
+      ),
+
+      d.classes.length === 0
+        ? h('div', { class: 'card empty' }, 'ยังไม่มีรายวิชาที่บันทึกไว้')
+        : d.classes.map(subjectCard),
+
+      h('div', { class: 'tip' },
+        'ข้อมูลอัปเดตตามที่ครูบันทึกไว้ · อาจช้ากว่าของจริงไม่กี่นาที',
+        h('br'),
+        'ถ้าคะแนนไม่ตรง ให้แจ้งครูผู้สอนโดยตรง')
+    ));
+    window.scrollTo({ top: 0 });
+  }
+
+  function subjectCard(c, i) {
+    var body = h('div', { class: 'subj-body' },
+      // คะแนนที่เก็บได้ — เทียบเฉพาะช่องที่ครูกรอกแล้ว ไม่ใช่ 100 เต็ม
+      h('div', { class: 'big' },
+        c.outOf > 0
+          ? [h('div', { class: 'big-num' }, nf(c.earned), h('small', null, ' / ' + nf(c.outOf))),
+             h('div', { class: 'big-lbl' }, 'คะแนนที่เก็บได้ จากส่วนที่ครูกรอกแล้ว (เต็มทั้งปี 100)')]
+          : [h('div', { class: 'big-num', style: { color: 'var(--ink-3)' } }, '—'),
+             h('div', { class: 'big-lbl' }, 'ครูยังไม่ได้กรอกคะแนนในวิชานี้')]
+      ),
+
+      // ── คะแนนรายช่อง ──
+      c.buckets.some(function (b) { return b.has; }) && [
+        h('div', { class: 'grp' }, 'คะแนนแต่ละส่วน'),
+        c.buckets.filter(function (b) { return b.has; }).map(function (b) {
+          var pct = b.max > 0 ? Math.max(0, Math.min(100, b.score / b.max * 100)) : 0;
+          return h('div', { class: 'meter-row' },
+            h('div', { class: 'meter-label' }, b.label,
+              h('span', null, b.phase === 1 ? 'ก่อนกลางภาค' : 'หลังกลางภาค')),
+            h('div', { class: 'meter-track' }, h('div', { class: 'meter-fill', style: { width: pct + '%' } })),
+            h('div', { class: 'meter-val tnum' }, nf(b.score) + '/' + nf(b.max)));
+        })
+      ],
+
+      // ── งานและข้อสอบ ──
+      c.items.length > 0 && [1, 2].map(function (ph) {
+        var list = c.items.filter(function (it) { return it.phase === ph; });
+        if (!list.length) return null;
+        return [
+          h('div', { class: 'grp' }, ph === 1 ? 'งานและการสอบ · ก่อนกลางภาค' : 'งานและการสอบ · หลังกลางภาค'),
+          list.map(itemRow)
+        ];
+      }),
+
+      // ── การมาเรียน ──
+      c.att.checked > 0 && [
+        h('div', { class: 'grp' }, 'การมาเรียน · เช็คแล้ว ' + c.att.checked + ' คาบ'),
+        h('div', { class: 'att-grid' },
+          box('ok', c.att.present, 'มา'),
+          box('late', c.att.late, 'สาย'),
+          box('leave', c.att.leave, 'ลา'),
+          box('miss', c.att.absent, 'ขาด')),
+        c.att.risk && h('div', { class: 'warn' },
+          svg(ICON.warn), h('span', null,
+            'เวลาเรียนตอนนี้ ' + c.att.pct + '% ซึ่งต่ำกว่าเกณฑ์ ' + c.att.minPct + '% ' +
+            'ถ้าถึงปลายภาคยังไม่ถึงเกณฑ์อาจติด มส — รีบคุยกับครูผู้สอน'))
+      ]
+    );
+
+    var card = h('div', { class: 'card card-tight subj' + (i === 0 ? '' : ' closed') },
+      h('button', {
+        class: 'subj-head',
+        onclick: function (e) { e.currentTarget.parentElement.classList.toggle('closed'); }
+      },
+        h('span', { class: 'subj-tag' }, [c.grade, c.room].filter(Boolean).join('/') || '—'),
+        h('span', { style: { flex: '1', minWidth: '0' } },
+          h('span', { class: 'subj-name', style: { display: 'block' } }, c.subject),
+          h('span', { class: 'subj-meta', style: { display: 'block' } },
+            [c.subjectCode, c.no ? 'เลขที่ ' + c.no : ''].filter(Boolean).join(' · '))),
+        svg(ICON.chev, 'ico subj-chev')
+      ),
+      body
+    );
+    return card;
+  }
+
+  /** ข้อสอบกับงานส่งใช้คำต่างกัน — ให้ตรงกับที่ครูเห็นในระบบ */
+  var LABEL = {
+    work: { ok: 'ส่งแล้ว', late: 'ส่งช้า', miss: 'ไม่ส่ง', none: 'ยังไม่ตรวจ' },
+    exam: { ok: 'สอบแล้ว', late: 'ส่งช้า', miss: 'ยังไม่ได้สอบ', none: 'ยังไม่กรอก' }
+  };
+  var BADGE = { ok: 'g', late: 'a', miss: 'r', none: 'n' };
+
+  function itemRow(it) {
+    var words = it.exam ? LABEL.exam : LABEL.work;
+    var got = it.score !== null && it.score !== undefined;
+    return h('div', { class: 'item' },
+      h('div', { class: 'item-main' },
+        h('div', { class: 'item-name' }, it.label),
+        it.desc && h('div', { class: 'item-desc' }, it.desc)),
+      h('span', { class: 'badge ' + BADGE[it.status] }, words[it.status]),
+      h('div', { class: 'item-score' + (got ? '' : ' none') },
+        got ? nf(it.score) + '/' + nf(it.max) : '—')
+    );
+  }
+
+  function box(cls, n, label) {
+    return h('div', { class: 'att-box ' + cls },
+      h('div', { class: 'att-n' }, String(n)),
+      h('div', { class: 'att-l' }, label));
+  }
+
+  // ── เริ่ม ──────────────────────────────────────────────────
+  var boot = document.getElementById('boot');
+  if (boot) boot.remove();
+  root.hidden = false;
+  gate();
+})();
+
+</script>
+</body>
+</html>

@@ -1,0 +1,343 @@
+/* AssignCheck V2 — จุดเริ่มต้นแอป: เปลือกหน้าจอ + เราเตอร์ */
+
+import { h, mount, toast } from './dom.js';
+import * as api from './api.js';
+import { state, subscribe, bootAll, loadClass, sync, isSyncing, go } from './state.js';
+import { auth } from './auth.js';
+import { icon } from './icons.js';
+import { applyTheme, watchSystemTheme } from './theme.js';
+
+import { viewSetup }      from './views/setup.js';
+import { viewHome }       from './views/home.js';
+import { viewAttendance } from './views/attendance.js';
+import { viewWork }       from './views/work.js';
+import { viewSummary }    from './views/summary.js';
+import { viewReport }     from './views/report.js';
+import { viewSettings }   from './views/settings.js';
+import { viewHealth }     from './views/health.js';
+import { NEEDS_SERVER, cmpVersion } from './version.js';
+
+const NAV = [
+  { id: 'home',    ic: 'home',  label: 'หน้าแรก',   view: viewHome },
+  { id: 'att',     ic: 'clock', label: 'เช็คชื่อ',   view: viewAttendance, needClass: true },
+  { id: 'work',    ic: 'tasks', label: 'งาน/คะแนน', view: viewWork,       needClass: true },
+  { id: 'report',  ic: 'chart', label: 'รายงาน',    view: viewReport,     needClass: true },
+  { id: 'summary', ic: 'table', label: 'สรุป SGS',  view: viewSummary,    needClass: true }
+];
+
+// หน้าที่ไม่ได้อยู่ในแถบเมนู เข้าจากที่อื่น
+const EXTRA_VIEWS = { settings: viewSettings, health: viewHealth };
+
+/**
+ * เรื่องที่ต้องเตือนทันที ไม่ควรรอให้ผู้ใช้ไปหาเอง
+ * (โค้ดในชีตเก่าคือสาเหตุอันดับ 1 ของอาการคะแนนเพี้ยน)
+ */
+function topAlert() {
+  if (!api.conn.ready) return null;
+  const sv = api.serverInfo.version;
+
+  if (api.serverInfo.seen && cmpVersion(sv, NEEDS_SERVER) < 0) {
+    return {
+      level: 'err',
+      text: sv
+        ? `โค้ดในชีตเป็นเวอร์ชันเก่า (v${sv}) — คะแนน "ส่งช้า" จะเพี้ยน`
+        : 'โค้ดในชีตเป็นเวอร์ชันเก่า — คะแนน "ส่งช้า" จะถูกคิดเป็น 0'
+    };
+  }
+  const sum = ['w_work1','w_quiz1','w_att1','w_mid','w_work2','w_quiz2','w_att2','w_fin']
+    .reduce((a, k) => a + (Number(state.config[k]) || 0), 0);
+  if (state.config.w_work1 !== undefined && sum !== 100) {
+    return { level: 'err', text: `น้ำหนักคะแนนรวม ${sum} ไม่เท่ากับ 100` };
+  }
+  if (state.classes.length && !String(state.config.mid_date || '').trim()) {
+    return { level: 'warn', text: 'ยังไม่ได้ตั้งวันสอบกลางภาค — คะแนนอาจลงผิดช่วง' };
+  }
+  return null;
+}
+
+const app = document.getElementById('app');
+const boot = document.getElementById('boot');
+
+/**
+ * เอาหน้าโหลดออกแล้วโชว์แอป
+ *
+ * เรียกทันทีที่วาดหน้าได้ครั้งแรก ไม่ใช่รอจนกว่าเน็ตจะตอบ
+ * เดิมรอ bootAll() จบก่อนเสมอ ผลคือครูที่มีข้อมูลในเครื่องครบอยู่แล้ว
+ * ยังต้องนั่งดูโลโก้หมุน 20 วินาทีตอนสัญญาณไม่ดี แล้วจบด้วยหน้า
+ * "เปิดแอปไม่สำเร็จ" ทั้งที่กดใช้งานออฟไลน์ได้ตั้งนานแล้ว
+ *
+ * ผลพลอยได้: หน้าหมดเวลา 20 วินาทีด้านล่างจะขึ้นเฉพาะตอนที่ยังวาดอะไร
+ * ไม่ได้จริง ๆ เท่านั้น ไม่ไปทับของที่ครูใช้งานอยู่
+ */
+function reveal() {
+  const b = document.getElementById('boot');
+  if (b) b.remove();
+  if (app.hidden) app.hidden = false;
+}
+
+/**
+ * แสดงข้อผิดพลาดให้เห็นบนหน้าจอ แทนที่จะค้างอยู่ที่หน้าโหลดเงียบ ๆ
+ * ครูจะได้อ่านข้อความส่งมาให้ช่วยดูได้ ไม่ต้องเปิด console เอง
+ */
+function showFatal(err) {
+  const msg = String((err && (err.message || err.stack)) || err || 'ไม่ทราบสาเหตุ');
+  try { if (boot) boot.remove(); } catch (e) {}
+  try { app.hidden = false; } catch (e) {}
+  mount(app, h('div', { class: 'page' },
+    h('div', { class: 'card' },
+      h('div', { style: { fontSize: '17px', fontWeight: '700', marginBottom: '8px' } }, 'เปิดแอปไม่สำเร็จ'),
+      h('div', { style: { fontSize: '13.5px', color: 'var(--ink-2)', marginBottom: '12px', lineHeight: '1.6' } },
+        'ลองกดโหลดใหม่ก่อน ถ้ายังไม่หาย ให้ส่งข้อความด้านล่างนี้ให้คนดูแลระบบ'),
+      h('pre', {
+        style: {
+          background: 'var(--surface-3)', padding: '11px 13px', borderRadius: '10px',
+          fontSize: '12px', whiteSpace: 'pre-wrap', wordBreak: 'break-word', margin: '0 0 12px'
+        }
+      }, msg),
+      h('button', { class: 'btn btn-block', onclick: () => location.reload() }, 'โหลดใหม่')
+    )));
+}
+
+// กันไว้อีกชั้น — พังตรงไหนก็ตาม อย่างน้อยต้องไม่ค้างที่หน้าโหลด
+window.addEventListener('error', (e) => {
+  if (document.getElementById('boot')) showFatal(e.error || e.message);
+});
+window.addEventListener('unhandledrejection', (e) => {
+  if (document.getElementById('boot')) showFatal(e.reason);
+});
+
+// ── เปลือกหน้าจอ ────────────────────────────────────────────
+
+/** จอกว้าง = เมนูไปอยู่ในแถบหัวสีเข้ม (ตามดีไซน์ PC) · จอแคบ = เมนูล่างจอ */
+const wide = () => {
+  try { return matchMedia('(min-width: 900px)').matches; } catch (e) { return false; }
+};
+
+/**
+ * ป้ายบอกสถานะซิงค์ — แยกออกมาเพราะเปลี่ยนบ่อยกว่าส่วนอื่นของแถบหัวมาก
+ * อัปเดตเฉพาะช่องนี้ ไม่ต้องวาดทั้งหน้าใหม่ (กันเคอร์เซอร์เด้งตอนพิมพ์คะแนน)
+ */
+function syncBits() {
+  const online = navigator.onLine;
+  const pending = api.queue.size;
+  return [
+    pending > 0 && h('span', { class: 'sync-pill' + (online ? '' : ' off') },
+      isSyncing() ? 'กำลังซิงค์…' : `ค้าง ${pending}`),
+    !online && h('span', { class: 'sync-pill off' }, 'ออฟไลน์'),
+    // ตัวเลขที่เห็นมาจากสำเนาในเครื่อง ยังไม่ได้คุยกับชีตรอบนี้
+    // เดิมมี state.stale แต่ไม่เคยเอามาแสดง ครูจึงแยกไม่ออกว่ากำลังดูของสดหรือของเก่า
+    online && state.stale && h('span', {
+      class: 'sync-pill off',
+      title: 'ยังต่อชีตไม่ได้รอบนี้ — ตัวเลขที่เห็นเป็นสำเนาล่าสุดในเครื่อง'
+    }, 'ข้อมูลในเครื่อง')
+  ].filter(Boolean);
+}
+
+function refreshSyncSlot() {
+  const slot = document.querySelector('.appbar .sync-slot');
+  if (slot) slot.replaceChildren(...syncBits());
+}
+
+function appbar() {
+  return h('header', { class: 'appbar' },
+    h('div', { class: 'brand' }, 'A'),
+    h('div', { style: wide() ? { minWidth: '0' } : { flex: '1', minWidth: '0' } },
+      h('div', { class: 'appbar-title' }, 'AssignCheck'),
+      h('div', { class: 'appbar-sub' },
+        state.config.year ? `${state.config.year} · เทอม ${state.config.term || '-'}` : 'เช็คชื่อ · เช็คงาน · สรุป SGS')
+    ),
+    wide() && nav(),
+    wide() && classChip(),
+    h('span', { class: 'sync-slot' }, ...syncBits()),
+    h('button', {
+      class: 'icon-btn', title: 'ซิงค์ข้อมูล', 'aria-label': 'ซิงค์ข้อมูล',
+      onclick: async (e) => {
+        const s = e.currentTarget.firstElementChild;
+        if (s) s.style.animation = 'spin .7s linear infinite';
+        await sync({ loud: true });
+        await bootAll();          // อ่านใหม่ทั้งตั้งค่าและห้องปัจจุบันในรอบเดียว
+      }
+    }, icon('refresh')),
+    h('button', {
+      class: 'icon-btn', title: 'ตั้งค่า', 'aria-label': 'ตั้งค่า',
+      'data-on': state.view === 'settings' ? '1' : '0',
+      onclick: () => go(state.view === 'settings' ? 'home' : 'settings')
+    }, icon('gear'))
+  );
+}
+
+function nav() {
+  return h('nav', { class: 'nav' },
+    NAV.map(n => h('button', {
+      'data-on': state.view === n.id ? '1' : '0',
+      'aria-current': state.view === n.id ? 'page' : null,
+      onclick: () => {
+        if (n.needClass && !state.classId) { toast('เลือกห้องเรียนก่อน'); go('home'); return; }
+        go(n.id);
+      }
+    }, h('span', { class: 'ic' }, icon(n.ic)), h('span', null, n.label)))
+  );
+}
+
+/** PC: ห้องที่เลือกอยู่เป็นชิปในแถบหัวสีเข้ม (ดีไซน์หน้า 02–05) */
+function classChip() {
+  if (!state.classes.length) return null;
+  if (!['att', 'work', 'report', 'summary'].includes(state.view)) return null;
+  return h('div', { class: 'class-chip' },
+    h('select', {
+      'aria-label': 'เลือกห้องเรียน',
+      value: state.classId,
+      onchange: (e) => loadClass(e.target.value)
+    }, state.classes.map(c => h('option', { value: c.classId, selected: c.classId === state.classId },
+      `${[c.grade, c.room].filter(Boolean).join('/')} ${c.subject}`)))
+  );
+}
+
+function classPicker() {
+  if (!state.classes.length) return null;
+  if (!['att', 'work', 'report', 'summary'].includes(state.view)) return null;
+  return h('div', { class: 'class-pick' },
+    icon('book'),
+    h('select', {
+      'aria-label': 'เลือกห้องเรียน',
+      value: state.classId,
+      onchange: (e) => loadClass(e.target.value)
+    }, state.classes.map(c => h('option', { value: c.classId, selected: c.classId === state.classId },
+      `${[c.grade, c.room].filter(Boolean).join('/')} · ${c.subject}`)))
+  );
+}
+
+function render() {
+  if (!api.conn.ready) { mount(app, viewSetup()); return; }
+
+  const view = EXTRA_VIEWS[state.view]
+    || (NAV.find(n => n.id === state.view) || NAV[0]).view;
+
+  const alert = topAlert();
+
+  // ดีไซน์ให้ "บริบทของหน้า" อยู่ในแถบเข้มบนมือถือ — แถบนั้นจึงมาแทน
+  // แถบ AssignCheck ทั่วไป ไม่ใช่ซ้อนกันสองชั้น (บน PC แถบทั่วไปอยู่คงที่)
+  const head = (!wide() && typeof view.head === 'function') ? view.head() : null;
+
+  mount(app,
+    h('div', { class: 'shell' },
+      head || appbar(),
+      alert && state.view !== 'health' && h('button', {
+        class: 'alert-bar' + (alert.level === 'warn' ? ' warn' : ''),
+        onclick: () => go('health')
+      }, h('span', null, (alert.level === 'warn' ? '⚠️ ' : '❌ ') + alert.text), h('b', null, 'แก้ ›')),
+      !wide() && nav(),
+      !head && classPicker(),
+      view()
+    )
+  );
+
+  reveal();
+}
+
+/**
+ * วาดหน้าจอแบบมีตาข่ายรับ
+ *
+ * ถ้า view ไหน throw ขึ้นมา (ข้อมูลรูปแบบแปลก · ค่าที่ไม่ได้เผื่อไว้)
+ * ของเดิมจะดันขึ้นไปถึงคนที่เรียก emit() ทำให้ปุ่มที่เพิ่งกดพังตามไปด้วย
+ * แล้วทุกการกดหลังจากนั้นก็พังซ้ำ — หน้าจอค้างอยู่กับที่ กดอะไรก็ไม่ขยับ
+ * และไม่มีข้อความบอกสักคำ ครูจะนึกว่าแอปแฮงก์
+ *
+ * ตรงนี้จึงกันไว้ให้เหลือหน้าที่มีทางออกเสมอ
+ */
+function safeRender() {
+  try { render(); }
+  catch (err) {
+    console.error(err);
+    try { showBroken(err); } catch (e) { showFatal(err); }
+  }
+}
+
+/** หน้าจอสำรองตอน view พัง — ยังกลับหน้าแรกหรือไปตั้งค่าได้ */
+function showBroken(err) {
+  const msg = String((err && (err.message || err.stack)) || err || 'ไม่ทราบสาเหตุ');
+  reveal();
+  mount(app, h('div', { class: 'page' },
+    h('div', { class: 'card' },
+      h('div', { style: { fontSize: '17px', fontWeight: '700', marginBottom: '8px' } }, 'หน้านี้เปิดไม่ขึ้น'),
+      h('div', { style: { fontSize: '13.5px', color: 'var(--ink-2)', marginBottom: '12px', lineHeight: '1.6' } },
+        'ข้อมูลที่กรอกไว้ยังอยู่ครบและยังส่งขึ้นชีตตามปกติ — กลับไปหน้าอื่นแล้วใช้งานต่อได้เลย'),
+      h('pre', {
+        style: {
+          background: 'var(--surface-3)', padding: '11px 13px', borderRadius: '10px',
+          fontSize: '12px', whiteSpace: 'pre-wrap', wordBreak: 'break-word', margin: '0 0 12px'
+        }
+      }, msg),
+      h('div', { class: 'btn-row' },
+        h('button', { class: 'btn', style: { flex: '1' }, onclick: () => go('home') }, 'กลับหน้าแรก'),
+        h('button', { class: 'btn btn-ghost', style: { flex: '1' }, onclick: () => location.reload() }, 'โหลดใหม่'))
+    )));
+}
+
+// ── เริ่มทำงาน ──────────────────────────────────────────────
+
+// งานเสริมพวกนี้ห้ามทำให้แอปเปิดไม่ขึ้น ถ้าพังก็แค่ข้ามไป
+try { applyTheme(); } catch (e) {}
+try { watchSystemTheme(() => safeRender()); } catch (e) {}
+
+subscribe(safeRender);
+
+// สลับ mobile ↔ desktop แล้วต้องวาดใหม่ เพราะเมนูอยู่คนละที่
+// ใช้ event ของ media query โดยตรง — เชื่อถือได้กว่าดัก resize
+try {
+  matchMedia('(min-width: 900px)').addEventListener('change', () => safeRender());
+} catch (e) {
+  window.addEventListener('resize', () => safeRender());
+}
+
+window.addEventListener('ac:rerender', safeRender);
+window.addEventListener('ac:sync', refreshSyncSlot);
+auth.onChange(safeRender);
+
+// รับลิงก์ย้ายเครื่อง (#c=...) ก่อนอย่างอื่น
+try { api.conn.applyTransferFromHash(); } catch (e) {}
+
+// เผื่อเซิร์ฟเวอร์ไม่ตอบเลย — อย่าปล่อยให้หมุนค้างไม่มีที่สิ้นสุด
+setTimeout(() => {
+  if (document.getElementById('boot')) {
+    showFatal(new Error('เชื่อมต่อกับ Google Sheet ไม่สำเร็จภายใน 20 วินาที\n\n' +
+      'มักเกิดจาก: โค้ดในชีตยังไม่ได้ Deploy เวอร์ชันใหม่ · ลิงก์ที่เปิดเป็น Deployment เก่า · หรืออินเทอร์เน็ตหลุด'));
+  }
+}, 20000);
+
+// ── PWA: ใช้ได้เฉพาะตอนเสิร์ฟจากโฮสต์ปกติ ──────────────────
+// โหมดที่ Apps Script เสิร์ฟเอง อยู่ใน iframe ปิด ลงทะเบียน service worker ไม่ได้
+if (api.MODE === 'remote' && 'serviceWorker' in navigator && location.protocol !== 'file:') {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  });
+}
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  state.installPrompt = e;
+  safeRender();
+});
+window.addEventListener('appinstalled', () => { state.installPrompt = null; safeRender(); });
+
+(async function start() {
+  try {
+    if (api.conn.ready) {
+      try {
+        await bootAll();          // ยิงครั้งเดียวได้ทั้งตั้งค่า รายชื่อห้อง และห้องที่เปิดค้างไว้
+      } catch (e) {
+        if (e instanceof api.ApiError && (e.code === 'AUTH' || e.code === 'FORBIDDEN')) {
+          toast(e.message + ' — กรุณาเชื่อมต่อใหม่', 'err', 6000);
+          if (e.code === 'AUTH') auth.signOut(); else api.conn.clear();
+        }
+      }
+      sync();
+    }
+    safeRender();
+  } catch (e) {
+    showFatal(e);
+  } finally {
+    // ต้องเอาหน้าโหลดออกเสมอ ไม่ว่าจะเกิดอะไรขึ้น — ค้างที่โลโก้แล้วผู้ใช้ทำอะไรไม่ได้เลย
+    reveal();
+  }
+})();
+

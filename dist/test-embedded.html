@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AssignCheck — ทดสอบโหมด embedded</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+<!--
+  หน้านี้ใช้ทดสอบเฉพาะตอนพัฒนา — จำลอง google.script.run ให้ยิงไปที่ Apps Script จริง
+  เพื่อพิสูจน์ว่าเส้นทาง MODE === 'embedded' ของฝั่งเว็บทำงานถูกต้อง
+-->
+<script>
+window.google = { script: { run: (function () {
+  var ok = null, fail = null;
+  var api = {
+    withSuccessHandler: function (f) { ok = f; return api; },
+    withFailureHandler: function (f) { fail = f; return api; },
+    apiCall: function (bodyJson) {
+      var body = JSON.parse(bodyJson);
+      body.key = localStorage.getItem('ac.key') || '';     // แทนการล็อกอินของ Google
+      fetch(localStorage.getItem('ac.url'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(body), redirect: 'follow'
+      }).then(function (r) { return r.text(); })
+        .then(function (t) {
+          // เซิร์ฟเวอร์จริงในโหมด embedded จะแนบ user กลับมาด้วย — จำลองให้เหมือนกัน
+          try {
+            var j = JSON.parse(t);
+            j.user = { email: 'teacher@example.com', name: 'teacher@example.com' };
+            j.version = j.version || '2.3.0';
+            t = JSON.stringify(j);
+          } catch (e) {}
+          ok && ok(t);
+        })
+        .catch(function (e) { fail && fail(e); });
+      return api;
+    }
+  };
+  return api;
+})() } };
+</script>
+
+<div id="boot" class="boot">
+  <div class="boot-mark">A<span>✓</span></div>
+  <div class="boot-title">AssignCheck</div>
+  <div class="boot-spin"></div>
+</div>
+<div id="app" hidden></div>
+<div id="toasts" class="toasts"></div>
+<div id="modal-root"></div>
+
+<script src="./app.bundle.js"></script>
+</body>
+</html>

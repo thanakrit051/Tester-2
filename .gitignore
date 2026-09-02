@@ -1,0 +1,14 @@
+# ── ของชั่วคราวตอนพัฒนา ───────────────────────────────
+dev/_probe-*.html      # หน้าทดลองที่สร้างชั่วคราวเวลาไล่บั๊ก
+*.log
+*.tmp
+
+# ── ขยะของระบบปฏิบัติการ ──────────────────────────────
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# หมายเหตุ: dist/ กับ docs/ ตั้งใจให้ commit
+#   docs/  = ไฟล์ที่ GitHub Pages เสิร์ฟจริง
+#   dist/app.bundle.js = โค้ดครูที่ Apps Script ไปดึงไปใช้
+# ทั้งคู่สร้างจาก tools/build-webapp.mjs และ tools/build-pages.mjs

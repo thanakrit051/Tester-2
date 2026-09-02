@@ -1,0 +1,208 @@
+/* สไตล์เฉพาะหน้าของนักเรียน — ต่อยอดจาก styles.css (ใช้ตัวแปรสีชุดเดียวกัน) */
+
+.stu-wrap { max-width: 620px; margin: 0 auto; padding: 16px 14px 40px; }
+
+/* ── หน้ากรอกเลขประจำตัว ── */
+.gate { min-height: 100dvh; display: grid; align-content: center; gap: 18px; padding: 24px 16px; }
+.gate-mark {
+  width: 68px; height: 68px; border-radius: 22px; margin: 0 auto;
+  background: linear-gradient(150deg, var(--accent-2), var(--accent));
+  color: #fff; display: grid; place-content: center;
+  box-shadow: 0 14px 34px -12px color-mix(in srgb, var(--accent) 65%, transparent);
+}
+.gate-mark svg { width: 32px; height: 32px; }
+.gate h1 { font-size: 21px; margin: 0; text-align: center; letter-spacing: -.3px; }
+.gate p  { margin: 4px 0 0; text-align: center; color: var(--ink-2); font-size: 13.5px; }
+.gate form { display: grid; gap: 10px; max-width: 340px; margin: 4px auto 0; width: 100%; }
+.gate input {
+  text-align: center; font-size: 22px; font-weight: 700; letter-spacing: 3px;
+  padding: 14px 12px; font-variant-numeric: tabular-nums;
+}
+.gate .foot { text-align: center; font-size: 12px; color: var(--ink-3); margin-top: 6px; }
+
+.err {
+  background: var(--red-soft); color: var(--st-miss); border-radius: var(--r-1);
+  padding: 11px 13px; font-size: 13.5px; font-weight: 600; text-align: center;
+}
+
+/* ── หัวข้อมูลนักเรียน ── */
+.who {
+  display: flex; align-items: center; gap: 12px; margin-bottom: 14px;
+}
+.who-av {
+  width: 46px; height: 46px; border-radius: 14px; flex: none;
+  background: var(--accent-soft); color: var(--accent-ink);
+  display: grid; place-content: center; font-size: 19px; font-weight: 700;
+}
+.who-name { font-size: 17px; font-weight: 700; letter-spacing: -.2px; }
+.who-sub  { font-size: 12.5px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+
+/* ── การ์ดรายวิชา ── */
+.subj { margin-bottom: 14px; }
+.subj-head {
+  display: flex; align-items: center; gap: 11px; width: 100%;
+  padding: 13px 14px; text-align: left; background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+.subj-tag {
+  padding: 4px 9px; border-radius: 8px; flex: none; font-size: 11.5px; font-weight: 700;
+  background: var(--accent-soft); color: var(--accent-ink);
+}
+.subj-name { font-weight: 700; font-size: 15px; }
+.subj-meta { font-size: 12px; color: var(--ink-2); }
+.subj-chev { color: var(--ink-3); transition: transform .18s; flex: none; }
+.subj.closed .subj-chev { transform: rotate(-90deg); }
+.subj.closed .subj-body { display: none; }
+.subj.closed .subj-head { border-bottom: none; }
+
+.subj-body { padding: 14px; }
+
+/* ── แถบคะแนนรวม ── */
+.big {
+  text-align: center; padding: 4px 0 14px; border-bottom: 1px solid var(--line); margin-bottom: 14px;
+}
+.big-num {
+  font-size: 40px; font-weight: 700; line-height: 1; letter-spacing: -1.5px;
+  color: var(--accent-ink); font-variant-numeric: tabular-nums;
+}
+.big-num small { font-size: 18px; font-weight: 600; color: var(--ink-3); letter-spacing: 0; }
+.big-lbl { font-size: 12.5px; color: var(--ink-2); margin-top: 5px; }
+
+/* ── รายการงาน/สอบ ── */
+.grp { font-size: 11.5px; font-weight: 700; color: var(--ink-3); letter-spacing: .6px; margin: 16px 0 6px; }
+.grp:first-child { margin-top: 0; }
+
+.item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 0; border-bottom: 1px solid var(--line);
+}
+.item:last-child { border-bottom: none; }
+.item-main { flex: 1; min-width: 0; }
+.item-name { font-size: 14px; font-weight: 600; }
+.item-desc { font-size: 11.5px; color: var(--ink-3); margin-top: 1px; }
+.item-score {
+  font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums;
+  min-width: 56px; text-align: right; flex: none;
+}
+.item-score.none { color: var(--ink-3); font-weight: 500; }
+
+/* ── การมาเรียน ── */
+.att-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 10px; }
+.att-box {
+  text-align: center; padding: 10px 4px; border-radius: 12px; background: var(--surface-2);
+  border: 1px solid var(--line);
+}
+.att-n { font-size: 20px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.att-l { font-size: 11px; color: var(--ink-2); margin-top: 2px; }
+.att-box.ok .att-n    { color: var(--st-ok); }
+.att-box.late .att-n  { color: var(--warn-ink); }
+.att-box.leave .att-n { color: var(--st-leave); }
+.att-box.miss .att-n  { color: var(--st-miss); }
+
+.warn {
+  display: flex; gap: 9px; align-items: flex-start;
+  background: var(--amber-soft); color: var(--warn-ink);
+  border-radius: var(--r-1); padding: 11px 13px; font-size: 13px;
+  font-weight: 600; margin-top: 12px; line-height: 1.5;
+}
+
+.tip { font-size: 12px; color: var(--ink-3); text-align: center; margin-top: 18px; line-height: 1.6; }
+
+/* ── หน้านักเรียน: แถบเข้มบนสุด (ดีไซน์หน้า 08) ───────────── */
+.stu-hero {
+  background: var(--bar); color: var(--bar-ink);
+  padding: calc(22px + env(safe-area-inset-top)) 18px 20px;
+}
+.hero-row { display: flex; align-items: flex-start; gap: 10px; }
+.hero-kick {
+  font-size: 12.5px; color: var(--bar-ink-2);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.hero-name {
+  font-size: 21px; font-weight: 700; color: #fff; margin-top: 2px;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.hero-out {
+  flex: none; padding: 6px 13px; border-radius: 20px;
+  background: var(--bar-2); color: var(--bar-ink-2); font-size: 12.5px; font-weight: 600;
+}
+.hero-out:hover { background: var(--bar-3); color: #fff; }
+.hero-back {
+  flex: none; width: 26px; font-size: 20px; line-height: 1;
+  color: var(--bar-ink-2); text-align: left;
+}
+.hero-score { display: flex; align-items: flex-end; gap: 10px; margin-top: 16px; }
+.hero-score b {
+  font-size: 40px; font-weight: 700; color: var(--lime); line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.hero-score span { font-size: 13px; color: var(--bar-ink-2); padding-bottom: 4px; }
+.hero-mini { display: flex; gap: 8px; margin-top: 12px; }
+.mini { flex: 1; min-width: 0; background: var(--bar-2); border-radius: 11px; padding: 9px 11px; }
+.mini-l { font-size: 11.5px; color: var(--bar-ink-2); }
+.mini-v {
+  font-size: 15px; font-weight: 700; color: #fff;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* ── รายการงาน / คะแนนสอบ ─────────────────────────────────── */
+.card-h { display: flex; align-items: baseline; gap: 8px; margin-bottom: 12px; }
+.card-h b { font-size: 13.5px; font-weight: 700; color: var(--ink); }
+.card-h span { font-size: 11px; color: var(--ink-3); }
+.rows { display: flex; flex-direction: column; gap: 9px; }
+.srow {
+  display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+  padding: 10px 12px; border-radius: 11px; background: var(--surface-2);
+}
+.srow:not(.static):hover { background: var(--surface-3); }
+.srow.bad  { background: var(--miss-soft); }
+.srow.warn { background: var(--late-soft); }
+.srow.hi   { background: var(--accent-soft); }
+.srow.dim  { opacity: .65; }
+.srow-name {
+  font-size: 14px; color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.srow-sub { font-size: 11.5px; color: var(--ink-2); margin-top: 1px; }
+.srow-tag {
+  flex: none; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums;
+  color: var(--st-ok);
+}
+.srow-tag.bad    { color: var(--st-miss); }
+.srow-tag.warn   { color: var(--st-late); }
+.srow-tag.accent { color: var(--accent-ink); font-size: 15px; }
+.srow-go { flex: none; color: var(--ink-3); font-size: 14px; }
+.srow.bad .srow-go  { color: var(--st-miss); }
+.srow.warn .srow-go { color: var(--st-late); }
+
+/* ── หน้ารายละเอียดงาน ────────────────────────────────────── */
+.note {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 14px; border-radius: 14px; background: var(--surface-2);
+  margin-bottom: 10px;
+}
+.note.bad  { background: var(--miss-soft); }
+.note.warn { background: var(--late-soft); }
+.note b { display: block; font-size: 13.5px; font-weight: 700; color: var(--ink); }
+.note span { display: block; font-size: 11.5px; color: var(--ink-2); margin-top: 1px; }
+.note.bad b, .note.bad span   { color: var(--st-miss); }
+.note.warn b, .note.warn span { color: var(--warn-ink); }
+.prose { font-size: 13.5px; color: var(--ink-2); line-height: 1.8; white-space: pre-wrap; }
+.rules { display: flex; flex-direction: column; gap: 7px; font-size: 13px; color: var(--ink-2); }
+.rule { display: flex; gap: 10px; }
+.rule span:last-child { color: var(--ink); }
+.rule span.t-warn { color: var(--st-late); }
+.rule span.t-dim  { color: var(--ink-3); }
+
+@media (min-width: 760px) {
+  .stu-hero { padding: 22px 24px; }
+  .stu-hero > * { max-width: 620px; margin-left: auto; margin-right: auto; }
+  .hero-score b { font-size: 34px; }
+}
+
+/* คะแนนบนแถวสีเทาเข้มของโหมดมืด — --st-ok ยังสว่างไม่พอ (วัดได้ 4.33 ต้องการ 4.5)
+   ใช้ :not() กันไม่ให้ทับสีของแถวที่มีสถานะเฉพาะ */
+[data-theme="dark"] .srow-tag:not(.bad):not(.warn):not(.accent) { color: #41bf6d; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .srow-tag:not(.bad):not(.warn):not(.accent) { color: #41bf6d; }
+}
