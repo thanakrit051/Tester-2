@@ -10,4 +10,4 @@
       ถ้าใช้ลิงก์ของครู นักเรียนจะเปิดไม่ได้
    ══════════════════════════════════════════════════════════ */
 
-window.AC_API = 'https://script.google.com/macros/s/AKfycbxuSptVMVUWP2Nu-HDX9fqOB0i_qO3jDwr0ZuzmU-Mzf3mAPLNDJdChp8_rPXVlaFTMgA/exec';
+window.AC_API = 'https://script.google.com/macros/s/AKfycbxb3g2XXS0CsN2Ds2EjR4Z2v1CSYrcqDMLTAYiw7qU7e4ADnMwlD0ZB01bLt6kM2ZzI4g/exec';
