@@ -1071,9 +1071,81 @@ function subscribe(fn) { subs.add(fn); return () => subs.delete(fn); }
  * ถ้าการวาดหน้าพังแล้วดันขึ้นมาถึงตรงนี้ การบันทึกจะดูเหมือนล้มไปด้วย
  * ทั้งที่ค่าลงคิวเรียบร้อยแล้ว
  */
-function emit() {
+function emitNow() {
   subs.forEach(fn => { try { fn(); } catch (e) { console.error(e); } });
 }
+
+/* ── กันไม่ให้การวาดหน้าใหม่ไปทำลายช่องที่ผู้ใช้กำลังกรอกอยู่ ──
+ *
+ * render() ล้าง DOM ทิ้งทั้งหน้าแล้วสร้างใหม่ ถ้ามันทำงานตอนที่ผู้ใช้
+ * คาเคอร์เซอร์อยู่ในช่องไหน ช่องนั้นจะถูกแทนที่ด้วย element ตัวใหม่
+ *   · ช่องข้อความ/ตัวเลข → เคอร์เซอร์เด้ง แป้นพิมพ์บนมือถือปิดเอง
+ *   · <input type="date"> → ปฏิทินของเครื่องเกาะกับ element เดิมอยู่
+ *     พอ element หาย ปฏิทินก็ปิดตัวเอง = ตั้งวันไม่ได้เลย
+ *
+ * iOS Safari ทำให้เห็นชัดที่สุด เพราะพอเปิดปฏิทินมันจะเซ็ตวันปัจจุบัน
+ * แล้วยิง change ทันทีตั้งแต่ผู้ใช้ยังไม่ได้เลือกอะไร การวาดใหม่จึงเกิดขึ้น
+ * ตอนปฏิทินเพิ่งกางออกมา — อาการคือ "ปฏิทินขึ้นแล้วปิดเอง"
+ *
+ * เดิมไล่แก้เป็นช่อง ๆ ซึ่งไม่จบ เพราะอะไรก็เรียก emit() ได้
+ * จึงกันที่ต้นทางแทน: ระหว่างที่ปฏิทิน/นาฬิกาของเครื่องกางอยู่ ให้พัก
+ * การวาดไว้ก่อน แล้วค่อยวาดตอนออกจากช่อง
+ *
+ * จงใจจำกัดไว้แค่ช่องที่มีหน้าต่างของระบบเกาะอยู่เท่านั้น
+ * ถ้าพักการวาดให้ทุกช่องที่โฟกัส แล้วมีอะไรทำให้โฟกัสค้าง
+ * ทั้งแอปจะหยุดอัปเดตไปเลย ซึ่งแย่กว่าอาการเดิมมาก
+ * ช่องข้อความ/ตัวเลขแก้ที่ต้นทางไปแล้ว (บันทึกแบบ quiet + อัปเดต DOM เอง)
+ */
+const PICKER_TYPES = ['date', 'time', 'datetime-local', 'month', 'week'];
+let pending = false;
+
+/** ปฏิทิน/นาฬิกาของเครื่องกางอยู่ไหม */
+const pickerOpen = () => {
+  try {
+    const el = document.activeElement;
+    if (!el || el.tagName !== 'INPUT') return false;
+    if (!PICKER_TYPES.includes(el.type)) return false;
+    const app = document.getElementById('app');
+    return !!(app && app.contains(el));
+  } catch (e) { return false; }
+};
+
+let pendingSince = 0;
+
+function emit() {
+  if (pickerOpen()) {
+    if (!pending) pendingSince = Date.now();
+    pending = true;
+    return;
+  }
+  pending = false;
+  emitNow();
+}
+
+/** ปฏิทินปิดแล้ว — ถ้ามีการวาดที่พักไว้ ค่อยทำตอนนี้ */
+function flushPending() {
+  if (!pending) return;
+  // รอให้โฟกัสไปนิ่งก่อน กันกรณีย้ายจากช่องหนึ่งไปอีกช่องหนึ่ง
+  setTimeout(() => { if (pending && !pickerOpen()) { pending = false; emitNow(); } }, 0);
+}
+try {
+  document.addEventListener('focusout', flushPending, true);
+  // ตาข่ายรับ: ผู้ใช้แตะหรือพิมพ์ที่อื่นเมื่อไหร่ ต้องไม่มีอะไรค้างอยู่
+  document.addEventListener('click', flushPending, true);
+  document.addEventListener('keydown', flushPending, true);
+  document.addEventListener('visibilitychange', flushPending);
+
+  // ตาข่ายชั้นสุดท้าย — เผื่อปฏิทินปิดไปโดยไม่ยิง event ที่เราดักไว้
+  // (บางเบราว์เซอร์บนมือถือทำแบบนั้น) เช็คเบา ๆ วินาทีละครั้ง
+  //
+  // มีเพดานเวลาด้วย: ถ้าค้างเกิน 8 วินาทีให้วาดเลยไม่ว่าจะยังโฟกัสอยู่ไหม
+  // เพราะถ้าโฟกัสค้างอยู่ในช่องด้วยเหตุอะไรก็ตาม แอปจะหยุดอัปเดตไปเรื่อย ๆ
+  // ซึ่งแย่กว่าปฏิทินถูกปิดมาก — 8 วินาทีนานพอสำหรับการเลือกวันตามปกติ
+  setInterval(() => {
+    if (!pending) return;
+    if (!pickerOpen() || Date.now() - pendingSince > 8000) { pending = false; emitNow(); }
+  }, 1000);
+} catch (e) {}
 
 function settings() { return settingsFrom(state.config); }
 
@@ -4288,13 +4360,51 @@ async function put(k, v, opts) {
   }
 }
 
+/**
+ * อัปเดตป้ายผลรวมกับแถบสีน้ำหนักคะแนน โดยไม่วาดหน้าใหม่
+ */
+function refreshWeightCard(el) {
+  const card = el.closest('.card');
+  if (!card) return;
+  const sum = weightSum();
+  const badge = card.querySelector('[data-wsum]');
+  if (badge) {
+    badge.textContent = sum === 100 ? 'รวม 100 ✓' : `รวม ${sum} ✕`;
+    badge.className = sum === 100 ? 'set-ok' : 'set-bad';
+  }
+  const bar = card.querySelector('[data-wbar]');
+  if (bar) {
+    bar.replaceChildren(...WEIGHTS.filter(w => num(w.k) > 0).map(w =>
+      h('i', { style: { width: (num(w.k) / Math.max(sum, 1) * 100) + '%', background: w.c },
+               title: `${w.label} ${num(w.k)}` })));
+  }
+}
+
+/**
+ * อัปเดตแถว "วันสอบกลางภาค" ตรง ๆ โดยไม่วาดหน้าใหม่
+ * เพื่อไม่ให้ input ที่ปฏิทินของเครื่องเกาะอยู่ถูกทำลาย
+ */
+function refreshMidDateRow(el) {
+  const ok = midSet();
+  el.style.borderColor = ok ? '' : 'var(--st-miss)';
+  el.style.color = ok ? '' : 'var(--st-miss)';
+  const row = el.closest('.set-row');
+  const desc = row && row.querySelector('[data-desc]');
+  if (desc) {
+    desc.textContent = ok
+      ? 'ใช้แยกว่าคาบที่เช็คอยู่ช่วงก่อนหรือหลังกลางภาค'
+      : 'ยังไม่ได้ตั้ง — ระบบยังแยกช่วงก่อน/หลังกลางภาคไม่ได้';
+    desc.classList.toggle('bad', !ok);
+  }
+}
+
 // ── ชิ้นส่วนที่ใช้ซ้ำ ────────────────────────────────────────
 
 /** แถวตั้งค่า 1 บรรทัด: ชื่อ + คำอธิบาย ทางซ้าย · ตัวควบคุมทางขวา */
 const row = (name, desc, ctl, bad) => h('div', { class: 'set-row' },
   h('div', null,
     h('div', { class: 'set-name' }, name),
-    desc && h('div', { class: 'set-desc' + (bad ? ' bad' : '') }, desc)),
+    desc && h('div', { class: 'set-desc' + (bad ? ' bad' : ''), 'data-desc': '1' }, desc)),
   h('div', { class: 'set-ctl' }, ctl));
 
 const numInput = (k, { step, suffix, width } = {}) => [
@@ -4326,11 +4436,11 @@ function secScore() {
     h('div', { class: 'card' },
       h('div', { style: { display: 'flex', alignItems: 'baseline', gap: '10px', marginBottom: '4px' } },
         h('div', { style: { fontSize: '17px', fontWeight: '700', flex: '1' } }, 'น้ำหนักคะแนน 8 ช่อง'),
-        h('div', { class: sum === 100 ? 'set-ok' : 'set-bad' },
+        h('div', { class: sum === 100 ? 'set-ok' : 'set-bad', 'data-wsum': '1' },
           sum === 100 ? 'รวม 100 ✓' : `รวม ${sum} ✕`)),
       h('div', { style: { fontSize: '12.5px', color: 'var(--ink-2)' } },
         'ต้องรวมได้ 100 พอดี ระบบเตือนทันทีถ้าเกินหรือขาด'),
-      h('div', { class: 'weightbar' },
+      h('div', { class: 'weightbar', 'data-wbar': '1' },
         WEIGHTS.map(w => num(w.k) > 0 &&
           h('i', { style: { width: (num(w.k) / Math.max(sum, 1) * 100) + '%', background: w.c }, title: `${w.label} ${num(w.k)}` }))),
       h('div', { class: 'wgrid' },
@@ -4338,7 +4448,14 @@ function secScore() {
           h('label', null, w.label),
           h('input', {
             type: 'number', min: '0', value: String(num(w.k)),
-            onchange: (e) => { state.config[w.k] = e.target.value; put(w.k, e.target.value); emit(); }
+            // เหตุผลเดียวกับช่องวันสอบกลางภาค — วาดหน้าใหม่แล้วช่องที่เพิ่งแก้
+            // ถูกสร้างใหม่ ตำแหน่ง scroll กระโดด และบนมือถือแป้นพิมพ์ปิดเอง
+            // จึงบันทึกเงียบ ๆ แล้วอัปเดตเฉพาะป้ายผลรวมกับแถบสีในการ์ดนี้
+            onchange: async (e) => {
+              state.config[w.k] = e.target.value;
+              await put(w.k, e.target.value, { quiet: true });
+              refreshWeightCard(e.target);
+            }
           }))))
     ),
 
@@ -4362,20 +4479,23 @@ function secScore() {
         h('input', {
           type: 'date', value: String(cfg('mid_date')),
           style: midSet() ? null : { borderColor: 'var(--st-miss)', color: 'var(--st-miss)' },
-          // ห้ามวาดหน้าใหม่ขณะที่ยังอยู่ในช่องนี้
-          // การวาดใหม่จะสร้าง input ตัวใหม่แทนตัวเดิม ปฏิทินของเครื่องที่เปิด
-          // ค้างอยู่จึงถูกปิดทิ้งกลางคัน — บนมือถือคือกดตั้งวันแล้วเด้งออกทันที
-          // (บางเครื่องยิง change ตั้งแต่ตอนเลื่อนเลือกวัน ยังไม่ทันกดตกลง)
+          // ⚠️ ห้ามวาดหน้าใหม่จากช่องนี้เด็ดขาด
           //
-          // จึงบันทึกเงียบ ๆ ก่อน แล้วค่อยวาดใหม่ทีหลัง
-          // ต้องเช็คโฟกัสด้วย ไม่ใช่รอ blur อย่างเดียว เพราะบนเดสก์ท็อป
-          // โฟกัสมักหลุดไปแล้วตั้งแต่ตอนปิดปฏิทิน blur จะไม่มายิงให้
+          // render() ล้าง DOM ทิ้งทั้งหน้าแล้วสร้างใหม่ input ตัวที่ปฏิทินของ
+          // เครื่องเกาะอยู่จึงหายไป ปฏิทินเลยปิดตัวเอง = กดตั้งวันแล้วเด้งออก
+          //
+          // เคยแก้ด้วยการเช็คโฟกัสก่อนวาดใหม่ แต่ยังไม่พอ —
+          // Android ส่วนใหญ่ย้ายโฟกัสออกจาก input ตั้งแต่ตอนเปิดปฏิทิน
+          // พอ change ยิง โฟกัสจึงไม่ได้อยู่ที่ช่องแล้ว โค้ดเลยวาดใหม่ทันที
+          // ทั้งที่ปฏิทินยังกางอยู่ อาการเด้งออกจึงยังเหมือนเดิม
+          //
+          // จึงบันทึกเงียบ ๆ แล้วแก้เฉพาะข้อความกับกรอบในแถวนี้เอง
+          // ส่วนแถบเตือนด้านบนจะอัปเดตตอนออกจากหน้านี้ (กดย้อนกลับก็วาดใหม่อยู่แล้ว)
           onchange: async (e) => {
             const el = e.target;
             state.config.mid_date = el.value;
             await put('mid_date', el.value, { quiet: true });
-            if (document.activeElement === el) el.addEventListener('blur', () => emit(), { once: true });
-            else emit();
+            refreshMidDateRow(el);
           }
         }),
         !midSet())
