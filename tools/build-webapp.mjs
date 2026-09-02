@@ -11,6 +11,7 @@
  *
  * แก้โค้ดที่ js/ เหมือนเดิมเสมอ — อย่าแก้ไฟล์ที่ build ออกมา
  */
+import './preflight.mjs';   // ไม่ผ่าน = ไม่ build (ข้ามด้วย --skip-checks)
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';

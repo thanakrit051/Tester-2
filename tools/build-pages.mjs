@@ -12,6 +12,7 @@
  * แยก config ออกมา เพราะเวลาอัปเดตหน้าเว็บจะได้ทับ index.html ได้เลย
  * โดยไม่ต้องกลัวว่าลิงก์ที่ตั้งไว้จะหาย
  */
+import './preflight.mjs';   // ไม่ผ่าน = ไม่ build (ข้ามด้วย --skip-checks)
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';

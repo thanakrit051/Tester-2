@@ -200,6 +200,7 @@ AssignCheck-V2/
 │   ├── state.js          สถานะแอป + optimistic update
 │   ├── score.js          สูตรคะแนน (ฝั่งเบราว์เซอร์)
 │   ├── dom.js            ตัวช่วย DOM/โมดัล/toast
+│   ├── storage.js        เก็บข้อมูลในเครื่อง + สำรองในหน่วยความจำเมื่อถูกบล็อก
 │   └── views/            setup · home · attendance · work · summary · settings
 └── apps-script/          โค้ดที่ต้องวางใน Apps Script
     ├── 00_Constants.gs   ค่าคงที่ + โครงแถว/บล็อก
@@ -207,6 +208,13 @@ AssignCheck-V2/
     ├── 02_ClassSheet.gs  โครงแท็บห้องเรียน (คอลัมน์/นักเรียน/อ่าน-เขียน)
     ├── 03_Score.gs       สูตรคะแนน (ฝั่งชีต)
     └── 04_Api.gs         Web API
+
+tools/
+├── preflight.mjs      ตรวจก่อน build (build เรียกให้เอง)
+├── check-sw.mjs       sw.js เก็บไฟล์ครบ + เวอร์ชันตรงไหม
+├── bundle.mjs         รวม .gs → ALL-IN-ONE.gs
+├── build-webapp.mjs   → dist/app.bundle.js
+└── build-pages.mjs    → docs/ (GitHub Pages)
 ```
 
 > ⚠️ **สูตรคะแนนมี 2 ที่**: `js/score.js` (แสดงผลทันที/ออฟไลน์) และ `apps-script/03_Score.gs`
@@ -218,7 +226,32 @@ AssignCheck-V2/
 > node test/parity.mjs
 > ```
 >
-> เทียบทุกโหมด (ratio/deduct × ignore/zero × ทศนิยม 0-2 × วิธีปัด 3 แบบ) รวม 10,800 ค่า
+> เทียบทุกโหมด (ratio/deduct × ignore/zero × ทศนิยม 0-2 × วิธีปัด 3 แบบ)
+> รวมถึงเกณฑ์เกรดที่เขียนผิดรูปแบบ
+
+### วิธี build และปล่อยของ
+
+```bash
+node tools/bundle.mjs        # รวม apps-script/*.gs → ALL-IN-ONE.gs
+node tools/build-webapp.mjs  # → dist/app.bundle.js + apps-script/Index.html
+node tools/build-pages.mjs   # → docs/ (GitHub Pages)
+```
+
+`build-webapp.mjs` กับ `build-pages.mjs` จะ **ตรวจก่อน build ทุกครั้ง** ถ้าไม่ผ่านจะไม่เขียนไฟล์ออกมาเลย
+
+| ตรวจอะไร | ถ้าหลุดไปจะเป็นยังไง |
+|---|---|
+| `tools/check-sw.mjs` — `sw.js` เก็บไฟล์ครบตามที่ `app.js` import ถึงไหม | ขาดไฟล์เดียว แอปเปิดตอนไม่มีเน็ตไม่ขึ้น |
+| `tools/check-sw.mjs` — `sw.js` VERSION ตรงกับ `APP_VERSION` ไหม | แคชเก่าไม่ถูกล้าง ครูติดอยู่กับโค้ดเก่าถาวร |
+| `test/parity.mjs` — สูตรคะแนน 2 ฝั่งตรงกันไหม | หน้าจอโชว์เกรดหนึ่ง ชีตบันทึกอีกเกรดหนึ่ง |
+
+รันแยกเองก็ได้: `node tools/preflight.mjs`
+ตอนแก้ค้างอยู่และยังไม่อยากให้ติด ใส่ `--skip-checks` ได้ (ห้ามใช้ตอนจะ deploy จริง)
+
+> ⚠️ **ปล่อยเวอร์ชันใหม่ทุกครั้งต้องบวกเลข** ที่ `APP_VERSION` (`js/version.js`)
+> และ `VERSION` (`sw.js`) ให้ตรงกัน — ถ้าไม่บวก `app.bundle.js?v=...` จะเหมือนเดิม
+> เบราว์เซอร์กับ service worker จะหยิบของเก่ามาใช้ **โค้ดที่แก้จะไม่ถึงเครื่องครู**
+> (`check-sw.mjs` กันไว้ให้แล้ว แต่กันได้แค่ 2 เลขนี้ไม่ตรงกัน ไม่ได้กันตอนลืมบวกทั้งคู่)
 
 ---
 

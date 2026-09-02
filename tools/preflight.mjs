@@ -1,0 +1,30 @@
+/**
+ * ตรวจก่อน build — ถ้าไม่ผ่านต้องไม่ปล่อยของออกไป
+ *
+ * รัน:  node tools/preflight.mjs
+ * (build-webapp.mjs กับ build-pages.mjs เรียกให้เองอยู่แล้ว)
+ *
+ * ตรวจ 2 อย่างที่เคยหลุดมาแล้วจริง ๆ และเป็นแบบที่ "ดูปกติดีทุกอย่าง"
+ * จนกว่าจะไปเจอตอนอยู่หน้าห้อง:
+ *
+ *   1. tools/check-sw.mjs
+ *      sw.js เก็บไฟล์ครบตามที่ app.js import ถึงไหม และเวอร์ชันตรงกับ
+ *      APP_VERSION ไหม — ถ้าขาดไฟล์ แอปจะเปิดตอนไม่มีเน็ตไม่ขึ้น
+ *      ถ้าเวอร์ชันไม่ขยับ แคชเก่าไม่ถูกล้าง ครูติดอยู่กับโค้ดเก่าถาวร
+ *
+ *   2. test/parity.mjs
+ *      สูตรคะแนนฝั่งเบราว์เซอร์ (js/score.js) กับฝั่งชีต
+ *      (apps-script/03_Score.gs) ให้ผลตรงกันไหม — ถ้าเพี้ยน หน้าจอจะโชว์
+ *      เกรดหนึ่ง แต่ชีตบันทึกอีกเกรดหนึ่ง โดยไม่มีอะไรเตือน
+ *
+ * ข้าม: node tools/build-pages.mjs --skip-checks
+ *       (ใช้ตอนกำลังแก้ค้างอยู่เท่านั้น ห้ามใช้ตอนจะ deploy จริง)
+ */
+
+if (process.argv.includes('--skip-checks')) {
+  console.log('⚠️  ข้ามการตรวจก่อน build (--skip-checks) — อย่าใช้ตอนจะ deploy จริง\n');
+} else {
+  await import('./check-sw.mjs');
+  await import('../test/parity.mjs');
+  console.log('');
+}

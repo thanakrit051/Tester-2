@@ -90,6 +90,22 @@ function reveal() {
   if (app.hidden) app.hidden = false;
 }
 
+let bootDone = false;   // true = ยิงขอข้อมูลรอบแรกจบแล้ว (สำเร็จหรือล้มก็ตาม)
+
+/**
+ * มีของให้ดูจริงหรือยัง
+ *
+ * เปิดหน้าโล่งทันทีตอนที่ยังไม่มีทั้งแคชและคำตอบจากชีต
+ * ครูจะเห็น "ยังไม่มีห้องเรียน · สร้างห้องเรียนแรก" ค้างอยู่ 1-3 วินาที
+ * (Apps Script ตอบช้าขนาดนั้น) แล้วอาจกดสร้างห้องซ้ำทั้งที่มีอยู่แล้ว
+ * — หน้าโหลดหมุน ๆ ยังดีกว่าคำตอบผิดที่ดูเหมือนคำตอบจริง
+ */
+function readyToShow() {
+  if (bootDone) return true;                        // โหลดจบแล้ว ไม่ว่าผลจะเป็นยังไง
+  if (!api.conn.ready) return true;                 // หน้าติดตั้ง — ไม่ต้องรอเน็ต
+  return state.classes.length > 0 || !!state.cls;   // มีของจากแคชให้ดูแล้ว
+}
+
 /**
  * แสดงข้อผิดพลาดให้เห็นบนหน้าจอ แทนที่จะค้างอยู่ที่หน้าโหลดเงียบ ๆ
  * ครูจะได้อ่านข้อความส่งมาให้ช่วยดูได้ ไม่ต้องเปิด console เอง
@@ -247,7 +263,7 @@ function render() {
     )
   );
 
-  reveal();
+  if (readyToShow()) reveal();
 }
 
 /**
@@ -352,6 +368,7 @@ window.addEventListener('appinstalled', () => { state.installPrompt = null; safe
     showFatal(e);
   } finally {
     // ต้องเอาหน้าโหลดออกเสมอ ไม่ว่าจะเกิดอะไรขึ้น — ค้างที่โลโก้แล้วผู้ใช้ทำอะไรไม่ได้เลย
+    bootDone = true;
     reveal();
   }
 })();
@@ -5027,7 +5044,7 @@ __exp(exports, { viewHealth });
  * ⚠️ เวลาแก้โค้ดที่กระทบทั้ง 2 ฝั่ง ให้บวกเลขนี้ และแก้ SERVER_VERSION
  *    ใน apps-script/00_Constants.gs ให้ตรงกันด้วย
  */
-const APP_VERSION = '3.0.0';
+const APP_VERSION = '3.0.1';
 
 /** เวอร์ชันต่ำสุดของฝั่งชีตที่หน้าเว็บนี้ทำงานด้วยได้ครบทุกฟีเจอร์ */
 const NEEDS_SERVER = '2.8.0';
