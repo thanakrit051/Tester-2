@@ -10,7 +10,6 @@ export const state = {
   classId: '',
   cls: null,
   view: 'home',
-  busy: false,
   stale: false,           // true = ข้อมูลมาจากแคช ยังไม่ได้ซิงค์
   webAppUrl: '',          // ลิงก์เปิดแอป (โหมด Apps Script เสิร์ฟเอง)
   user: null,             // บัญชีที่กำลังใช้งาน { email, name }
@@ -74,26 +73,6 @@ function normalizeClass(d) {
 
 // ── โหลดข้อมูล ──────────────────────────────────────────────
 
-export async function bootstrap({ silent = false } = {}) {
-  const cached = api.cache.get('bootstrap');
-  if (cached) { state.config = cached.config || {}; state.classes = cached.classes || []; state.stale = true; emit(); }
-  if (!api.conn.ready) return;
-
-  try {
-    const data = await api.call('bootstrap');
-    state.config = data.config || {};
-    state.classes = data.classes || [];
-    state.webAppUrl = data.webAppUrl || '';
-    state.user = api.serverInfo.user || null;
-    state.stale = false;
-    api.cache.set('bootstrap', data);
-    emit();
-  } catch (e) {
-    if (!silent && !(e instanceof api.OfflineError)) toast(e.message, 'err');
-    if (e instanceof api.ApiError && e.code === 'AUTH') throw e;
-  }
-}
-
 /**
  * โหลดทุกอย่างที่ต้องใช้ตอนเปิดแอปด้วยการยิงครั้งเดียว
  *
@@ -131,15 +110,7 @@ export async function bootAll() {
 
   const list = res.results || [];
   const boot = list[0];
-  if (boot && boot.ok) {
-    const d = boot.data || {};
-    state.config = d.config || {};
-    state.classes = d.classes || [];
-    state.webAppUrl = d.webAppUrl || '';
-    state.user = api.serverInfo.user || null;
-    state.stale = false;
-    api.cache.set('bootstrap', d);
-  }
+  if (boot && boot.ok) applyBootstrap(boot.data || {});
 
   const got = list[1];
   if (got && got.ok && got.data) {
@@ -169,7 +140,6 @@ export async function loadClass(classId, { force = false } = {}) {
   if (!force && cached && !api.net.online) return;
 
   try {
-    state.busy = true; emit();
     const data = await api.call('getClass', { classId });
     state.cls = normalizeClass(data);
     state.stale = false;
@@ -178,7 +148,7 @@ export async function loadClass(classId, { force = false } = {}) {
     if (!(e instanceof api.OfflineError)) toast(e.message, 'err');
     if (!cached) state.cls = null;
   } finally {
-    state.busy = false; emit();
+    emit();
   }
 }
 
@@ -188,34 +158,88 @@ function persistClass() {
 
 // ── สร้าง/แก้ไขโครงสร้าง (ต้องออนไลน์) ─────────────────────
 
+/**
+ * เอาผลของคำสั่ง bootstrap ไปใส่ state (ใช้ร่วมกันหลายที่)
+ */
+function applyBootstrap(d) {
+  if (!d) return;
+  state.config = d.config || {};
+  state.classes = d.classes || [];
+  state.webAppUrl = d.webAppUrl || '';
+  state.user = api.serverInfo.user || null;
+  state.stale = false;
+  api.cache.set('bootstrap', d);
+}
+
+/**
+ * ยิงหลายคำสั่งในรอบเดียว แล้วคืนผลเป็นอาเรย์
+ *
+ * Apps Script ตอบรอบละ 1-3 วินาที การยิงเรียงกันจึงคูณเวลารอตรง ๆ
+ * ของเดิม "แก้ไขข้อมูลห้อง" ยิง 3 รอบต่อกัน (updateClassMeta → bootstrap
+ * → getClass) ครูต้องรอ 3-9 วินาทีกว่าจะได้หน้าจอกลับมา
+ * ฝั่งชีตรันคำสั่งใน batch เรียงตามลำดับให้อยู่แล้ว รวมได้เลย
+ *
+ * @param ops [{ action, payload }]
+ * @param failMsg ข้อความเมื่อคำสั่งแรก (คำสั่งหลัก) ไม่ผ่าน
+ */
+async function batchCall(ops, failMsg) {
+  const res = await api.call('batch', { ops });
+  const list = res.results || [];
+  const main = list[0];
+  if (!main || !main.ok) throw new api.ApiError((main && main.error) || failMsg);
+  return list;
+}
+
 export async function createClass(meta, students) {
-  const data = await api.call('createClass', { meta, students });
-  await bootstrap({ silent: true });
-  state.cls = normalizeClass(data);
+  const [made, boot] = await batchCall([
+    { action: 'createClass', payload: { meta, students } },
+    { action: 'bootstrap',   payload: {} }
+  ], 'สร้างห้องเรียนไม่สำเร็จ');
+
+  if (boot && boot.ok) applyBootstrap(boot.data);
+  state.cls = normalizeClass(made.data);
   state.classId = state.cls.meta.classId;
   api.lastClass.set(state.classId);
   persistClass(); emit();
-  return data;
+  return made.data;
 }
 
 export async function updateClassMeta(meta) {
-  await api.call('updateClassMeta', { classId: state.classId, meta });
-  await bootstrap({ silent: true });
-  await loadClass(state.classId, { force: true });
+  const [, boot, got] = await batchCall([
+    { action: 'updateClassMeta', payload: { classId: state.classId, meta } },
+    { action: 'bootstrap',       payload: {} },
+    { action: 'getClass',        payload: { classId: state.classId } }
+  ], 'บันทึกข้อมูลห้องไม่สำเร็จ');
+
+  if (boot && boot.ok) applyBootstrap(boot.data);
+  if (got && got.ok && got.data) {
+    state.cls = normalizeClass(got.data);
+    state.stale = false;
+    persistClass();
+  }
+  emit();
 }
 
 export async function deleteClass(classId) {
-  await api.call('deleteClass', { classId });
+  const [, boot] = await batchCall([
+    { action: 'deleteClass', payload: { classId } },
+    { action: 'bootstrap',   payload: {} }
+  ], 'ลบห้องเรียนไม่สำเร็จ');
+
   api.cache.del('class.' + classId);
   if (state.classId === classId) { state.classId = ''; state.cls = null; }
-  await bootstrap({ silent: true });
+  if (boot && boot.ok) applyBootstrap(boot.data);
   emit();
 }
 
 export async function setStudents(students) {
-  const data = await api.call('setStudents', { classId: state.classId, students });
-  state.cls = normalizeClass(data); persistClass();
-  await bootstrap({ silent: true });
+  const [set, boot] = await batchCall([
+    { action: 'setStudents', payload: { classId: state.classId, students } },
+    { action: 'bootstrap',   payload: {} }
+  ], 'บันทึกรายชื่อนักเรียนไม่สำเร็จ');
+
+  state.cls = normalizeClass(set.data); persistClass();
+  if (boot && boot.ok) applyBootstrap(boot.data);
   emit();
 }
 

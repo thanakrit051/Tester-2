@@ -154,6 +154,23 @@ function refreshSyncSlot() {
   if (slot) slot.replaceChildren(...syncBits());
 }
 
+/**
+ * แถบบาง ๆ ด้านบนจอ บอกว่ากำลังคุยกับชีตอยู่
+ *
+ * Apps Script ตอบ 1-3 วินาที ถ้าไม่มีอะไรขยับเลยระหว่างนั้น
+ * ผู้ใช้จะรู้สึกว่าแอปค้าง มากกว่ารู้สึกว่ากำลังโหลด
+ * แตะ DOM ตรง ๆ ไม่ผ่าน render() เพราะสถานะนี้เปลี่ยนถี่มาก
+ * และห้ามทำให้ช่องกรอกคะแนนที่ครูพิมพ์อยู่ถูกวาดใหม่
+ */
+function refreshNetBar() {
+  let bar = document.getElementById('netbar');
+  if (!bar) {
+    bar = h('div', { id: 'netbar', class: 'netbar', 'aria-hidden': 'true' });
+    document.body.appendChild(bar);
+  }
+  bar.dataset.on = api.isBusy() ? '1' : '0';
+}
+
 function appbar() {
   return h('header', { class: 'appbar' },
     h('div', { class: 'brand' }, 'A'),
@@ -308,6 +325,7 @@ try {
 
 window.addEventListener('ac:rerender', safeRender);
 window.addEventListener('ac:sync', refreshSyncSlot);
+window.addEventListener('ac:busy', refreshNetBar);
 auth.onChange(safeRender);
 
 // รับลิงก์ย้ายเครื่อง (#c=...) ก่อนอย่างอื่น

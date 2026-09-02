@@ -129,11 +129,27 @@ function post(body) {
   }).then(r => r.text(), () => { throw new OfflineError('เชื่อมต่อไม่ได้'); });
 }
 
+/**
+ * มีคำขอค้างอยู่กี่รายการ — ใช้โชว์แถบกำลังโหลด
+ *
+ * Apps Script ตอบ 1-3 วินาที ถ้าไม่มีอะไรขยับบนจอเลยระหว่างนั้น
+ * ผู้ใช้จะรู้สึกว่าแอปค้าง ไม่ใช่แค่ช้า (ของเดิมมี state.busy แต่ไม่มีใครอ่าน)
+ */
+let inflight = 0;
+export const isBusy = () => inflight > 0;
+function setBusy(delta) {
+  inflight = Math.max(0, inflight + delta);
+  try { window.dispatchEvent(new CustomEvent('ac:busy')); } catch (e) {}
+}
+
 export async function call(action, payload = {}) {
   if (!conn.ready) throw new ApiError('ยังไม่ได้เชื่อมต่อกับ Google Sheet', 'NOCONN');
 
   // ส่งข้อมูลยืนยันตัวตนไปทั้ง 2 แบบ ฝั่งเซิร์ฟเวอร์รับอันไหนก็ได้ที่ผ่าน
-  const text = await post({ key: conn.key, idToken: auth.token, action, payload });
+  setBusy(1);
+  let text;
+  try { text = await post({ key: conn.key, idToken: auth.token, action, payload }); }
+  finally { setBusy(-1); }
 
   let body;
   try { body = JSON.parse(text); }

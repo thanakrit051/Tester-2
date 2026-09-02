@@ -169,7 +169,14 @@ const html = `<!DOCTYPE html>
 <script>try{var t=localStorage.getItem('ac.theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- โหลดฟอนต์แบบไม่บล็อกการวาดหน้า
+     ของเดิมเป็น <link rel="stylesheet"> ธรรมดา เบราว์เซอร์จะไม่วาดอะไรเลย
+     จนกว่าจะโหลด CSS ก้อนนี้จาก Google เสร็จ (2 ตระกูล × 4 น้ำหนัก)
+     เน็ตโรงเรียนช้า ๆ ทีก็ค้างที่จอขาวไปหลายวินาทีทั้งที่แอปพร้อมแล้ว
+     media="print" ทำให้ไม่บล็อก แล้วสลับเป็น all ตอนโหลดเสร็จ
+     ระหว่างนั้นใช้ฟอนต์ระบบไปก่อน (มีใน font-family อยู่แล้ว) -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" media="print" onload="this.media='all';this.onload=null">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap"></noscript>
 <style>
 ${coreCss}
 </style>

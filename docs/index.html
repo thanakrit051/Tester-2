@@ -9,7 +9,14 @@
 <script>try{var t=localStorage.getItem('ac.theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- โหลดฟอนต์แบบไม่บล็อกการวาดหน้า
+     ของเดิมเป็น <link rel="stylesheet"> ธรรมดา เบราว์เซอร์จะไม่วาดอะไรเลย
+     จนกว่าจะโหลด CSS ก้อนนี้จาก Google เสร็จ (2 ตระกูล × 4 น้ำหนัก)
+     เน็ตโรงเรียนช้า ๆ ทีก็ค้างที่จอขาวไปหลายวินาทีทั้งที่แอปพร้อมแล้ว
+     media="print" ทำให้ไม่บล็อก แล้วสลับเป็น all ตอนโหลดเสร็จ
+     ระหว่างนั้นใช้ฟอนต์ระบบไปก่อน (มีใน font-family อยู่แล้ว) -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" media="print" onload="this.media='all';this.onload=null">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap"></noscript>
 <style>
 /* ═══════════════════════════════════════════════════════════
    AssignCheck — ระบบดีไซน์ "แนว 1c แอปห้องเรียน"
@@ -1378,6 +1385,24 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
   .att-btn, .att-list .att-btn { width: 40px; }
   .att-group { gap: 4px; }
 }
+
+/* แถบบาง ๆ บอกว่ากำลังคุยกับ Google Sheet
+   อยู่เหนือทุกอย่างและไม่กินพื้นที่ layout จึงไม่ทำให้หน้ากระโดด */
+.netbar {
+  position: fixed; inset: 0 0 auto 0; height: 3px; z-index: 999;
+  pointer-events: none; opacity: 0; transition: opacity .18s;
+  background: linear-gradient(90deg, transparent, var(--lime), transparent);
+  background-size: 40% 100%; background-repeat: no-repeat;
+}
+.netbar[data-on="1"] { opacity: 1; animation: netbar-slide 1.1s linear infinite; }
+@keyframes netbar-slide {
+  from { background-position: -40% 0; }
+  to   { background-position: 140% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .netbar[data-on="1"] { animation: none; background: var(--lime); background-size: 100% 100%; }
+}
+
 
 /* สไตล์เฉพาะหน้าของนักเรียน — ต่อยอดจาก styles.css (ใช้ตัวแปรสีชุดเดียวกัน) */
 
