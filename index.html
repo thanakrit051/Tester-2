@@ -22,9 +22,12 @@
                                เห็นไลม์ที่ไหน = ปุ่มที่ควรกดตอนนี้ ห้ามใช้พร่ำเพรื่อ
      • สีสถานะ (มา/สาย/ลา/ขาด) แยกจากสีแบรนด์ทั้งหมด
 
-   ⚠️ คู่ มา↔สาย มีระยะห่างสำหรับคนตาบอดสี ΔE 6.8 (ต่ำกว่าเกณฑ์ 8)
-      จึงต้องมี "ตัวอักษรกำกับเสมอ" ทุกที่ที่ใช้สีเหล่านี้ — ปุ่มมีตัว ม/ส/ล/ข
-      กราฟมีตัวเลขและคำอธิบายสีเสมอ ห้ามสื่อความหมายด้วยสีอย่างเดียว
+   ⚠️ คู่ มา↔สาย ยังห่างไม่พอสำหรับคนตาบอดสี — วัดด้วย OKLab ΔE×100
+      โหมดสว่าง #15803d ↔ #b45309  แย่สุด 5.1 (deutan)
+      โหมดมืด   #33a75d ↔ #d07d1e  แย่สุด 6.1 (deutan)
+      ทั้งคู่ต่ำกว่าเกณฑ์ 8 จึงต้องมี "ตัวอักษรกำกับเสมอ" ทุกที่ที่ใช้สีเหล่านี้
+      ปุ่มมีตัว ม/ส/ล/ข · กราฟมีตัวเลขและคำอธิบายสีเสมอ
+      ห้ามสื่อความหมายด้วยสีอย่างเดียว · แก้ค่าสีเมื่อไหร่ต้องวัดซ้ำ
    ═══════════════════════════════════════════════════════════ */
 
 :root,
@@ -147,7 +150,7 @@
   --lime-soft:   #22301a;
   --on-lime:     #0b2b24;
 
-  --st-ok:       #2f9e57;
+  --st-ok:       #33a75d;
   --st-late:     #d07d1e;
   --st-leave:    #5b86e8;
   --st-miss:     #e96a8c;
@@ -181,7 +184,7 @@
     --accent: #2ba695; --accent-2: #37c0ac; --accent-ink: #6fd8c6;
     --accent-soft: #10322c; --on-accent: #04211c; --on-ink: #081513; --hero: #0b4740; --hero-ink: #a9e5da;
     --lime: #c7f04a; --lime-2: #d4f76a; --lime-soft: #22301a; --on-lime: #0b2b24;
-    --st-ok: #2f9e57; --st-late: #d07d1e; --st-leave: #5b86e8; --st-miss: #e96a8c;
+    --st-ok: #33a75d; --st-late: #d07d1e; --st-leave: #5b86e8; --st-miss: #e96a8c;
     --st-none: #37504a;
     --on-ok: #04150a; --on-late: #1d1201; --on-leave: #050d1f; --on-miss: #21060e;
     --warn-ink: #e0a43a;
@@ -746,6 +749,498 @@ table.grid td.total { background: var(--accent-soft) !important; font-weight: 70
   .stats { gap: 10px; }
 }
 
+/* ═══════════════════════════════════════════════════════════
+   โครงรายหน้าจอ — ไล่ตามไฟล์ดีไซน์ทีละหน้า
+   หลักการที่ดีไซน์ยึด: "บริบทของหน้านั้นอยู่ในแถบเข้มเสมอ"
+     มือถือ  แถบเข้มของหน้านั้นแทนแถบ AssignCheck ทั่วไป (.pagehead)
+     PC      แถบ AssignCheck อยู่คงที่ บริบทลงมาเป็นการ์ดขาว (.ctxbar)
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── แถบหัวประจำหน้า (มือถือ) ─────────────────────────────── */
+.pagehead {
+  background: var(--bar); color: var(--bar-ink);
+  padding: calc(14px + env(safe-area-inset-top)) 16px 14px;
+  position: sticky; top: 0; z-index: 44;
+}
+.ph-row { display: flex; align-items: center; gap: 10px; }
+.ph-back {
+  font-size: 20px; line-height: 1; color: var(--bar-ink-2);
+  width: 26px; height: 32px; flex: none; display: grid; place-content: center;
+}
+.ph-back:hover { color: #fff; }
+.ph-grow { flex: 1; min-width: 0; }
+.ph-title {
+  font-size: 17px; font-weight: 700; color: var(--bar-ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ph-sub {
+  font-size: 12.5px; color: var(--bar-ink-2);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ph-badge {
+  flex: none; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums;
+  background: var(--lime); color: var(--on-lime); padding: 5px 11px; border-radius: 20px;
+}
+.ph-badge.dim { background: var(--bar-2); color: var(--bar-ink-2); font-weight: 600; }
+
+.ph-actions { display: flex; gap: 8px; margin-top: 14px; }
+.ph-main {
+  flex: 1; text-align: center; padding: 11px; border-radius: 12px;
+  background: var(--lime); color: var(--on-lime); font-size: 14px; font-weight: 700;
+}
+.ph-main:hover { background: var(--lime-2); }
+.ph-side {
+  padding: 11px 14px; border-radius: 12px; flex: none;
+  background: var(--bar-2); color: var(--hero-ink); font-size: 14px; font-weight: 600;
+}
+.ph-side:hover { background: var(--bar-3); }
+.ph-side[data-on="1"] { background: var(--lime); color: var(--on-lime); }
+
+.ph-box {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  margin-top: 12px; padding: 11px 14px; border-radius: 12px;
+  background: var(--bar-2); color: var(--bar-ink); text-align: left;
+}
+.ph-box:hover { background: var(--bar-3); }
+.ph-box b { flex: 1; min-width: 0; font-size: 14px; font-weight: 600;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ph-box span { font-size: 12px; color: var(--bar-ink-2); flex: none; }
+.ph-box i { font-style: normal; color: var(--lime); font-size: 13px; flex: none; }
+
+.ph-seg {
+  display: flex; gap: 6px; margin-top: 12px;
+  background: var(--bar-2); border-radius: 11px; padding: 3px;
+}
+.ph-seg button {
+  flex: 1; text-align: center; padding: 7px; border-radius: 9px;
+  color: var(--bar-ink-2); font-size: 13px;
+}
+.ph-seg button[data-on="1"] { background: var(--lime); color: var(--on-lime); font-weight: 600; }
+
+.ph-chips { display: flex; gap: 6px; margin-top: 12px; overflow-x: auto; scrollbar-width: none; }
+.ph-chips::-webkit-scrollbar { display: none; }
+.ph-chip {
+  flex: none; padding: 6px 13px; border-radius: 20px; font-size: 13px;
+  background: var(--bar-2); color: var(--bar-ink-2);
+}
+.ph-chip[data-on="1"] { background: var(--lime); color: var(--on-lime); font-weight: 600; }
+.ph-chip.add { background: none; border: 1px dashed var(--bar-3); color: var(--bar-ink-2); }
+
+@media (min-width: 900px) { .pagehead { display: none; } }
+
+/* ── แถบบริบทของหน้า (PC) ─────────────────────────────────── */
+.ctxbar {
+  background: var(--surface); border-radius: var(--r-2); box-shadow: var(--sh-1);
+  padding: 15px 18px; margin-bottom: 14px;
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+}
+.ctx-title { font-size: 17px; font-weight: 700; color: var(--ink); }
+.ctx-sub { font-size: 12.5px; color: var(--ink-2); }
+.ctx-step {
+  width: 32px; height: 32px; flex: none; border-radius: 10px;
+  background: var(--surface-2); color: var(--ink); display: grid; place-content: center;
+}
+.ctx-step:hover { background: var(--surface-3); }
+.ctx-end { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+@media (max-width: 899px) { .ctxbar { display: none; } }
+
+/* ── ตัวนับสถานะบรรทัดเดียว ───────────────────────────────── */
+.tally {
+  display: flex; gap: 14px; font-size: 12.5px; color: var(--ink-2);
+  font-variant-numeric: tabular-nums; flex-wrap: wrap;
+}
+.tally b { font-weight: 700; }
+.tally .t-ok    { color: var(--st-ok); }
+.tally .t-late  { color: var(--st-late); }
+.tally .t-leave { color: var(--st-leave); }
+.tally .t-miss  { color: var(--st-miss); }
+
+/* ── รายชื่อเช็คชื่อ — การ์ดใบเล็กเรียงกัน (PC 2 คอลัมน์) ── */
+.att-list { display: grid; gap: 8px; }
+.att-list .stu-row { margin-bottom: 0; }
+@media (min-width: 900px) {
+  .att-list { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .att-list .stu-row { padding: 9px 12px; border-radius: 14px; }
+  .att-list .att-btn { width: 34px; height: 34px; border-radius: 10px; }
+}
+
+/* ── แถบยืนยันท้ายหน้า ────────────────────────────────────── */
+.done-bar {
+  position: sticky; z-index: 20;
+  bottom: calc(var(--nav-h) + env(safe-area-inset-bottom));
+  margin: 10px -14px 0; padding: 12px 14px calc(12px + env(safe-area-inset-bottom));
+  background: var(--surface); border-top: 1px solid var(--line);
+  display: flex; align-items: center; gap: 12px;
+}
+.done-bar .done-note { flex: 1; font-size: 12.5px; color: var(--ink-2); }
+@media (max-width: 899px) { .done-bar .done-note { display: none; } .done-bar .btn { flex: 1; } }
+@media (min-width: 900px) {
+  .done-bar { position: static; margin: 4px 0 0; padding: 0; background: none; border: none; }
+}
+
+/* ── หน้างาน/คะแนน ────────────────────────────────────────── */
+.item-bar {
+  background: var(--surface); border-radius: var(--r-2); box-shadow: var(--sh-1);
+  padding: 13px 15px; margin-bottom: 12px;
+  display: flex; gap: 9px; align-items: center; flex-wrap: wrap;
+}
+.item-pill {
+  flex: none; padding: 8px 14px; border-radius: 20px; font-size: 13.5px;
+  background: var(--surface-2); color: var(--ink-2); white-space: nowrap;
+}
+.item-pill[data-on="1"] { background: var(--accent); color: var(--on-accent); font-weight: 600; }
+.item-pill.add { background: none; border: 1px dashed var(--line-2); color: var(--accent); font-weight: 600; }
+
+.prog-track {
+  height: 8px; border-radius: 20px; background: var(--surface-3);
+  overflow: hidden; display: flex; gap: 2px;
+}
+.prog-seg { height: 100%; }
+.prog-note { font-size: 11.5px; color: var(--ink-2); margin-top: 6px; font-variant-numeric: tabular-nums; }
+
+.work-thead { display: none; }
+
+/* PC: แถวกรอกคะแนนกลับเป็นตาราง 4 คอลัมน์ตามดีไซน์ */
+@media (min-width: 900px) {
+  .work-list { background: var(--surface); border-radius: var(--r-2); overflow: hidden; box-shadow: var(--sh-1); }
+  .work-list .work-thead {
+    display: grid; grid-template-columns: 44px 1fr 260px 96px; gap: 12px;
+    padding: 10px 16px; background: var(--surface-2);
+    font-size: 12px; color: var(--ink-2); font-weight: 600;
+  }
+  .work-list .work-thead > :last-child { text-align: right; }
+  .work-list .work-row {
+    display: grid; grid-template-columns: 44px 1fr 260px 96px; gap: 12px;
+    align-items: center; padding: 9px 16px; margin: 0;
+    border-radius: 0; border-top: 1px solid var(--line);
+  }
+  .work-list .work-row:nth-child(even) { background: var(--surface-2); }
+  .work-row > .work-head { display: contents; }
+  .work-row > .work-head > .stu-no    { grid-column: 1; grid-row: 1; }
+  .work-row > .work-head > .work-name { grid-column: 2; grid-row: 1; }
+  .work-row > .work-head > .score-cell{ grid-column: 4; grid-row: 1; justify-content: flex-end; }
+  .work-row > .st-group               { grid-column: 3; grid-row: 1; }
+}
+
+/* ── สรุป SGS ─────────────────────────────────────────────── */
+table.grid thead tr.group th.h-total { background: var(--lime); color: var(--on-lime); }
+table.grid thead th.total-h { background: var(--lime); color: var(--on-lime); }
+table.grid thead th.total-h div { color: var(--on-lime) !important; }
+table.grid td.total { background: var(--lime-soft) !important; color: var(--ink); }
+.dot-pend { color: var(--st-late); font-weight: 700; margin-left: 1px; }
+.sgs-note { display: flex; align-items: center; gap: 8px; font-size: 12.5px;
+  color: var(--ink-2); margin-top: 10px; line-height: 1.6; }
+
+/* โหมดกรอก SGS ทีละคน */
+.fill-card { background: var(--surface); border-radius: var(--r-2); padding: 16px; }
+.fill-sid { font-size: 12.5px; color: var(--ink-2); }
+.fill-name { font-size: 21px; font-weight: 700; color: var(--ink); margin: 2px 0 12px; }
+.fill-total {
+  display: flex; align-items: center; gap: 10px;
+  margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line);
+}
+.fill-total > span { flex: 1; font-size: 13.5px; color: var(--ink-2); }
+.fill-total b { font-size: 22px; font-variant-numeric: tabular-nums; }
+.pager { display: flex; gap: 8px; margin-top: 12px; }
+.pager .btn-ghost { width: 64px; flex: none; }
+.pager .btn { flex: 1; }
+
+/* ── หน้ารายงาน ───────────────────────────────────────────── */
+@media (min-width: 900px) {
+  .rep-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
+  .rep-grid > .card { margin-bottom: 0; }
+}
+.gradebars { display: flex; align-items: flex-end; gap: 8px; height: 78px; }
+.gcol { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 5px; justify-content: flex-end; }
+.gcol-n { font-size: 12px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.gcol-bar { width: 100%; background: var(--accent); border-radius: 5px; min-height: 4px; }
+.gcol-bar.warn { background: var(--st-late); }
+.gcol-bar.bad  { background: var(--st-miss); }
+.gaxis { display: flex; gap: 8px; margin-top: 8px; font-size: 11.5px; color: var(--ink-3); }
+.gaxis > div { flex: 1; text-align: center; }
+
+.watch-row {
+  display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
+  padding: 10px 12px; border-radius: 12px; background: var(--surface-2);
+  margin-bottom: 8px;
+}
+.watch-row:last-child { margin-bottom: 0; }
+.watch-row.bad  { background: var(--miss-soft); }
+.watch-row.warn { background: var(--late-soft); }
+.watch-row .w-name { flex: 1; min-width: 0; font-size: 14px; color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.watch-row .w-name span { color: var(--ink-3); font-size: 12.5px; }
+.watch-row .w-tag { font-size: 12.5px; font-weight: 600; flex: none; }
+.watch-row .w-tag.bad  { color: var(--st-miss); }
+.watch-row .w-tag.warn { color: var(--st-late); }
+.watch-row .w-tag.dim  { color: var(--ink-2); font-weight: 400; }
+.watch-row .w-go { color: var(--ink-3); flex: none; }
+@media (max-width: 560px) { .watch-row { flex-wrap: wrap; gap: 4px 10px; } .watch-row .w-name { flex-basis: 100%; } }
+
+/* ── หน้าตั้งค่า ──────────────────────────────────────────── */
+.set-layout { display: block; }
+.set-nav, .set-note { display: none; }
+@media (min-width: 900px) {
+  .set-layout { display: grid; grid-template-columns: 190px 1fr; gap: 18px; align-items: start; }
+  .set-nav { display: flex; flex-direction: column; gap: 4px; position: sticky; top: 78px; }
+  .set-nav button {
+    padding: 10px 14px; border-radius: 11px; text-align: left;
+    font-size: 13.5px; color: var(--ink-2);
+  }
+  .set-nav button:hover { background: var(--surface-2); color: var(--ink); }
+  .set-nav button[data-on="1"] { background: var(--ink); color: var(--on-ink); font-weight: 600; }
+  .set-note {
+    display: block; margin-top: 10px; padding: 12px 14px; border-radius: 12px;
+    background: var(--accent-soft); font-size: 12.5px; color: var(--accent-ink); line-height: 1.6;
+  }
+}
+
+.weightbar { display: flex; height: 12px; border-radius: 20px; overflow: hidden; margin: 12px 0 14px; }
+.weightbar > i { display: block; height: 100%; }
+.wgrid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+@media (min-width: 700px) { .wgrid { grid-template-columns: repeat(4, 1fr); } }
+.wcell { border: 1px solid var(--line); border-radius: 12px; padding: 9px 11px; }
+.wcell label { display: block; font-size: 12px; color: var(--ink-2); margin-bottom: 2px; }
+.wcell input {
+  border: none; padding: 0; background: none; width: 100%; min-height: 0;
+  font-size: 19px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums;
+}
+.wcell input:focus { box-shadow: none; }
+.wcell[data-bad="1"] { border-color: var(--st-miss); }
+
+.set-row { display: flex; gap: 16px; align-items: center; padding: 14px 0; border-bottom: 1px solid var(--line); }
+.set-row:last-child { border-bottom: none; padding-bottom: 0; }
+.set-row:first-child { padding-top: 0; }
+.set-row > div:first-child { flex: 1; min-width: 0; }
+.set-name { font-size: 14px; font-weight: 600; color: var(--ink); }
+.set-desc { font-size: 12.5px; color: var(--ink-2); margin-top: 2px; line-height: 1.6; }
+.set-desc.bad { color: var(--st-miss); }
+.set-ctl { flex: none; display: flex; align-items: center; gap: 8px; }
+.set-ctl input, .set-ctl select { width: auto; min-width: 92px; }
+@media (max-width: 560px) {
+  .set-row { flex-direction: column; align-items: stretch; gap: 10px; }
+  .set-ctl { justify-content: flex-start; }
+}
+.set-ok  { font-size: 13px; font-weight: 700; color: var(--st-ok); }
+.set-bad { font-size: 13px; font-weight: 700; color: var(--st-miss); }
+
+/* ── หน้าติดตั้งครั้งแรก ──────────────────────────────────── */
+.setup-screen {
+  min-height: 100dvh; background: var(--bar);
+  display: flex; flex-direction: column;
+}
+.setup-brand {
+  padding: calc(34px + env(safe-area-inset-top)) 20px 24px;
+  display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center;
+}
+.setup-brand .mark {
+  width: 44px; height: 44px; border-radius: 14px; background: var(--lime);
+  color: var(--on-lime); display: grid; place-content: center; font-weight: 700; font-size: 20px;
+}
+.setup-brand h1 { margin: 0; font-size: 19px; font-weight: 700; color: #fff; }
+.setup-brand p { margin: 0; font-size: 13px; color: var(--bar-ink-2); line-height: 1.65; max-width: 520px; }
+.setup-sheet {
+  flex: 1; background: var(--surface); border-radius: 24px 24px 0 0;
+  padding: 22px 18px calc(24px + env(safe-area-inset-bottom));
+  display: flex; flex-direction: column; gap: 16px;
+}
+.stepper { display: flex; align-items: center; gap: 6px; }
+.step-dot {
+  width: 24px; height: 24px; flex: none; border-radius: 50%;
+  background: var(--surface-3); color: var(--ink-3);
+  display: grid; place-content: center; font-size: 12px; font-weight: 600;
+}
+.step-dot.done { background: var(--st-ok); color: var(--on-ok); }
+.step-dot.now  { background: var(--ink);   color: var(--on-ink); }
+.step-line { flex: 1; height: 2px; background: var(--surface-3); }
+.step-line.done { background: var(--st-ok); }
+.step-name { font-size: 13px; color: var(--ink-3); }
+.step-name.on { color: var(--ink); font-weight: 600; }
+@media (max-width: 700px) { .step-name { display: none; } }
+.setup-h { font-size: 18px; font-weight: 700; color: var(--ink); }
+.setup-p { font-size: 12.5px; color: var(--ink-2); margin-top: 4px; line-height: 1.65; }
+.setup-mono { font-family: ui-monospace, 'IBM Plex Mono', monospace; font-size: 12.5px; }
+.pick2 { display: flex; gap: 10px; }
+.pick2 button {
+  flex: 1; border: 1px solid var(--line); border-radius: 12px; padding: 13px 14px;
+  text-align: left; background: var(--surface);
+}
+.pick2 button[data-on="1"] { border: 2px solid var(--accent); background: var(--accent-soft); padding: 12px 13px; }
+.pick2 b { display: block; font-size: 14px; font-weight: 600; color: var(--ink); }
+.pick2 span { display: block; font-size: 12px; color: var(--ink-2); margin-top: 2px; }
+@media (min-width: 900px) {
+  .setup-brand { padding-top: 44px; }
+  .setup-sheet {
+    flex: none; width: min(620px, 100%); margin: 0 auto 54px;
+    border-radius: 20px; padding: 26px;
+  }
+}
+
+/* ชิปเลือกห้องในแถบหัวสีเข้ม (PC) */
+.class-chip { flex: none; }
+.class-chip select {
+  background: var(--bar-2); color: #fff; border: none; min-height: 0;
+  padding: 6px 30px 6px 12px; border-radius: 20px; font-size: 13px; font-weight: 500;
+  max-width: 260px; text-overflow: ellipsis;
+}
+.class-chip select:hover { background: var(--bar-3); }
+.class-chip select option { color: var(--ink); background: var(--surface); }
+
+/* แสดงเฉพาะ PC / ซ่อนบน PC — ใช้เมื่อดีไซน์วางของชิ้นเดียวกันไว้คนละที่ */
+.pc-only { display: none !important; }
+@media (min-width: 900px) {
+  .pc-only { display: flex !important; }
+  .pc-hide { display: none !important; }
+  .item-bar { display: flex; }
+}
+@media (max-width: 899px) { .item-bar { display: none; } }
+
+/* คะแนน 8 ช่องแบบย่อ (รายงานรายคน) */
+.score8 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12.5px; }
+.score8-cell {
+  display: flex; justify-content: space-between; align-items: center; gap: 8px;
+  padding: 7px 10px; background: var(--surface-2); border-radius: 9px;
+}
+.score8-cell span { color: var(--ink-2); }
+.score8-cell b { color: var(--ink); font-weight: 700; }
+.score8-cell b.none { color: var(--ink-3); font-weight: 400; }
+
+/* ป้ายวันที่ขาด/สาย */
+.daychip { padding: 5px 10px; border-radius: 8px; font-size: 12px; font-weight: 600; }
+
+/* ── หน้าแรก: การ์ดหลัก + สองการ์ดคู่ + ตารางห้อง ─────────── */
+.hero-body { flex: 1; min-width: 0; }
+.hero-actions { display: grid; gap: 8px; }
+.btn-dark {
+  padding: 8px 15px; border-radius: 12px; flex: none;
+  background: var(--ink); color: var(--on-ink); font-size: 13.5px; font-weight: 600;
+}
+.btn-dark:hover { background: var(--bar-2); }
+.home-grid { display: grid; gap: 12px; }
+.stats-card { padding: 14px; }
+.stats-card .stats { gap: 14px; }
+.stats-card .stat { background: none; box-shadow: none; padding: 0; text-align: left; }
+.class-grid { display: grid; gap: 12px; }
+@media (min-width: 900px) {
+  .hero { display: flex; align-items: center; gap: 20px; padding: 22px 24px; }
+  .hero-title { font-size: 24px; }
+  .hero-meta { margin-bottom: 0; }
+  .hero-actions { flex: none; width: 260px; }
+  .hero .btn { padding: 14px 26px; font-size: 16px; }
+  .home-grid { grid-template-columns: 1.35fr 1fr; gap: 14px; align-items: start; }
+  .home-grid > .card { margin-bottom: 0; }
+  .stats-card .stats { grid-template-columns: 1fr 1fr; gap: 14px; }
+  .class-grid { grid-template-columns: repeat(3, 1fr); }
+  .class-grid .class-card { margin-bottom: 0; }
+}
+
+/* PC: ตัวเลือกห้องย้ายไปอยู่ในแถบหัวแล้ว ไม่ต้องมีแถบขาวซ้ำ */
+@media (min-width: 900px) { .class-pick { display: none; } }
+
+/* ดีไซน์ไม่ได้สลับสีแถวเว้นแถว — แถบเทาจะกลืนกับปุ่มสถานะที่ยังไม่ถูกเลือก */
+@media (min-width: 900px) {
+  .work-list .work-row:nth-child(even) { background: var(--surface); }
+  .work-list .work-row:hover { background: var(--surface-2); }
+}
+
+/* ตัวสลับโหมดในแถบบริบท (รายชิ้นงาน ↔ รายคน) */
+.seg-inline { display: inline-grid; flex: none; padding: 3px; border-radius: 11px; }
+.seg-inline button { padding: 7px 14px; font-size: 13px; white-space: nowrap; }
+.pagehead .ph-seg + .ph-box { margin-top: 8px; }
+
+/* โหมดรายคน: คอลัมน์แรกเป็นชื่องาน ไม่ใช่เลขที่ จึงต้องกว้างกว่า */
+@media (min-width: 900px) {
+  .work-list.by-student .work-row { grid-template-columns: 1fr 260px 96px; }
+  .work-list.by-student .work-row > .work-head > *:first-child { grid-column: 1; grid-row: 1; }
+  .work-list.by-student .work-row > .work-head > .score-cell    { grid-column: 3; grid-row: 1; }
+  .work-list.by-student .work-row > .st-group                   { grid-column: 2; grid-row: 1; }
+}
+
+/* มือถือ: ตัวเลขสรุป 2 คอลัมน์ตามดีไซน์ — 4 ช่องเรียงกันแคบเกินอ่านยาก */
+@media (max-width: 560px) {
+  .stats-card .stats { grid-template-columns: 1fr 1fr; gap: 14px 10px; }
+}
+
+/* มือถือ: ปุ่มกรองซ้ำกับที่อยู่ในแถบเข้มแล้ว เหลือไว้แค่ตัวนับ */
+@media (max-width: 899px) {
+  .filter-row > .chip { display: none; }
+  .filter-row > .tally { margin-left: 0 !important; }
+}
+
+/* จุดส้ม "ยังตรวจไม่ครบ" — ตัวเล็กมาก สีโหมดสว่างต้องเข้มกว่า --st-late
+   ไม่งั้นได้ contrast 4.45 ซึ่งต่ำกว่าเกณฑ์ 4.5 อยู่นิดเดียว */
+.dot-pend { color: #a34b06; }
+[data-theme="dark"] .dot-pend { color: var(--st-late); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .dot-pend { color: var(--st-late); }
+}
+
+/* ตัวนับ มา/สาย บนพื้นหน้า (--bg) เข้มกว่าบนการ์ดสีขาว
+   สีสถานะปกติจึงเหลือ contrast 4.44 — ต่ำกว่าเกณฑ์นิดเดียว ต้องเข้มขึ้นเฉพาะโหมดสว่าง */
+.tally .t-ok   { color: #116b32; }
+.tally .t-late { color: #a34b06; }
+[data-theme="dark"] .tally .t-ok   { color: var(--st-ok); }
+[data-theme="dark"] .tally .t-late { color: var(--st-late); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .tally .t-ok   { color: var(--st-ok); }
+  :root:not([data-theme="light"]) .tally .t-late { color: var(--st-late); }
+}
+
+/* ── แถวเลือกชนิดคะแนน + ช่วง (หน้างาน/คะแนน) ──────────────── */
+.kind-bar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
+.kind-scroll {
+  display: flex; gap: 8px; flex: 1; min-width: 0;
+  overflow-x: auto; scrollbar-width: none;
+}
+.kind-scroll::-webkit-scrollbar { display: none; }
+.kind-pill {
+  flex: none; padding: 9px 15px; border-radius: 12px; white-space: nowrap;
+  background: var(--surface); color: var(--ink-2); font-size: 13.5px;
+  box-shadow: var(--sh-1);
+}
+.kind-pill:hover { color: var(--ink); }
+.kind-pill[data-on="1"] { background: var(--ink); color: var(--on-ink); font-weight: 600; }
+.kind-pill span { opacity: .65; font-weight: 400; }
+
+.phase-pick {
+  flex: none; margin-left: auto; display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 6px 4px 13px; border-radius: 12px;
+  background: var(--surface-2); border: 1px solid var(--line-2);
+  font-size: 13.5px; color: var(--ink);
+}
+.phase-pick > span { color: var(--ink-2); }
+.phase-pick select {
+  border: none; background: none; min-height: 0; padding: 4px 24px 4px 2px;
+  font-size: 13.5px; font-weight: 600; color: var(--ink); width: auto;
+}
+.phase-pick select:focus { box-shadow: none; }
+.phase-pick[data-off="1"] { opacity: .5; }
+
+.pc-only-block { display: none; }
+@media (min-width: 900px) { .pc-only-block { display: block; } }
+/* จอแคบ: ตัวเลือกช่วงลงมาอยู่บรรทัดล่าง ไม่ให้หลุดออกนอกจอไปกับแถวที่เลื่อนได้ */
+@media (max-width: 620px) {
+  .kind-bar { flex-wrap: wrap; }
+  .kind-scroll { flex-basis: 100%; }
+  .phase-pick { margin-left: 0; }
+}
+
+/* ป้ายเล็กใต้ชื่อชิ้นงาน (ดีไซน์หน้า 03) */
+.tagbtn {
+  padding: 5px 11px; border-radius: 9px; white-space: nowrap;
+  background: var(--surface-2); border: 1px solid var(--line-2);
+  color: var(--accent-ink); font-size: 12.5px; font-weight: 600;
+}
+.tagbtn:hover { background: var(--surface-3); }
+.tag-on, .tag-off {
+  padding: 5px 10px; border-radius: 9px; white-space: nowrap; font-size: 11.5px; font-weight: 600;
+}
+.tag-on  { background: var(--accent-soft); color: var(--accent-ink); }
+.tag-off { background: var(--surface-2);   color: var(--ink-2); font-weight: 400; }
+
+/* แถวกรองในหน้าเช็คชื่อ — ดีไซน์ใช้เขียวน้ำทะเลกับชิปที่เลือกอยู่ */
+.filter-row .chip[data-on="1"] { background: var(--accent); color: var(--on-accent); }
+
 /* สไตล์เฉพาะหน้าของนักเรียน — ต่อยอดจาก styles.css (ใช้ตัวแปรสีชุดเดียวกัน) */
 
 .stu-wrap { max-width: 620px; margin: 0 auto; padding: 16px 14px 40px; }
@@ -855,6 +1350,105 @@ table.grid td.total { background: var(--accent-soft) !important; font-weight: 70
 }
 
 .tip { font-size: 12px; color: var(--ink-3); text-align: center; margin-top: 18px; line-height: 1.6; }
+
+/* ── หน้านักเรียน: แถบเข้มบนสุด (ดีไซน์หน้า 08) ───────────── */
+.stu-hero {
+  background: var(--bar); color: var(--bar-ink);
+  padding: calc(22px + env(safe-area-inset-top)) 18px 20px;
+}
+.hero-row { display: flex; align-items: flex-start; gap: 10px; }
+.hero-kick {
+  font-size: 12.5px; color: var(--bar-ink-2);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.hero-name {
+  font-size: 21px; font-weight: 700; color: #fff; margin-top: 2px;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.hero-out {
+  flex: none; padding: 6px 13px; border-radius: 20px;
+  background: var(--bar-2); color: var(--bar-ink-2); font-size: 12.5px; font-weight: 600;
+}
+.hero-out:hover { background: var(--bar-3); color: #fff; }
+.hero-back {
+  flex: none; width: 26px; font-size: 20px; line-height: 1;
+  color: var(--bar-ink-2); text-align: left;
+}
+.hero-score { display: flex; align-items: flex-end; gap: 10px; margin-top: 16px; }
+.hero-score b {
+  font-size: 40px; font-weight: 700; color: var(--lime); line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.hero-score span { font-size: 13px; color: var(--bar-ink-2); padding-bottom: 4px; }
+.hero-mini { display: flex; gap: 8px; margin-top: 12px; }
+.mini { flex: 1; min-width: 0; background: var(--bar-2); border-radius: 11px; padding: 9px 11px; }
+.mini-l { font-size: 11.5px; color: var(--bar-ink-2); }
+.mini-v {
+  font-size: 15px; font-weight: 700; color: #fff;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* ── รายการงาน / คะแนนสอบ ─────────────────────────────────── */
+.card-h { display: flex; align-items: baseline; gap: 8px; margin-bottom: 12px; }
+.card-h b { font-size: 13.5px; font-weight: 700; color: var(--ink); }
+.card-h span { font-size: 11px; color: var(--ink-3); }
+.rows { display: flex; flex-direction: column; gap: 9px; }
+.srow {
+  display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+  padding: 10px 12px; border-radius: 11px; background: var(--surface-2);
+}
+.srow:not(.static):hover { background: var(--surface-3); }
+.srow.bad  { background: var(--miss-soft); }
+.srow.warn { background: var(--late-soft); }
+.srow.hi   { background: var(--accent-soft); }
+.srow.dim  { opacity: .65; }
+.srow-name {
+  font-size: 14px; color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.srow-sub { font-size: 11.5px; color: var(--ink-2); margin-top: 1px; }
+.srow-tag {
+  flex: none; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums;
+  color: var(--st-ok);
+}
+.srow-tag.bad    { color: var(--st-miss); }
+.srow-tag.warn   { color: var(--st-late); }
+.srow-tag.accent { color: var(--accent-ink); font-size: 15px; }
+.srow-go { flex: none; color: var(--ink-3); font-size: 14px; }
+.srow.bad .srow-go  { color: var(--st-miss); }
+.srow.warn .srow-go { color: var(--st-late); }
+
+/* ── หน้ารายละเอียดงาน ────────────────────────────────────── */
+.note {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 14px; border-radius: 14px; background: var(--surface-2);
+  margin-bottom: 10px;
+}
+.note.bad  { background: var(--miss-soft); }
+.note.warn { background: var(--late-soft); }
+.note b { display: block; font-size: 13.5px; font-weight: 700; color: var(--ink); }
+.note span { display: block; font-size: 11.5px; color: var(--ink-2); margin-top: 1px; }
+.note.bad b, .note.bad span   { color: var(--st-miss); }
+.note.warn b, .note.warn span { color: var(--warn-ink); }
+.prose { font-size: 13.5px; color: var(--ink-2); line-height: 1.8; white-space: pre-wrap; }
+.rules { display: flex; flex-direction: column; gap: 7px; font-size: 13px; color: var(--ink-2); }
+.rule { display: flex; gap: 10px; }
+.rule span:last-child { color: var(--ink); }
+.rule span.t-warn { color: var(--st-late); }
+.rule span.t-dim  { color: var(--ink-3); }
+
+@media (min-width: 760px) {
+  .stu-hero { padding: 22px 24px; }
+  .stu-hero > * { max-width: 620px; margin-left: auto; margin-right: auto; }
+  .hero-score b { font-size: 34px; }
+}
+
+/* คะแนนบนแถวสีเทาเข้มของโหมดมืด — --st-ok ยังสว่างไม่พอ (วัดได้ 4.33 ต้องการ 4.5)
+   ใช้ :not() กันไม่ให้ทับสีของแถวที่มีสถานะเฉพาะ */
+[data-theme="dark"] .srow-tag:not(.bad):not(.warn):not(.accent) { color: #41bf6d; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .srow-tag:not(.bad):not(.warn):not(.accent) { color: #41bf6d; }
+}
 
 </style>
 </head>
@@ -1009,122 +1603,198 @@ table.grid td.total { background: var(--accent-soft) !important; font-weight: 70
     setTimeout(function () { input.focus(); input.select(); }, 80);
   }
 
-  // ── หน้าแสดงผล ────────────────────────────────────────────
-  function show(d) {
-    root.replaceChildren(h('div', { class: 'stu-wrap' },
-      h('div', { class: 'who' },
-        h('div', { class: 'who-av' }, initial(d.name)),
-        h('div', { style: { flex: '1', minWidth: '0' } },
-          h('div', { class: 'who-name' }, d.name || '—'),
-          h('div', { class: 'who-sub' }, 'เลขประจำตัว ' + d.sid)),
-        h('button', {
-          class: 'btn btn-ghost btn-sm',
-          onclick: function () { gate(); }
-        }, 'ออก')
-      ),
-
-      d.classes.length === 0
-        ? h('div', { class: 'card empty' }, 'ยังไม่มีรายวิชาที่บันทึกไว้')
-        : d.classes.map(subjectCard),
-
-      h('div', { class: 'tip' },
-        'ข้อมูลอัปเดตตามที่ครูบันทึกไว้ · อาจช้ากว่าของจริงไม่กี่นาที',
-        h('br'),
-        'ถ้าคะแนนไม่ตรง ให้แจ้งครูผู้สอนโดยตรง')
-    ));
-    window.scrollTo({ top: 0 });
-  }
-
-  function subjectCard(c, i) {
-    var body = h('div', { class: 'subj-body' },
-      // คะแนนที่เก็บได้ — เทียบเฉพาะช่องที่ครูกรอกแล้ว ไม่ใช่ 100 เต็ม
-      h('div', { class: 'big' },
-        c.outOf > 0
-          ? [h('div', { class: 'big-num' }, nf(c.earned), h('small', null, ' / ' + nf(c.outOf))),
-             h('div', { class: 'big-lbl' }, 'คะแนนที่เก็บได้ จากส่วนที่ครูกรอกแล้ว (เต็มทั้งปี 100)')]
-          : [h('div', { class: 'big-num', style: { color: 'var(--ink-3)' } }, '—'),
-             h('div', { class: 'big-lbl' }, 'ครูยังไม่ได้กรอกคะแนนในวิชานี้')]
-      ),
-
-      // ── คะแนนรายช่อง ──
-      c.buckets.some(function (b) { return b.has; }) && [
-        h('div', { class: 'grp' }, 'คะแนนแต่ละส่วน'),
-        c.buckets.filter(function (b) { return b.has; }).map(function (b) {
-          var pct = b.max > 0 ? Math.max(0, Math.min(100, b.score / b.max * 100)) : 0;
-          return h('div', { class: 'meter-row' },
-            h('div', { class: 'meter-label' }, b.label,
-              h('span', null, b.phase === 1 ? 'ก่อนกลางภาค' : 'หลังกลางภาค')),
-            h('div', { class: 'meter-track' }, h('div', { class: 'meter-fill', style: { width: pct + '%' } })),
-            h('div', { class: 'meter-val tnum' }, nf(b.score) + '/' + nf(b.max)));
-        })
-      ],
-
-      // ── งานและข้อสอบ ──
-      c.items.length > 0 && [1, 2].map(function (ph) {
-        var list = c.items.filter(function (it) { return it.phase === ph; });
-        if (!list.length) return null;
-        return [
-          h('div', { class: 'grp' }, ph === 1 ? 'งานและการสอบ · ก่อนกลางภาค' : 'งานและการสอบ · หลังกลางภาค'),
-          list.map(itemRow)
-        ];
-      }),
-
-      // ── การมาเรียน ──
-      c.att.checked > 0 && [
-        h('div', { class: 'grp' }, 'การมาเรียน · เช็คแล้ว ' + c.att.checked + ' คาบ'),
-        h('div', { class: 'att-grid' },
-          box('ok', c.att.present, 'มา'),
-          box('late', c.att.late, 'สาย'),
-          box('leave', c.att.leave, 'ลา'),
-          box('miss', c.att.absent, 'ขาด')),
-        c.att.risk && h('div', { class: 'warn' },
-          svg(ICON.warn), h('span', null,
-            'เวลาเรียนตอนนี้ ' + c.att.pct + '% ซึ่งต่ำกว่าเกณฑ์ ' + c.att.minPct + '% ' +
-            'ถ้าถึงปลายภาคยังไม่ถึงเกณฑ์อาจติด มส — รีบคุยกับครูผู้สอน'))
-      ]
-    );
-
-    var card = h('div', { class: 'card card-tight subj' + (i === 0 ? '' : ' closed') },
-      h('button', {
-        class: 'subj-head',
-        onclick: function (e) { e.currentTarget.parentElement.classList.toggle('closed'); }
-      },
-        h('span', { class: 'subj-tag' }, [c.grade, c.room].filter(Boolean).join('/') || '—'),
-        h('span', { style: { flex: '1', minWidth: '0' } },
-          h('span', { class: 'subj-name', style: { display: 'block' } }, c.subject),
-          h('span', { class: 'subj-meta', style: { display: 'block' } },
-            [c.subjectCode, c.no ? 'เลขที่ ' + c.no : ''].filter(Boolean).join(' · '))),
-        svg(ICON.chev, 'ico subj-chev')
-      ),
-      body
-    );
-    return card;
-  }
-
   /** ข้อสอบกับงานส่งใช้คำต่างกัน — ให้ตรงกับที่ครูเห็นในระบบ */
   var LABEL = {
     work: { ok: 'ส่งแล้ว', late: 'ส่งช้า', miss: 'ไม่ส่ง', none: 'ยังไม่ตรวจ' },
     exam: { ok: 'สอบแล้ว', late: 'ส่งช้า', miss: 'ยังไม่ได้สอบ', none: 'ยังไม่กรอก' }
   };
-  var BADGE = { ok: 'g', late: 'a', miss: 'r', none: 'n' };
 
-  function itemRow(it) {
-    var words = it.exam ? LABEL.exam : LABEL.work;
-    var got = it.score !== null && it.score !== undefined;
-    return h('div', { class: 'item' },
-      h('div', { class: 'item-main' },
-        h('div', { class: 'item-name' }, it.label),
-        it.desc && h('div', { class: 'item-desc' }, it.desc)),
-      h('span', { class: 'badge ' + BADGE[it.status] }, words[it.status]),
-      h('div', { class: 'item-score' + (got ? '' : ' none') },
-        got ? nf(it.score) + '/' + nf(it.max) : '—')
+
+  // ── หน้าแสดงผล (ดีไซน์หน้า 08) ────────────────────────────
+  //
+  // ดีไซน์วางหน้านี้เป็น "วิชาละหนึ่งหน้า" — แถบเข้มบอกว่ากำลังดูวิชาไหน
+  // ได้คะแนนสะสมเท่าไหร่ แล้วค่อยไล่รายการงานกับคะแนนสอบข้างล่าง
+  var VIEW = { data: null, cur: 0 };
+
+  function show(d) {
+    VIEW.data = d;
+    if (VIEW.cur >= d.classes.length) VIEW.cur = 0;
+    draw();
+  }
+
+  function draw() {
+    var d = VIEW.data;
+    if (!d.classes.length) {
+      root.replaceChildren(h('div', { class: 'stu-wrap' },
+        h('div', { class: 'card empty' }, 'ยังไม่มีรายวิชาที่บันทึกไว้')));
+      return;
+    }
+    var c = d.classes[VIEW.cur];
+
+    root.replaceChildren(
+      hero(d, c),
+      h('div', { class: 'stu-wrap' },
+        d.classes.length > 1 && h('div', { class: 'chips' },
+          d.classes.map(function (x, i) {
+            return h('button', {
+              class: 'chip', 'data-on': i === VIEW.cur ? '1' : '0',
+              onclick: function () { VIEW.cur = i; draw(); window.scrollTo({ top: 0 }); }
+            }, x.subject);
+          })),
+
+        workCard(c),
+        examCard(c),
+        c.att.risk && h('div', { class: 'warn' },
+          svg(ICON.warn), h('span', null,
+            'เวลาเรียนตอนนี้ ' + c.att.pct + '% ต่ำกว่าเกณฑ์ ' + c.att.minPct + '% ' +
+            'ถ้าถึงปลายภาคยังไม่ถึงเกณฑ์อาจติด มส — รีบคุยกับครูผู้สอน')),
+
+        h('div', { class: 'tip' },
+          'ข้อมูลอัปเดตตามที่ครูบันทึกไว้ · ถ้าคะแนนไม่ตรง แจ้งครูประจำวิชา')
+      ));
+    window.scrollTo({ top: 0 });
+  }
+
+  /** แถบเข้มบนสุด — วิชา ชื่อ คะแนนสะสม และสรุป 3 ก้อน */
+  function hero(d, c) {
+    var sum = function (ids) {
+      var got = 0, max = 0, any = false;
+      c.buckets.forEach(function (b) {
+        if (ids.indexOf(b.id) < 0 || !b.has) return;
+        got += b.score; max += b.max; any = true;
+      });
+      return any ? nf(got) + '/' + nf(max) : '—';
+    };
+
+    return h('div', { class: 'stu-hero' },
+      h('div', { class: 'hero-row' },
+        h('div', { style: { flex: '1', minWidth: '0' } },
+          h('div', { class: 'hero-kick' },
+            [[c.grade, c.room].filter(Boolean).join('/'), c.subject].filter(Boolean).join(' · ')),
+          h('div', { class: 'hero-name' }, d.name || '—')),
+        h('button', { class: 'hero-out', onclick: function () { gate(); } }, 'ออก')),
+
+      h('div', { class: 'hero-score' },
+        h('b', null, c.outOf > 0 ? nf(c.earned) : '—'),
+        h('span', null, c.outOf > 0
+          ? 'คะแนนสะสม · เต็ม ' + nf(c.outOf) + ' ที่ตรวจแล้ว'
+          : 'ครูยังไม่ได้กรอกคะแนนในวิชานี้')),
+
+      h('div', { class: 'hero-mini' },
+        mini('ส่งงาน', sum(['work1', 'work2'])),
+        mini('สอบเก็บ', sum(['quiz1', 'quiz2'])),
+        mini('สอบใหญ่', sum(['mid', 'fin'])))
     );
   }
 
-  function box(cls, n, label) {
-    return h('div', { class: 'att-box ' + cls },
-      h('div', { class: 'att-n' }, String(n)),
-      h('div', { class: 'att-l' }, label));
+  function mini(label, value) {
+    return h('div', { class: 'mini' },
+      h('div', { class: 'mini-l' }, label),
+      h('div', { class: 'mini-v tnum' }, value));
+  }
+
+  /** สีพื้นของแถว บอกสถานะโดยไม่ต้องอ่านตัวหนังสือก่อน (แต่มีตัวหนังสือกำกับเสมอ) */
+  var TONE = { miss: 'bad', none: 'warn', ok: '', late: '' };
+
+  function workCard(c) {
+    var list = c.items.filter(function (it) { return !it.exam; });
+    if (!list.length) return null;
+    return h('div', { class: 'card' },
+      h('div', { class: 'card-h' },
+        h('b', null, 'รายการงาน'),
+        h('span', null, 'กดที่ชื่องานเพื่อดูคำสั่งจากครู')),
+      h('div', { class: 'rows' }, list.map(function (it) { return workRow(it, c); }))
+    );
+  }
+
+  function workRow(it, c) {
+    var words = LABEL.work;
+    var got = it.score !== null && it.score !== undefined;
+    return h('button', {
+      class: 'srow ' + (TONE[it.status] || ''),
+      onclick: function () { detail(it, c); }
+    },
+      h('div', { style: { flex: '1', minWidth: '0' } },
+        h('div', { class: 'srow-name' }, it.label),
+        h('div', { class: 'srow-sub' },
+          (it.phase === 1 ? 'ก่อนกลางภาค' : 'หลังกลางภาค') +
+          (it.desc ? ' · มีคำสั่งจากครู' : ''))),
+      h('div', { class: 'srow-tag ' + (TONE[it.status] || 'ok') },
+        got ? nf(it.score) + '/' + nf(it.max) : words[it.status]),
+      h('span', { class: 'srow-go' }, '›')
+    );
+  }
+
+  function examCard(c) {
+    var list = c.items.filter(function (it) { return it.exam; });
+    if (!list.length) return null;
+    return h('div', { class: 'card' },
+      h('div', { class: 'card-h' }, h('b', null, 'คะแนนสอบ')),
+      h('div', { class: 'rows' }, list.map(function (it) {
+        var got = it.score !== null && it.score !== undefined;
+        var big = it.kind === 'MID' || it.kind === 'FIN';
+        return h('div', { class: 'srow static' + (big ? ' hi' : '') + (got ? '' : ' dim') },
+          h('div', { style: { flex: '1', minWidth: '0' } },
+            h('div', { class: 'srow-name', style: big ? { fontWeight: '600' } : null }, it.label),
+            h('div', { class: 'srow-sub' },
+              got ? (it.phase === 1 ? 'ก่อนกลางภาค' : 'หลังกลางภาค')
+                  : LABEL.exam[it.status])),
+          h('div', { class: 'srow-tag ' + (big ? 'accent' : 'ok') },
+            got ? nf(it.score) + '/' + nf(it.max) : '—/' + nf(it.max)));
+      }))
+    );
+  }
+
+  // ── หน้ารายละเอียดงาน (ดีไซน์หน้า 08b) ────────────────────
+
+  function detail(it, c) {
+    var got = it.score !== null && it.score !== undefined;
+    var tone = TONE[it.status] || '';
+    var STATUS_TEXT = {
+      ok:   ['ครูตรวจแล้ว', 'ได้ ' + (got ? nf(it.score) + ' จาก ' + nf(it.max) : '—') + ' คะแนน'],
+      late: ['ส่งช้า — ครูตรวจแล้ว', 'ได้ ' + (got ? nf(it.score) + ' จาก ' + nf(it.max) : '—') + ' คะแนน หลังหักส่งช้าแล้ว'],
+      miss: ['ยังไม่ส่ง', 'ตอนนี้นับเป็น 0 คะแนน — คุยกับครูถ้ายังส่งได้'],
+      none: ['ครูยังไม่ได้ตรวจ', 'ยังไม่มีคะแนนในช่องนี้']
+    }[it.status];
+
+    root.replaceChildren(
+      h('div', { class: 'stu-hero' },
+        h('div', { class: 'hero-row' },
+          h('button', { class: 'hero-back', onclick: function () { draw(); } }, '‹'),
+          h('div', { class: 'hero-kick', style: { flex: '1' } },
+            (it.exam ? 'การสอบ' : 'ส่งงาน') + ' · ' + (it.phase === 1 ? 'ก่อนกลางภาค' : 'หลังกลางภาค'))),
+        h('div', { class: 'hero-name', style: { marginTop: '10px' } }, it.label),
+        h('div', { class: 'hero-mini' },
+          mini('วิชา', c.subject),
+          mini('คะแนนเต็ม', nf(it.max)))),
+
+      h('div', { class: 'stu-wrap' },
+        h('div', { class: 'note ' + tone },
+          h('div', { style: { flex: '1' } },
+            h('b', null, STATUS_TEXT[0]),
+            h('span', null, STATUS_TEXT[1]))),
+
+        it.desc && h('div', { class: 'card' },
+          h('div', { class: 'card-h' }, h('b', null, 'คำสั่งจากครู')),
+          h('div', { class: 'prose' }, it.desc)),
+
+        h('div', { class: 'card' },
+          h('div', { class: 'card-h' }, h('b', null, 'เกณฑ์การให้คะแนน')),
+          h('div', { class: 'rules' },
+            rule(it.exam ? 'เข้าสอบ' : 'ส่งตรงเวลา', 'เต็ม ' + nf(it.max), ''),
+            !it.exam && rule('ส่งช้า', 'ครูหักตามที่ตั้งไว้ในระบบ', 't-warn'),
+            rule(it.exam ? 'ไม่ได้สอบ' : 'ไม่ส่ง', '0 คะแนน', 't-dim'))),
+
+        h('div', { class: 'tip' },
+          'หน้านี้อ่านอย่างเดียว · ส่งงานที่ครูด้วยตนเองเหมือนเดิม')
+      ));
+    window.scrollTo({ top: 0 });
+  }
+
+  function rule(a, b, tone) {
+    return h('div', { class: 'rule' },
+      h('span', { style: { flex: '1' } }, a),
+      h('span', { class: tone || '' }, b));
   }
 
   // ── เริ่ม ──────────────────────────────────────────────────
