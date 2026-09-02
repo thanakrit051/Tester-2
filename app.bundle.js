@@ -74,6 +74,39 @@ const app = document.getElementById('app');
 const boot = document.getElementById('boot');
 
 /**
+ * เอาหน้าโหลดออกแล้วโชว์แอป
+ *
+ * เรียกทันทีที่วาดหน้าได้ครั้งแรก ไม่ใช่รอจนกว่าเน็ตจะตอบ
+ * เดิมรอ bootAll() จบก่อนเสมอ ผลคือครูที่มีข้อมูลในเครื่องครบอยู่แล้ว
+ * ยังต้องนั่งดูโลโก้หมุน 20 วินาทีตอนสัญญาณไม่ดี แล้วจบด้วยหน้า
+ * "เปิดแอปไม่สำเร็จ" ทั้งที่กดใช้งานออฟไลน์ได้ตั้งนานแล้ว
+ *
+ * ผลพลอยได้: หน้าหมดเวลา 20 วินาทีด้านล่างจะขึ้นเฉพาะตอนที่ยังวาดอะไร
+ * ไม่ได้จริง ๆ เท่านั้น ไม่ไปทับของที่ครูใช้งานอยู่
+ */
+function reveal() {
+  const b = document.getElementById('boot');
+  if (b) b.remove();
+  if (app.hidden) app.hidden = false;
+}
+
+let bootDone = false;   // true = ยิงขอข้อมูลรอบแรกจบแล้ว (สำเร็จหรือล้มก็ตาม)
+
+/**
+ * มีของให้ดูจริงหรือยัง
+ *
+ * เปิดหน้าโล่งทันทีตอนที่ยังไม่มีทั้งแคชและคำตอบจากชีต
+ * ครูจะเห็น "ยังไม่มีห้องเรียน · สร้างห้องเรียนแรก" ค้างอยู่ 1-3 วินาที
+ * (Apps Script ตอบช้าขนาดนั้น) แล้วอาจกดสร้างห้องซ้ำทั้งที่มีอยู่แล้ว
+ * — หน้าโหลดหมุน ๆ ยังดีกว่าคำตอบผิดที่ดูเหมือนคำตอบจริง
+ */
+function readyToShow() {
+  if (bootDone) return true;                        // โหลดจบแล้ว ไม่ว่าผลจะเป็นยังไง
+  if (!api.conn.ready) return true;                 // หน้าติดตั้ง — ไม่ต้องรอเน็ต
+  return state.classes.length > 0 || !!state.cls;   // มีของจากแคชให้ดูแล้ว
+}
+
+/**
  * แสดงข้อผิดพลาดให้เห็นบนหน้าจอ แทนที่จะค้างอยู่ที่หน้าโหลดเงียบ ๆ
  * ครูจะได้อ่านข้อความส่งมาให้ช่วยดูได้ ไม่ต้องเปิด console เอง
  */
@@ -121,7 +154,13 @@ function syncBits() {
   return [
     pending > 0 && h('span', { class: 'sync-pill' + (online ? '' : ' off') },
       isSyncing() ? 'กำลังซิงค์…' : `ค้าง ${pending}`),
-    !online && h('span', { class: 'sync-pill off' }, 'ออฟไลน์')
+    !online && h('span', { class: 'sync-pill off' }, 'ออฟไลน์'),
+    // ตัวเลขที่เห็นมาจากสำเนาในเครื่อง ยังไม่ได้คุยกับชีตรอบนี้
+    // เดิมมี state.stale แต่ไม่เคยเอามาแสดง ครูจึงแยกไม่ออกว่ากำลังดูของสดหรือของเก่า
+    online && state.stale && h('span', {
+      class: 'sync-pill off',
+      title: 'ยังต่อชีตไม่ได้รอบนี้ — ตัวเลขที่เห็นเป็นสำเนาล่าสุดในเครื่อง'
+    }, 'ข้อมูลในเครื่อง')
   ].filter(Boolean);
 }
 
@@ -223,27 +262,68 @@ function render() {
       view()
     )
   );
+
+  if (readyToShow()) reveal();
+}
+
+/**
+ * วาดหน้าจอแบบมีตาข่ายรับ
+ *
+ * ถ้า view ไหน throw ขึ้นมา (ข้อมูลรูปแบบแปลก · ค่าที่ไม่ได้เผื่อไว้)
+ * ของเดิมจะดันขึ้นไปถึงคนที่เรียก emit() ทำให้ปุ่มที่เพิ่งกดพังตามไปด้วย
+ * แล้วทุกการกดหลังจากนั้นก็พังซ้ำ — หน้าจอค้างอยู่กับที่ กดอะไรก็ไม่ขยับ
+ * และไม่มีข้อความบอกสักคำ ครูจะนึกว่าแอปแฮงก์
+ *
+ * ตรงนี้จึงกันไว้ให้เหลือหน้าที่มีทางออกเสมอ
+ */
+function safeRender() {
+  try { render(); }
+  catch (err) {
+    console.error(err);
+    try { showBroken(err); } catch (e) { showFatal(err); }
+  }
+}
+
+/** หน้าจอสำรองตอน view พัง — ยังกลับหน้าแรกหรือไปตั้งค่าได้ */
+function showBroken(err) {
+  const msg = String((err && (err.message || err.stack)) || err || 'ไม่ทราบสาเหตุ');
+  reveal();
+  mount(app, h('div', { class: 'page' },
+    h('div', { class: 'card' },
+      h('div', { style: { fontSize: '17px', fontWeight: '700', marginBottom: '8px' } }, 'หน้านี้เปิดไม่ขึ้น'),
+      h('div', { style: { fontSize: '13.5px', color: 'var(--ink-2)', marginBottom: '12px', lineHeight: '1.6' } },
+        'ข้อมูลที่กรอกไว้ยังอยู่ครบและยังส่งขึ้นชีตตามปกติ — กลับไปหน้าอื่นแล้วใช้งานต่อได้เลย'),
+      h('pre', {
+        style: {
+          background: 'var(--surface-3)', padding: '11px 13px', borderRadius: '10px',
+          fontSize: '12px', whiteSpace: 'pre-wrap', wordBreak: 'break-word', margin: '0 0 12px'
+        }
+      }, msg),
+      h('div', { class: 'btn-row' },
+        h('button', { class: 'btn', style: { flex: '1' }, onclick: () => go('home') }, 'กลับหน้าแรก'),
+        h('button', { class: 'btn btn-ghost', style: { flex: '1' }, onclick: () => location.reload() }, 'โหลดใหม่'))
+    )));
 }
 
 // ── เริ่มทำงาน ──────────────────────────────────────────────
 
 // งานเสริมพวกนี้ห้ามทำให้แอปเปิดไม่ขึ้น ถ้าพังก็แค่ข้ามไป
 try { applyTheme(); } catch (e) {}
-try { watchSystemTheme(() => render()); } catch (e) {}
+try { watchSystemTheme(() => safeRender()); } catch (e) {}
 
-subscribe(render);
+subscribe(safeRender);
 
 // สลับ mobile ↔ desktop แล้วต้องวาดใหม่ เพราะเมนูอยู่คนละที่
 // ใช้ event ของ media query โดยตรง — เชื่อถือได้กว่าดัก resize
 try {
-  matchMedia('(min-width: 900px)').addEventListener('change', () => render());
+  matchMedia('(min-width: 900px)').addEventListener('change', () => safeRender());
 } catch (e) {
-  window.addEventListener('resize', () => render());
+  window.addEventListener('resize', () => safeRender());
 }
 
-window.addEventListener('ac:rerender', render);
+window.addEventListener('ac:rerender', safeRender);
 window.addEventListener('ac:sync', refreshSyncSlot);
-auth.onChange(render);
+auth.onChange(safeRender);
 
 // รับลิงก์ย้ายเครื่อง (#c=...) ก่อนอย่างอื่น
 try { api.conn.applyTransferFromHash(); } catch (e) {}
@@ -266,9 +346,9 @@ if (api.MODE === 'remote' && 'serviceWorker' in navigator && location.protocol !
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
   state.installPrompt = e;
-  render();
+  safeRender();
 });
-window.addEventListener('appinstalled', () => { state.installPrompt = null; render(); });
+window.addEventListener('appinstalled', () => { state.installPrompt = null; safeRender(); });
 
 (async function start() {
   try {
@@ -283,13 +363,13 @@ window.addEventListener('appinstalled', () => { state.installPrompt = null; rend
       }
       sync();
     }
-    render();
+    safeRender();
   } catch (e) {
     showFatal(e);
   } finally {
     // ต้องเอาหน้าโหลดออกเสมอ ไม่ว่าจะเกิดอะไรขึ้น — ค้างที่โลโก้แล้วผู้ใช้ทำอะไรไม่ได้เลย
-    boot.remove();
-    app.hidden = false;
+    bootDone = true;
+    reveal();
   }
 })();
 
@@ -416,6 +496,7 @@ __exp(exports, { h, clear, mount, toast, modal, confirmBox, todayISO, fmtDate, f
 /* AssignCheck V2 — ตัวเชื่อม Apps Script + คิวงานออฟไลน์ */
 
 const { auth } = __req("js/auth.js");
+const { store } = __req("js/storage.js");
 
 const LS = {
   url:   'ac.url',
@@ -425,12 +506,15 @@ const LS = {
   lastClass: 'ac.lastClass'
 };
 
-/* เบราว์เซอร์บางตัวบล็อก localStorage ใน iframe ของ Google แล้วโยน error ทันทีที่แตะ
- * ถ้าเก็บไม่ได้ก็ให้ทำงานต่อได้ (แค่เสียความสามารถใช้งานออฟไลน์) ห้ามพังทั้งแอป */
-const lsGet = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
-const lsSet = (k, v) => { try { localStorage.setItem(k, v); return true; } catch (e) { return false; } };
-const lsDel = (k) => { try { localStorage.removeItem(k); } catch (e) {} };
-const lsKeys = () => { try { return Object.keys(localStorage); } catch (e) { return []; } };
+/* เก็บผ่าน store — ถ้าเบราว์เซอร์บล็อก localStorage มันจะสลับไปใช้หน่วยความจำให้เอง
+ * สำคัญมากกับคิวงาน เพราะถ้าเขียนไม่ลงแล้วเงียบ คะแนนที่ครูกรอกจะไม่ถูกส่งขึ้นชีตเลย */
+const lsGet = (k) => store.get(k);
+const lsSet = (k, v) => store.set(k, v);
+const lsDel = (k) => store.del(k);
+const lsKeys = () => store.keys();
+
+/** true = ข้อมูลถูกเก็บลงเครื่องจริง · false = อยู่แค่ในแท็บนี้ ปิดแล้วหาย */
+const storagePersistent = () => store.persistent;
 
 /**
  * โหมดการทำงาน
@@ -589,8 +673,8 @@ const queue = {
     if (action === 'setCells') {
       const last = list[list.length - 1];
       if (last && !last.sending && last.action === 'setCells' && last.payload.classId === payload.classId) {
-        const map = new Map(last.payload.cells.map(c => [c.key + ' ' + c.sid, c]));
-        for (const c of payload.cells) map.set(c.key + ' ' + c.sid, c);
+        const map = new Map(last.payload.cells.map(c => [c.key + '\0' + c.sid, c]));
+        for (const c of payload.cells) map.set(c.key + '\0' + c.sid, c);
         last.payload.cells = [...map.values()];
         this.set(list);
         return;
@@ -607,6 +691,12 @@ const queue = {
     for (const o of list) if (set.has(o.id)) { if (sending) o.sending = true; else delete o.sending; }
     this.set(list);
   },
+
+  /** จำนวนครั้งที่งานในคิวถูกส่งแล้วไม่ผ่านมากที่สุด — ใช้ถ่างจังหวะลองใหม่ */
+  maxTries() { return this.all().reduce((a, o) => Math.max(a, o.tries || 0), 0); },
+
+  /** งานที่ลองส่งซ้ำหลายรอบแล้วยังไม่ผ่าน — เอาไปแสดงในหน้าตรวจสภาพ */
+  stuck(min = 3) { return this.all().filter(o => (o.tries || 0) >= min); },
 
   clear() { this.set([]); }
 };
@@ -625,15 +715,26 @@ async function flush() {
   queue.mark(ops.map(o => o.id), true);
   try {
     const res = await call('batch', { ops: ops.map(o => ({ action: o.action, payload: o.payload })) });
+    const results = res.results || [];
+
+    // ลบออกจากคิวเฉพาะงานที่เซิร์ฟเวอร์ยืนยันว่าสำเร็จ
+    // ของเดิมลบทั้งก้อนรวมงานที่ล้มเหลวด้วย — คะแนนช่องนั้นหายถาวรทั้งที่ยังไม่ได้ลงชีต
+    // (พลาดรอบเดียวเพราะชีตติดล็อกชั่วคราว ก็เสียข้อมูลแล้ว)
+    const okIds = new Set();
     const failed = [];
-    (res.results || []).forEach((r, i) => { if (!r.ok) failed.push({ ...ops[i], error: r.error }); });
+    ops.forEach((o, i) => {
+      const r = results[i];
+      if (r && r.ok) { okIds.add(o.id); return; }
+      failed.push({ ...o, error: (r && r.error) || 'เซิร์ฟเวอร์ตอบกลับไม่ครบ' });
+    });
 
-    // เอาเฉพาะงานที่เข้ามาใหม่ระหว่างส่งไว้ในคิว
-    const now = queue.all();
+    // งานที่ยังไม่ผ่านต้องกลับไปอยู่หน้าคิว เพื่อรักษาลำดับก่อน-หลังของการแก้ค่า
+    const retry = failed.map(({ error, sending, ...o }) => ({ ...o, tries: (o.tries || 0) + 1 }));
     const sentIds = new Set(ops.map(o => o.id));
-    queue.set(now.filter(o => !sentIds.has(o.id)));
+    const fresh = queue.all().filter(o => !sentIds.has(o.id));   // ของที่เพิ่งกดระหว่างรอคำตอบ
+    queue.set([...retry, ...fresh]);
 
-    return { sent: ops.length - failed.length, failed };
+    return { sent: okIds.size, failed };
   } catch (e) {
     queue.mark(ops.map(o => o.id), false);   // ส่งไม่สำเร็จ ให้กลับไปรวมกับของใหม่ได้ตามเดิม
     throw e;
@@ -652,7 +753,7 @@ const net = {
 window.addEventListener('online',  () => net.emit());
 window.addEventListener('offline', () => net.emit());
 
-__exp(exports, { MODE, conn, cache, lastClass, ApiError, OfflineError, call, serverInfo, queue, flush, net });
+__exp(exports, { storagePersistent, MODE, conn, cache, lastClass, ApiError, OfflineError, call, serverInfo, queue, flush, net });
 
   };
 
@@ -667,12 +768,15 @@ __exp(exports, { MODE, conn, cache, lastClass, ApiError, OfflineError, call, ser
  * ไม่ต้องจำรหัสลับ
  */
 
+const { store } = __req("js/storage.js");
+
 const LS = { token: 'ac.idtoken', profile: 'ac.profile', clientId: 'ac.clientid' };
 
-/* บางเบราว์เซอร์บล็อก localStorage ใน iframe ของ Google แล้วโยน error ทันทีที่แตะ */
-const lsGet = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
-const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
-const lsDel = (k) => { try { localStorage.removeItem(k); } catch (e) {} };
+/* เก็บผ่าน store — บางเบราว์เซอร์บล็อก localStorage ใน iframe ของ Google
+ * ของเดิมกลืน error ทิ้ง ทำให้ token ที่เพิ่งได้มาหายทันที แล้ววนให้ล็อกอินซ้ำไม่จบ */
+const lsGet = (k) => store.get(k);
+const lsSet = (k, v) => store.set(k, v);
+const lsDel = (k) => store.del(k);
 const GIS_SRC = 'https://accounts.google.com/gsi/client';
 
 let gisReady = null;
@@ -798,6 +902,113 @@ __exp(exports, { auth, renderSignInButton });
 
   };
 
+  __defs["js/storage.js"] = function (exports, __req) {
+/* AssignCheck V2 — ที่เก็บข้อมูลในเครื่อง พร้อมตัวสำรองในหน่วยความจำ
+ *
+ * ทำไมต้องมีไฟล์นี้
+ * ─────────────────
+ * บางเบราว์เซอร์ห้ามแตะ localStorage แล้วโยน error ทันที
+ *   · Chrome ที่ปิดคุกกี้ของบุคคลที่สาม เวลาแอปถูกเสิร์ฟใน iframe ของ Apps Script
+ *   · Safari โหมดส่วนตัว · โหมดกันการติดตามบางตัว · พื้นที่เก็บเต็ม
+ *
+ * โค้ดเดิมกลืน error ทิ้งแล้วเดินต่อ ซึ่งดูเหมือนปลอดภัยแต่ไม่ใช่ —
+ * "คิวงานที่รอส่งขึ้นชีต" ก็เขียนไม่ลงไปด้วย queue.size จึงเป็น 0 ตลอด
+ * ผลคือคะแนนที่ครูกรอกขึ้นบนจอครบทุกช่อง ดูเหมือนบันทึกแล้ว
+ * แต่ไม่เคยถูกส่งไปที่ชีตเลย และหายเงียบ ๆ ตอนปิดหน้า
+ *
+ * ไฟล์นี้จึงสลับไปเก็บในหน่วยความจำแทนเมื่อเขียนลงเครื่องไม่ได้
+ * รอบการใช้งานนี้ยังทำงานครบ (ซิงค์ขึ้นชีตได้ตามปกติ)
+ * แลกกับการที่ปิดหน้าไปแล้วของที่ยังไม่ได้ส่งจะหาย
+ * — แอปจะเตือนครูให้รู้ตัวผ่าน store.persistent
+ */
+
+const mem = new Map();          // ค่าที่เขียนลงเครื่องไม่ได้ เก็บไว้ตรงนี้แทน
+const gone = new Set();         // คีย์ที่สั่งลบแล้ว แต่ลบออกจากเครื่องจริงไม่ได้
+let usingMemory = false;
+let reason = '';
+
+function fallback(why) {
+  if (usingMemory) return;
+  usingMemory = true;
+  reason = why;
+  console.warn('AssignCheck: เก็บข้อมูลลงเครื่องไม่ได้ (' + why + ') — ใช้หน่วยความจำแทนรอบนี้');
+}
+
+/**
+ * พื้นที่เต็ม — แคชสร้างใหม่ได้จากชีต แต่คิวที่รอส่งสร้างใหม่ไม่ได้
+ * จึงทิ้งแคชเพื่อเปิดทางให้คิวก่อน ค่อยยอมถอยไปหน่วยความจำเป็นทางสุดท้าย
+ */
+function dropCache(exceptKey) {
+  let dropped = false;
+  try {
+    for (const k of Object.keys(localStorage)) {
+      if (k.startsWith('ac.cache.') && k !== exceptKey) { localStorage.removeItem(k); dropped = true; }
+    }
+  } catch (e) { return false; }
+  return dropped;
+}
+
+// ลองตั้งแต่ตอนเปิดแอป ดีกว่าไปรู้ตอนครูกรอกคะแนนไปแล้วครึ่งห้อง
+try {
+  localStorage.setItem('ac.__probe', '1');
+  localStorage.removeItem('ac.__probe');
+} catch (e) {
+  fallback('เบราว์เซอร์ไม่อนุญาต');
+}
+
+const store = {
+  /** false = ของที่เขียนรอบนี้อยู่แค่ในแท็บนี้ ปิดหน้าแล้วหาย */
+  get persistent() { return !usingMemory; },
+  get reason() { return reason; },
+
+  /**
+   * หน่วยความจำมาก่อน (ของใหม่สุด) แล้วค่อยตกไปอ่านจากเครื่อง
+   * ต้องอ่านทะลุแบบนี้ ไม่งั้นพอเขียนไม่ได้ครั้งเดียว ลิงก์ชีตที่เคยตั้งไว้
+   * จะอ่านไม่เจอ แล้วแอปเด้งกลับไปหน้าติดตั้งเหมือนลืมทุกอย่าง
+   */
+  get(k) {
+    if (mem.has(k)) return mem.get(k);
+    if (gone.has(k)) return null;
+    try { return localStorage.getItem(k); } catch (e) { return null; }
+  },
+
+  /** @returns true เสมอเมื่อเก็บได้ (ไม่ว่าจะลงเครื่องหรือหน่วยความจำ) */
+  set(k, v) {
+    const s = String(v);
+    gone.delete(k);
+    if (!usingMemory) {
+      try { localStorage.setItem(k, s); mem.delete(k); return true; }
+      catch (e) {
+        if (dropCache(k)) {
+          try { localStorage.setItem(k, s); mem.delete(k); return true; } catch (e2) {}
+        }
+        fallback('พื้นที่เต็มหรือถูกบล็อก');
+      }
+    }
+    mem.set(k, s);
+    return true;
+  },
+
+  del(k) {
+    mem.delete(k);
+    gone.add(k);
+    // ถ้าลบออกจากเครื่องได้จริงก็ไม่ต้องจำว่า "ลบแล้ว" อีก
+    try { localStorage.removeItem(k); gone.delete(k); } catch (e) {}
+  },
+
+  keys() {
+    const out = new Set(mem.keys());
+    try {
+      for (const k of Object.keys(localStorage)) if (!gone.has(k)) out.add(k);
+    } catch (e) {}
+    return [...out];
+  }
+};
+
+__exp(exports, { store });
+
+  };
+
   __defs["js/state.js"] = function (exports, __req) {
 /* AssignCheck V2 — สถานะแอป + การอ่าน/เขียนข้อมูล (optimistic + ออฟไลน์) */
 
@@ -820,7 +1031,16 @@ const state = {
 
 const subs = new Set();
 function subscribe(fn) { subs.add(fn); return () => subs.delete(fn); }
-function emit() { subs.forEach(fn => fn()); }
+
+/**
+ * แจ้งให้หน้าจอวาดใหม่
+ * ห่อ try ไว้เพราะคนเรียก emit() ส่วนใหญ่คือฟังก์ชันที่เพิ่งบันทึกข้อมูลเสร็จ
+ * ถ้าการวาดหน้าพังแล้วดันขึ้นมาถึงตรงนี้ การบันทึกจะดูเหมือนล้มไปด้วย
+ * ทั้งที่ค่าลงคิวเรียบร้อยแล้ว
+ */
+function emit() {
+  subs.forEach(fn => { try { fn(); } catch (e) { console.error(e); } });
+}
 
 function settings() { return settingsFrom(state.config); }
 
@@ -841,6 +1061,27 @@ const blockIdx = (c) => {
 
 function sortColumns(cols) {
   return cols.slice().sort((a, b) => blockIdx(a) - blockIdx(b) || String(a.id).localeCompare(String(b.id)));
+}
+
+/**
+ * รับประกันรูปร่างของข้อมูลห้องเรียนก่อนเอาไปใช้
+ *
+ * ทุกหน้าจออ่าน cls.students / cls.columns / cls.values ตรง ๆ โดยไม่กันค่าว่าง
+ * ถ้าได้ก้อนที่ไม่ครบ (แคชจากแอปเวอร์ชันเก่า · เขียนค้างตอนพื้นที่เต็ม ·
+ * ชีตตอบไม่ครบ) หน้าจอจะพังทุกครั้งที่เปิด และเพราะแคชอยู่ในเครื่องถาวร
+ * มันจะพังซ้ำทุกครั้งจนกว่าจะล้างข้อมูลเว็บทิ้งเอง — ครูแก้เองไม่ได้
+ *
+ * กันไว้ที่จุดเดียวตรงนี้ ดีกว่าไปไล่ใส่ ?? [] ทุกบรรทัดใน 8 ไฟล์
+ */
+function normalizeClass(d) {
+  if (!d || typeof d !== 'object') return null;
+  return {
+    ...d,
+    meta: (d.meta && typeof d.meta === 'object') ? d.meta : {},
+    students: Array.isArray(d.students) ? d.students : [],
+    columns: sortColumns(Array.isArray(d.columns) ? d.columns : []),
+    values: (d.values && typeof d.values === 'object') ? d.values : {}
+  };
 }
 
 // ── โหลดข้อมูล ──────────────────────────────────────────────
@@ -883,7 +1124,7 @@ async function bootAll() {
     state.stale = true;
   }
   const cachedCls = want ? api.cache.get('class.' + want) : null;
-  if (cachedCls) { state.cls = cachedCls; state.classId = want; state.stale = true; }
+  if (cachedCls) { state.cls = normalizeClass(cachedCls); state.classId = want; state.stale = true; }
   if (cachedBoot || cachedCls) emit();
 
   if (!api.conn.ready) return;
@@ -915,10 +1156,9 @@ async function bootAll() {
   const got = list[1];
   if (got && got.ok && got.data) {
     const d = got.data;
-    d.columns = sortColumns(d.columns || []);
-    state.cls = d;
+    state.cls = normalizeClass(d);
     state.classId = want;
-    api.cache.set('class.' + want, d);
+    api.cache.set('class.' + want, state.cls);
   }
   emit();
 
@@ -937,16 +1177,15 @@ async function loadClass(classId, { force = false } = {}) {
   api.lastClass.set(classId);
 
   const cached = api.cache.get('class.' + classId);
-  if (cached) { state.cls = cached; state.stale = true; emit(); }
+  if (cached) { state.cls = normalizeClass(cached); state.stale = true; emit(); }
   if (!force && cached && !api.net.online) return;
 
   try {
     state.busy = true; emit();
     const data = await api.call('getClass', { classId });
-    data.columns = sortColumns(data.columns || []);
-    state.cls = data;
+    state.cls = normalizeClass(data);
     state.stale = false;
-    api.cache.set('class.' + classId, data);
+    api.cache.set('class.' + classId, state.cls);
   } catch (e) {
     if (!(e instanceof api.OfflineError)) toast(e.message, 'err');
     if (!cached) state.cls = null;
@@ -964,8 +1203,8 @@ function persistClass() {
 async function createClass(meta, students) {
   const data = await api.call('createClass', { meta, students });
   await bootstrap({ silent: true });
-  data.columns = sortColumns(data.columns || []);
-  state.cls = data; state.classId = data.meta.classId;
+  state.cls = normalizeClass(data);
+  state.classId = state.cls.meta.classId;
   api.lastClass.set(state.classId);
   persistClass(); emit();
   return data;
@@ -987,8 +1226,7 @@ async function deleteClass(classId) {
 
 async function setStudents(students) {
   const data = await api.call('setStudents', { classId: state.classId, students });
-  data.columns = sortColumns(data.columns || []);
-  state.cls = data; persistClass();
+  state.cls = normalizeClass(data); persistClass();
   await bootstrap({ silent: true });
   emit();
 }
@@ -1104,24 +1342,41 @@ function syncChanged() {
 }
 
 let syncing = false;
+let syncFails = 0;      // ส่งไม่ผ่านติดกันกี่รอบ (รวมกรณีออฟไลน์ที่ยังไม่ทันนับ tries)
+
 async function sync({ loud = false } = {}) {
   if (syncing || !api.conn.ready) return;
-  if (!api.queue.size) { if (loud) toast('ข้อมูลตรงกันแล้ว', 'ok'); return; }
+  if (!api.queue.size) { if (loud) toast('ข้อมูลตรงกันแล้ว', 'ok'); syncFails = 0; return; }
   syncing = true; syncChanged();
   try {
     const res = await api.flush();
     if (res.failed?.length) {
-      toast(`ซิงค์ไม่สำเร็จ ${res.failed.length} รายการ: ${res.failed[0].error}`, 'err', 5000);
-    } else if (loud) {
-      toast(`ซิงค์แล้ว ${res.sent} รายการ`, 'ok');
+      syncFails++;
+      // ของที่ส่งไม่ผ่านยังอยู่ในคิว จะลองใหม่ให้เอง — บอกให้ครูรู้ว่ายังไม่หาย
+      toast(`ยังส่งไม่ได้ ${res.failed.length} รายการ (เก็บไว้ให้แล้ว จะลองใหม่): ${res.failed[0].error}`, 'err', 5000);
+    } else {
+      syncFails = 0;
+      if (loud) toast(`ซิงค์แล้ว ${res.sent} รายการ`, 'ok');
     }
   } catch (e) {
+    syncFails++;
     if (loud) toast(e instanceof api.OfflineError ? 'ยังออฟไลน์ — เก็บไว้ก่อน' : e.message, 'err');
   } finally {
     syncing = false; syncChanged();
     // ของที่เพิ่งกดระหว่างกำลังส่งอยู่ ต้องไม่ค้างคิวรอจนกว่าจะกดครั้งถัดไป
-    if (api.queue.size) scheduleSync(400);
+    if (api.queue.size) scheduleSync(retryDelay());
   }
+}
+
+/**
+ * รอนานขึ้นเรื่อย ๆ เมื่อส่งไม่ผ่านซ้ำ ๆ
+ * ถ้าลองใหม่ทุก 400 มิลลิวินาทีตลอด ตอนออฟไลน์หรือชีตมีปัญหา
+ * แอปจะวนยิงไม่หยุด กินแบตและโดน Apps Script ปฏิเสธเพราะเรียกถี่เกิน
+ */
+function retryDelay() {
+  const n = Math.max(api.queue.maxTries(), syncFails);
+  if (!n) return 400;                              // ยังไม่เคยพลาด — ส่งของใหม่ให้ไว
+  return Math.min(60_000, 2000 * 2 ** (n - 1));    // 2s → 4s → 8s … สูงสุด 1 นาที
 }
 
 const isSyncing = () => syncing;
@@ -1220,12 +1475,39 @@ function settingsFrom(cfg = {}) {
   };
 }
 
+const DEFAULT_CUTS = '80:4,75:3.5,70:3,65:2.5,60:2,55:1.5,50:1,0:0';
+
+/**
+ * แปลงข้อความเกณฑ์เกรด "80:4,75:3.5,…" เป็นรายการช่วง
+ *
+ * ต้องเช็คว่าเป็นตัวเลขจริง ๆ — ของเดิมใช้ n() ที่แปลงค่าที่อ่านไม่ออกเป็น 0
+ * แล้วค่อยกรอง isNaN ทีหลัง ซึ่งกรองไม่ออกสักตัวเพราะไม่มีทางเป็น NaN แล้ว
+ * ผลคือพิมพ์ผิดตัวเดียว เช่น "8O:4" (ตัว O แทนเลขศูนย์) เกณฑ์นั้นกลายเป็น 0:4
+ * นักเรียนที่ได้ 0 คะแนนก็จะได้เกรด 4 กันทั้งห้องโดยไม่มีอะไรเตือน
+ */
 function parseCuts(s) {
-  return String(s || '80:4,75:3.5,70:3,65:2.5,60:2,55:1.5,50:1,0:0')
+  const good = String(s || DEFAULT_CUTS)
     .split(',')
-    .map(p => { const [a, b] = p.split(':'); return { min: n(a), grade: String(b ?? '0').trim() }; })
-    .filter(c => !isNaN(c.min))
-    .sort((a, b) => b.min - a.min);
+    .map(p => {
+      const [a, b] = p.split(':');
+      const raw = String(a ?? '').trim();
+      const min = Number(raw);
+      const grade = String(b ?? '').trim();
+      return { min, grade, ok: raw !== '' && Number.isFinite(min) && grade !== '' };
+    })
+    .filter(c => c.ok)
+    .map(({ min, grade }) => ({ min, grade }));
+
+  // พังทั้งชุด → ใช้เกณฑ์มาตรฐาน ดีกว่าปล่อยให้ตัดเกรดมั่ว
+  return (good.length ? good : parseCuts(DEFAULT_CUTS)).sort((a, b) => b.min - a.min);
+}
+
+/** ช่วงที่เขียนผิดรูปแบบ — หน้าตรวจสภาพเอาไปเตือนก่อนที่เกรดจะออกผิด */
+function badCuts(s) {
+  return String(s ?? '')
+    .split(',')
+    .map(p => p.trim())
+    .filter(p => p !== '' && !/^-?\d+(\.\d+)?\s*:\s*\S+$/.test(p));
 }
 
 function roundScore(v, digits, mode) {
@@ -1338,7 +1620,7 @@ function attStats(cls, colKey) {
   return out;
 }
 
-__exp(exports, { ATT_CODES, ATT_NAMES, NOT_SUBMITTED, parseWork, formatWork, BUCKETS, settingsFrom, bucketColumns, computeClass, attStats });
+__exp(exports, { ATT_CODES, ATT_NAMES, NOT_SUBMITTED, parseWork, formatWork, BUCKETS, settingsFrom, badCuts, bucketColumns, computeClass, attStats });
 
   };
 
@@ -1384,18 +1666,17 @@ __exp(exports, { icon });
  * ครูเลือกบังคับสว่างหรือมืดได้ในหน้าตั้งค่า เก็บไว้ในเครื่องนี้เท่านั้น
  */
 
+const { store } = __req("js/storage.js");
+
 const KEY = 'ac.theme';
 const BAR = { light: '#ffffff', dark: '#101211' };
 
-/* บางเบราว์เซอร์บล็อก localStorage ใน iframe ของ Google (Chrome ที่ปิดคุกกี้ของบุคคลที่สาม)
- * แล้วโยน error ทันทีที่แตะ — ต้องกันไว้ ไม่งั้นแอปตายตั้งแต่ยังไม่ทันวาดหน้าจอ */
-function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
-function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
-function lsDel(k) { try { localStorage.removeItem(k); } catch (e) {} }
-
-// เก็บไว้ในหน่วยความจำด้วย — ถ้าเครื่องบันทึกลงเครื่องไม่ได้
-// อย่างน้อยกดสลับโหมดแล้วต้องเปลี่ยนให้เห็นในรอบนี้ ไม่ใช่กดแล้วเงียบ
-let mem = null;
+/* store สลับไปเก็บในหน่วยความจำให้เองเมื่อเบราว์เซอร์บล็อก localStorage
+ * (Chrome ที่ปิดคุกกี้ของบุคคลที่สาม ใน iframe ของ Google)
+ * กดสลับโหมดจึงเห็นผลทันทีเสมอ แค่จำข้ามรอบไม่ได้ */
+function lsGet(k) { return store.get(k); }
+function lsSet(k, v) { store.set(k, v); }
+function lsDel(k) { store.del(k); }
 
 const THEMES = [
   { id: 'auto',  label: 'ตามเครื่อง', ic: 'auto' },
@@ -1404,12 +1685,11 @@ const THEMES = [
 ];
 
 function getTheme() {
-  const v = lsGet(KEY) || mem;
+  const v = lsGet(KEY);
   return v === 'light' || v === 'dark' ? v : 'auto';
 }
 
 function setTheme(v) {
-  mem = v === 'auto' ? null : v;
   if (v === 'auto') lsDel(KEY);
   else lsSet(KEY, v);
   applyTheme();
@@ -4432,6 +4712,7 @@ const { state, emit, go, settings, sync } = __req("js/state.js");
 const api = __req("js/api.js");
 const { auth } = __req("js/auth.js");
 const { APP_VERSION, NEEDS_SERVER, cmpVersion, FEATURES } = __req("js/version.js");
+const { badCuts } = __req("js/score.js");
 
 /** ข้อความสรุปหัวหน้า — ใช้ทั้งแถบเข้ม (มือถือ) และแถบบริบท (PC) */
 function summary(items) {
@@ -4616,7 +4897,44 @@ function runChecks() {
     : { level: 'err', title: `น้ำหนักคะแนนรวม ${sum} ไม่เท่ากับ 100`, detail: 'คะแนนที่กรอกลง SGS จะไม่ตรง',
         fix: 'ตั้งค่า → น้ำหนักคะแนน', action: { label: '⚙️ ไปแก้', run: () => go('settings') } });
 
-  // 7) ข้อมูลค้างส่ง
+  // 7) เกณฑ์เกรดเขียนถูกรูปแบบไหม
+  const cutErr = badCuts(state.config.grade_cuts);
+  if (cutErr.length) {
+    out.push({
+      level: 'err',
+      title: `เกณฑ์เกรดเขียนผิดรูปแบบ ${cutErr.length} ช่วง`,
+      detail: `ช่วงที่อ่านไม่ออก: ${cutErr.join(' · ')} — ระบบข้ามช่วงนี้ไป เกรดที่ออกมาจะไม่ตรงกับที่ตั้งใจ`,
+      fix: 'เขียนเป็น คะแนน:เกรด คั่นด้วยจุลภาค เช่น 80:4,75:3.5,70:3 (ระวังพิมพ์ตัว O แทนเลข 0)',
+      action: { label: '⚙️ ไปแก้', run: () => go('settings') }
+    });
+  }
+
+  // 8) เก็บข้อมูลลงเครื่องได้ไหม — ถ้าไม่ได้คือเรื่องใหญ่ที่สุดในหน้านี้
+  if (!api.storagePersistent()) {
+    out.push({
+      level: 'err',
+      title: 'เบราว์เซอร์ไม่ยอมให้เก็บข้อมูลลงเครื่อง',
+      detail: 'ตอนนี้เก็บไว้ในหน่วยความจำแทน — ใช้งานได้ปกติและส่งขึ้นชีตได้ '
+            + 'แต่ถ้าปิดแท็บหรือโหลดหน้าใหม่ตอนยังไม่มีเน็ต ของที่ยังไม่ได้ส่งจะหาย',
+      fix: 'เปิดแอปจากลิงก์ GitHub Pages โดยตรง (ไม่ผ่าน iframe) หรือเปิดคุกกี้ของบุคคลที่สามให้ google.com · '
+         + 'ระหว่างนี้ให้กดซิงค์ก่อนปิดหน้าทุกครั้ง',
+      action: api.queue.size ? { label: '⟳ ส่งขึ้นชีตเดี๋ยวนี้', run: () => sync({ loud: true }) } : null
+    });
+  }
+
+  // 9) งานที่ส่งไม่ผ่านซ้ำ ๆ — ยังอยู่ในคิว แต่ครูควรรู้ว่าไม่ได้ไปถึงชีต
+  const stuck = api.queue.stuck();
+  if (stuck.length) {
+    out.push({
+      level: 'err',
+      title: `มี ${stuck.length} รายการส่งไม่ผ่านหลายรอบแล้ว`,
+      detail: 'ยังเก็บไว้ให้ครบ ไม่ได้หายไปไหน และระบบยังลองส่งใหม่ให้เรื่อย ๆ',
+      fix: 'มักเป็นเพราะโค้ดในชีตเป็นเวอร์ชันเก่า หรือห้อง/คอลัมน์ถูกลบไปแล้ว — ตรวจ 2 อย่างนี้ก่อน',
+      action: { label: '⟳ ลองส่งอีกครั้ง', run: () => sync({ loud: true }) }
+    });
+  }
+
+  // 10) ข้อมูลค้างส่ง
   const q = api.queue.size;
   if (q > 0) {
     out.push({
@@ -4630,7 +4948,7 @@ function runChecks() {
     out.push({ level: 'ok', title: 'ข้อมูลตรงกับชีตแล้ว', detail: 'ไม่มีอะไรค้างส่ง' });
   }
 
-  // 8) พร้อมใช้ออฟไลน์ / ติดตั้งเป็นแอป
+  // 11) พร้อมใช้ออฟไลน์ / ติดตั้งเป็นแอป
   const standalone = window.matchMedia?.('(display-mode: standalone)').matches;
   if (embedded) {
     out.push({
@@ -4656,7 +4974,7 @@ function runChecks() {
     });
   }
 
-  // 9) เปิดจากที่ไหน
+  // 12) เปิดจากที่ไหน
   if (embedded) {
     out.push({
       level: 'ok', title: 'เปิดได้จากทุกเครื่องด้วยลิงก์เดียว',
@@ -4726,7 +5044,7 @@ __exp(exports, { viewHealth });
  * ⚠️ เวลาแก้โค้ดที่กระทบทั้ง 2 ฝั่ง ให้บวกเลขนี้ และแก้ SERVER_VERSION
  *    ใน apps-script/00_Constants.gs ให้ตรงกันด้วย
  */
-const APP_VERSION = '3.0.0';
+const APP_VERSION = '3.0.1';
 
 /** เวอร์ชันต่ำสุดของฝั่งชีตที่หน้าเว็บนี้ทำงานด้วยได้ครบทุกฟีเจอร์ */
 const NEEDS_SERVER = '2.8.0';
