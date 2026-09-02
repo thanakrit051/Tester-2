@@ -4355,6 +4355,9 @@ async function put(k, v, opts) {
     ui.savedAt = new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
     const el = document.querySelector('[data-savedat]');
     if (el) el.textContent = 'ล่าสุด ' + ui.savedAt + ' น.';
+    // หน้านี้บันทึกอัตโนมัติ ไม่มีปุ่มบันทึก — ป้ายเล็ก ๆ ในแถบหัวคนมองไม่เห็น
+    // จึงต้องมีข้อความยืนยันให้ชัด ไม่งั้นครูจะไม่รู้ว่าที่แก้ไปมีผลแล้ว
+    toast('บันทึกแล้ว', 'ok', 1400);
   } catch (e) {
     toast(e.message, 'err', 5000);
   }
@@ -4455,6 +4458,7 @@ function secScore() {
               state.config[w.k] = e.target.value;
               await put(w.k, e.target.value, { quiet: true });
               refreshWeightCard(e.target);
+              emit();
             }
           }))))
     ),
@@ -4496,6 +4500,9 @@ function secScore() {
             state.config.mid_date = el.value;
             await put('mid_date', el.value, { quiet: true });
             refreshMidDateRow(el);
+            // ให้แถบเตือนด้านบนอัปเดตด้วย — emit() จะถูกพักไว้เองถ้าปฏิทิน
+            // ยังกางอยู่ แล้วค่อยวาดตอนปิด จึงไม่ไปปิดปฏิทินกลางคัน
+            emit();
           }
         }),
         !midSet())
