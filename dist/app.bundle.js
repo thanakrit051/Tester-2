@@ -1071,9 +1071,81 @@ function subscribe(fn) { subs.add(fn); return () => subs.delete(fn); }
  * ถ้าการวาดหน้าพังแล้วดันขึ้นมาถึงตรงนี้ การบันทึกจะดูเหมือนล้มไปด้วย
  * ทั้งที่ค่าลงคิวเรียบร้อยแล้ว
  */
-function emit() {
+function emitNow() {
   subs.forEach(fn => { try { fn(); } catch (e) { console.error(e); } });
 }
+
+/* ── กันไม่ให้การวาดหน้าใหม่ไปทำลายช่องที่ผู้ใช้กำลังกรอกอยู่ ──
+ *
+ * render() ล้าง DOM ทิ้งทั้งหน้าแล้วสร้างใหม่ ถ้ามันทำงานตอนที่ผู้ใช้
+ * คาเคอร์เซอร์อยู่ในช่องไหน ช่องนั้นจะถูกแทนที่ด้วย element ตัวใหม่
+ *   · ช่องข้อความ/ตัวเลข → เคอร์เซอร์เด้ง แป้นพิมพ์บนมือถือปิดเอง
+ *   · <input type="date"> → ปฏิทินของเครื่องเกาะกับ element เดิมอยู่
+ *     พอ element หาย ปฏิทินก็ปิดตัวเอง = ตั้งวันไม่ได้เลย
+ *
+ * iOS Safari ทำให้เห็นชัดที่สุด เพราะพอเปิดปฏิทินมันจะเซ็ตวันปัจจุบัน
+ * แล้วยิง change ทันทีตั้งแต่ผู้ใช้ยังไม่ได้เลือกอะไร การวาดใหม่จึงเกิดขึ้น
+ * ตอนปฏิทินเพิ่งกางออกมา — อาการคือ "ปฏิทินขึ้นแล้วปิดเอง"
+ *
+ * เดิมไล่แก้เป็นช่อง ๆ ซึ่งไม่จบ เพราะอะไรก็เรียก emit() ได้
+ * จึงกันที่ต้นทางแทน: ระหว่างที่ปฏิทิน/นาฬิกาของเครื่องกางอยู่ ให้พัก
+ * การวาดไว้ก่อน แล้วค่อยวาดตอนออกจากช่อง
+ *
+ * จงใจจำกัดไว้แค่ช่องที่มีหน้าต่างของระบบเกาะอยู่เท่านั้น
+ * ถ้าพักการวาดให้ทุกช่องที่โฟกัส แล้วมีอะไรทำให้โฟกัสค้าง
+ * ทั้งแอปจะหยุดอัปเดตไปเลย ซึ่งแย่กว่าอาการเดิมมาก
+ * ช่องข้อความ/ตัวเลขแก้ที่ต้นทางไปแล้ว (บันทึกแบบ quiet + อัปเดต DOM เอง)
+ */
+const PICKER_TYPES = ['date', 'time', 'datetime-local', 'month', 'week'];
+let pending = false;
+
+/** ปฏิทิน/นาฬิกาของเครื่องกางอยู่ไหม */
+const pickerOpen = () => {
+  try {
+    const el = document.activeElement;
+    if (!el || el.tagName !== 'INPUT') return false;
+    if (!PICKER_TYPES.includes(el.type)) return false;
+    const app = document.getElementById('app');
+    return !!(app && app.contains(el));
+  } catch (e) { return false; }
+};
+
+let pendingSince = 0;
+
+function emit() {
+  if (pickerOpen()) {
+    if (!pending) pendingSince = Date.now();
+    pending = true;
+    return;
+  }
+  pending = false;
+  emitNow();
+}
+
+/** ปฏิทินปิดแล้ว — ถ้ามีการวาดที่พักไว้ ค่อยทำตอนนี้ */
+function flushPending() {
+  if (!pending) return;
+  // รอให้โฟกัสไปนิ่งก่อน กันกรณีย้ายจากช่องหนึ่งไปอีกช่องหนึ่ง
+  setTimeout(() => { if (pending && !pickerOpen()) { pending = false; emitNow(); } }, 0);
+}
+try {
+  document.addEventListener('focusout', flushPending, true);
+  // ตาข่ายรับ: ผู้ใช้แตะหรือพิมพ์ที่อื่นเมื่อไหร่ ต้องไม่มีอะไรค้างอยู่
+  document.addEventListener('click', flushPending, true);
+  document.addEventListener('keydown', flushPending, true);
+  document.addEventListener('visibilitychange', flushPending);
+
+  // ตาข่ายชั้นสุดท้าย — เผื่อปฏิทินปิดไปโดยไม่ยิง event ที่เราดักไว้
+  // (บางเบราว์เซอร์บนมือถือทำแบบนั้น) เช็คเบา ๆ วินาทีละครั้ง
+  //
+  // มีเพดานเวลาด้วย: ถ้าค้างเกิน 8 วินาทีให้วาดเลยไม่ว่าจะยังโฟกัสอยู่ไหม
+  // เพราะถ้าโฟกัสค้างอยู่ในช่องด้วยเหตุอะไรก็ตาม แอปจะหยุดอัปเดตไปเรื่อย ๆ
+  // ซึ่งแย่กว่าปฏิทินถูกปิดมาก — 8 วินาทีนานพอสำหรับการเลือกวันตามปกติ
+  setInterval(() => {
+    if (!pending) return;
+    if (!pickerOpen() || Date.now() - pendingSince > 8000) { pending = false; emitNow(); }
+  }, 1000);
+} catch (e) {}
 
 function settings() { return settingsFrom(state.config); }
 
