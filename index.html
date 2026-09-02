@@ -661,16 +661,25 @@ table.grid td.total { background: var(--accent-soft) !important; font-weight: 70
 
 /* ── หน้าตรวจสอบระบบ ──────────────────────────────────────── */
 .check-row {
-  display: flex; gap: 11px; padding: 14px 16px;
+  display: flex; gap: 12px; padding: 13px 16px;
   border-bottom: 1px solid var(--line); align-items: flex-start;
 }
 .check-row:last-child { border-bottom: none; }
-.check-ic { font-size: 17px; line-height: 1.3; flex: none; }
+/* จุดสีบอกระดับ — มีคำว่า "ต้องแก้ก่อน / ควรตั้งค่าเพิ่ม / ผ่านแล้ว" กำกับหัวกลุ่มอยู่แล้ว
+   จึงไม่ได้สื่อความหมายด้วยสีอย่างเดียว */
+.check-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex: none; margin-top: 6px;
+  background: var(--st-ok);
+}
+.check-row[data-level="warn"] .check-dot { background: var(--st-late); }
+.check-row[data-level="err"]  .check-dot { background: var(--st-miss); }
+.check-row[data-level="ok"]   { opacity: .72; }
+.check-row[data-level="ok"]:hover { opacity: 1; }
 .check-title { font-weight: 600; font-size: 14px; }
-.check-sub { font-size: 12.5px; color: var(--ink-2); margin-top: 2px; }
+.check-sub { font-size: 12.5px; color: var(--ink-2); margin-top: 2px; line-height: 1.6; }
 .check-fix {
-  font-size: 12.5px; color: var(--accent-ink); margin-top: 6px;
-  background: var(--accent-soft); padding: 8px 11px; border-radius: var(--r-1);
+  font-size: 12.5px; color: var(--ink-2); margin-top: 7px; line-height: 1.6;
+  padding-left: 11px; border-left: 2px solid var(--line-2);
 }
 
 .alert-bar {
@@ -1240,6 +1249,41 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
 
 /* แถวกรองในหน้าเช็คชื่อ — ดีไซน์ใช้เขียวน้ำทะเลกับชิปที่เลือกอยู่ */
 .filter-row .chip[data-on="1"] { background: var(--accent); color: var(--on-accent); }
+
+/* ช่องสถานะซิงค์ — ใช้ display:contents ให้ป้ายข้างในเรียงเป็นลูกของแถบหัวตามเดิม */
+.sync-slot { display: contents; }
+
+/* ── เลือกห้อง → เลือกคน (หน้ากรอกรายคน) ─────────────────── */
+.pick2row { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+.pickbox {
+  display: flex; align-items: center; gap: 8px; min-width: 0;
+  background: var(--surface); border-radius: var(--r-2); box-shadow: var(--sh-1);
+  padding: 4px 6px 4px 14px;
+}
+.pickbox.grow { flex: 1; min-width: 200px; }
+.pickbox > span { flex: none; font-size: 12.5px; color: var(--ink-2); }
+.pickbox select {
+  border: none; background: none; min-height: 42px; width: 100%;
+  padding: 4px 26px 4px 2px; font-size: 14.5px; font-weight: 600; color: var(--ink);
+}
+.pickbox select:focus { box-shadow: none; }
+@media (max-width: 560px) { .pickbox { flex: 1 1 100%; } }
+
+/* ── เก็บงานจอแคบ ─────────────────────────────────────────── */
+
+/* .page ลด padding เหลือ 10px ที่จอ ≤400px แถบล่างจึงต้องยืดออกเท่ากัน
+   ไม่งั้นล้นออกไป 4px แล้วเลื่อนซ้าย-ขวาได้ทั้งหน้า */
+@media (max-width: 400px) {
+  .done-bar { margin-left: -10px; margin-right: -10px; }
+}
+
+/* ตัวเลือกแบบปุ่มติดกันในหน้าตั้งค่า จอแคบให้เต็มบรรทัด ไม่ล้นกรอบ */
+@media (max-width: 560px) {
+  .set-ctl { width: 100%; }
+  .set-ctl .seg-inline { display: grid; width: 100%; }
+  .set-ctl .seg-inline button { padding: 9px 4px; }
+  .set-ctl input, .set-ctl select { flex: 1; min-width: 0; }
+}
 
 /* สไตล์เฉพาะหน้าของนักเรียน — ต่อยอดจาก styles.css (ใช้ตัวแปรสีชุดเดียวกัน) */
 

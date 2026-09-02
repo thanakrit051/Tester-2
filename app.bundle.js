@@ -17,7 +17,7 @@
 
 const { h, mount, toast } = __req("js/dom.js");
 const api = __req("js/api.js");
-const { state, subscribe, bootstrap, loadClass, sync, isSyncing, go } = __req("js/state.js");
+const { state, subscribe, bootAll, loadClass, sync, isSyncing, go } = __req("js/state.js");
 const { auth } = __req("js/auth.js");
 const { icon } = __req("js/icons.js");
 const { applyTheme, watchSystemTheme } = __req("js/theme.js");
@@ -111,9 +111,26 @@ const wide = () => {
   try { return matchMedia('(min-width: 900px)').matches; } catch (e) { return false; }
 };
 
-function appbar() {
+/**
+ * ป้ายบอกสถานะซิงค์ — แยกออกมาเพราะเปลี่ยนบ่อยกว่าส่วนอื่นของแถบหัวมาก
+ * อัปเดตเฉพาะช่องนี้ ไม่ต้องวาดทั้งหน้าใหม่ (กันเคอร์เซอร์เด้งตอนพิมพ์คะแนน)
+ */
+function syncBits() {
   const online = navigator.onLine;
   const pending = api.queue.size;
+  return [
+    pending > 0 && h('span', { class: 'sync-pill' + (online ? '' : ' off') },
+      isSyncing() ? 'กำลังซิงค์…' : `ค้าง ${pending}`),
+    !online && h('span', { class: 'sync-pill off' }, 'ออฟไลน์')
+  ].filter(Boolean);
+}
+
+function refreshSyncSlot() {
+  const slot = document.querySelector('.appbar .sync-slot');
+  if (slot) slot.replaceChildren(...syncBits());
+}
+
+function appbar() {
   return h('header', { class: 'appbar' },
     h('div', { class: 'brand' }, 'A'),
     h('div', { style: wide() ? { minWidth: '0' } : { flex: '1', minWidth: '0' } },
@@ -123,16 +140,14 @@ function appbar() {
     ),
     wide() && nav(),
     wide() && classChip(),
-    pending > 0 && h('span', { class: 'sync-pill' + (online ? '' : ' off') },
-      isSyncing() ? 'กำลังซิงค์…' : `ค้าง ${pending}`),
-    !online && h('span', { class: 'sync-pill off' }, 'ออฟไลน์'),
+    h('span', { class: 'sync-slot' }, ...syncBits()),
     h('button', {
       class: 'icon-btn', title: 'ซิงค์ข้อมูล', 'aria-label': 'ซิงค์ข้อมูล',
       onclick: async (e) => {
         const s = e.currentTarget.firstElementChild;
         if (s) s.style.animation = 'spin .7s linear infinite';
         await sync({ loud: true });
-        await bootstrap({ silent: true });
+        await bootAll();          // อ่านใหม่ทั้งตั้งค่าและห้องปัจจุบันในรอบเดียว
       }
     }, icon('refresh')),
     h('button', {
@@ -227,6 +242,7 @@ try {
 }
 
 window.addEventListener('ac:rerender', render);
+window.addEventListener('ac:sync', refreshSyncSlot);
 auth.onChange(render);
 
 // รับลิงก์ย้ายเครื่อง (#c=...) ก่อนอย่างอื่น
@@ -258,10 +274,7 @@ window.addEventListener('appinstalled', () => { state.installPrompt = null; rend
   try {
     if (api.conn.ready) {
       try {
-        await bootstrap();
-        const want = api.lastClass.get();
-        const pick = state.classes.find(c => c.classId === want) || state.classes[0];
-        if (pick) await loadClass(pick.classId);
+        await bootAll();          // ยิงครั้งเดียวได้ทั้งตั้งค่า รายชื่อห้อง และห้องที่เปิดค้างไว้
       } catch (e) {
         if (e instanceof api.ApiError && (e.code === 'AUTH' || e.code === 'FORBIDDEN')) {
           toast(e.message + ' — กรุณาเชื่อมต่อใหม่', 'err', 6000);
@@ -563,12 +576,19 @@ const queue = {
   set(list) { lsSet(LS.queue, JSON.stringify(list)); },
   get size() { return this.all().length; },
 
-  /** ต่อคิว — รวมคำสั่ง setCells ของห้องเดียวกันเข้าด้วยกันเพื่อลดจำนวน request */
+  /**
+   * ต่อคิว — รวมคำสั่ง setCells ของห้องเดียวกันเข้าด้วยกันเพื่อลดจำนวน request
+   *
+   * ห้ามรวมเข้ากับก้อนที่กำลังส่งอยู่ (sending)
+   * ก้อนนั้นถูกถ่ายสำเนาไปทำ request แล้ว แก้ทีหลังไม่มีผลกับสิ่งที่ส่งออกไป
+   * แต่ตอนส่งเสร็จมันจะถูกลบทั้งก้อน — สิ่งที่เพิ่งกดจะหายเงียบ ๆ
+   * (Apps Script ตอบ 1–3 วินาที ช่วงนี้ครูกดต่อได้อีกหลายครั้ง)
+   */
   push(action, payload) {
     const list = this.all();
     if (action === 'setCells') {
       const last = list[list.length - 1];
-      if (last && last.action === 'setCells' && last.payload.classId === payload.classId) {
+      if (last && !last.sending && last.action === 'setCells' && last.payload.classId === payload.classId) {
         const map = new Map(last.payload.cells.map(c => [c.key + ' ' + c.sid, c]));
         for (const c of payload.cells) map.set(c.key + ' ' + c.sid, c);
         last.payload.cells = [...map.values()];
@@ -577,6 +597,14 @@ const queue = {
       }
     }
     list.push({ id: Date.now() + '-' + Math.random().toString(36).slice(2, 7), action, payload });
+    this.set(list);
+  },
+
+  /** ปักธงว่ากำลังส่งอยู่ / ปลดธงเมื่อส่งไม่สำเร็จ */
+  mark(ids, sending) {
+    const set = new Set(ids);
+    const list = this.all();
+    for (const o of list) if (set.has(o.id)) { if (sending) o.sending = true; else delete o.sending; }
     this.set(list);
   },
 
@@ -593,6 +621,8 @@ async function flush() {
   if (!conn.ready) return { sent: 0 };
 
   flushing = true;
+  // ปักธงก่อนยิง เพื่อไม่ให้สิ่งที่กดระหว่างรอคำตอบถูกรวมเข้าก้อนนี้แล้วหายไปพร้อมกัน
+  queue.mark(ops.map(o => o.id), true);
   try {
     const res = await call('batch', { ops: ops.map(o => ({ action: o.action, payload: o.payload })) });
     const failed = [];
@@ -604,6 +634,9 @@ async function flush() {
     queue.set(now.filter(o => !sentIds.has(o.id)));
 
     return { sent: ops.length - failed.length, failed };
+  } catch (e) {
+    queue.mark(ops.map(o => o.id), false);   // ส่งไม่สำเร็จ ให้กลับไปรวมกับของใหม่ได้ตามเดิม
+    throw e;
   } finally {
     flushing = false;
   }
@@ -832,6 +865,72 @@ async function bootstrap({ silent = false } = {}) {
   }
 }
 
+/**
+ * โหลดทุกอย่างที่ต้องใช้ตอนเปิดแอปด้วยการยิงครั้งเดียว
+ *
+ * เดิมยิง 2 รอบเรียงกัน (bootstrap แล้วค่อย getClass) ซึ่งช้าเป็นเท่าตัว
+ * เพราะ Apps Script ตอบรอบละ 1–3 วินาที · ห้องที่จะเปิดรู้ล่วงหน้าจากเครื่องอยู่แล้ว
+ * จึงขอพร้อมกันไปเลยผ่านคำสั่ง batch ที่ฝั่งชีตมีอยู่แล้ว
+ */
+async function bootAll() {
+  const want = api.lastClass.get();
+
+  // วาดจากแคชก่อน ผู้ใช้จะได้เห็นของทันทีระหว่างรอเน็ต
+  const cachedBoot = api.cache.get('bootstrap');
+  if (cachedBoot) {
+    state.config = cachedBoot.config || {};
+    state.classes = cachedBoot.classes || [];
+    state.stale = true;
+  }
+  const cachedCls = want ? api.cache.get('class.' + want) : null;
+  if (cachedCls) { state.cls = cachedCls; state.classId = want; state.stale = true; }
+  if (cachedBoot || cachedCls) emit();
+
+  if (!api.conn.ready) return;
+
+  const ops = [{ action: 'bootstrap', payload: {} }];
+  if (want) ops.push({ action: 'getClass', payload: { classId: want } });
+
+  let res;
+  try {
+    res = await api.call('batch', { ops });
+  } catch (e) {
+    if (!(e instanceof api.OfflineError)) toast(e.message, 'err');
+    if (e instanceof api.ApiError && e.code === 'AUTH') throw e;
+    return;
+  }
+
+  const list = res.results || [];
+  const boot = list[0];
+  if (boot && boot.ok) {
+    const d = boot.data || {};
+    state.config = d.config || {};
+    state.classes = d.classes || [];
+    state.webAppUrl = d.webAppUrl || '';
+    state.user = api.serverInfo.user || null;
+    state.stale = false;
+    api.cache.set('bootstrap', d);
+  }
+
+  const got = list[1];
+  if (got && got.ok && got.data) {
+    const d = got.data;
+    d.columns = sortColumns(d.columns || []);
+    state.cls = d;
+    state.classId = want;
+    api.cache.set('class.' + want, d);
+  }
+  emit();
+
+  // ห้องที่จำไว้ถูกลบไปแล้ว หรือยังไม่เคยเลือกห้อง → เปิดห้องแรกให้
+  const okClass = state.classes.some(c => c.classId === state.classId);
+  if (!okClass) {
+    const first = state.classes[0];
+    if (first) await loadClass(first.classId);
+    else { state.cls = null; state.classId = ''; emit(); }
+  }
+}
+
 async function loadClass(classId, { force = false } = {}) {
   if (!classId) { state.cls = null; state.classId = ''; emit(); return; }
   state.classId = classId;
@@ -990,16 +1089,25 @@ function getCell(key, sid) {
 // ── ซิงค์ ───────────────────────────────────────────────────
 
 let syncTimer = null;
-function scheduleSync(ms = 1800) {
+/** ส่งขึ้นชีตเร็วขึ้น — คำสั่งของห้องเดียวกันถูกรวมเป็นก้อนเดียวอยู่แล้ว จึงไม่เปลืองรอบ */
+function scheduleSync(ms = 600) {
   clearTimeout(syncTimer);
   syncTimer = setTimeout(() => sync(), ms);
+}
+
+/**
+ * สถานะซิงค์เปลี่ยนบ่อยมาก ถ้าสั่ง emit() จะวาดทั้งหน้าใหม่
+ * ครูที่กำลังพิมพ์คะแนนอยู่จะโดนเคอร์เซอร์เด้ง — จึงบอกเฉพาะแถบหัวให้ไปอัปเดตเอง
+ */
+function syncChanged() {
+  try { window.dispatchEvent(new CustomEvent('ac:sync')); } catch (e) {}
 }
 
 let syncing = false;
 async function sync({ loud = false } = {}) {
   if (syncing || !api.conn.ready) return;
   if (!api.queue.size) { if (loud) toast('ข้อมูลตรงกันแล้ว', 'ok'); return; }
-  syncing = true; emit();
+  syncing = true; syncChanged();
   try {
     const res = await api.flush();
     if (res.failed?.length) {
@@ -1010,7 +1118,9 @@ async function sync({ loud = false } = {}) {
   } catch (e) {
     if (loud) toast(e instanceof api.OfflineError ? 'ยังออฟไลน์ — เก็บไว้ก่อน' : e.message, 'err');
   } finally {
-    syncing = false; emit();
+    syncing = false; syncChanged();
+    // ของที่เพิ่งกดระหว่างกำลังส่งอยู่ ต้องไม่ค้างคิวรอจนกว่าจะกดครั้งถัดไป
+    if (api.queue.size) scheduleSync(400);
   }
 }
 
@@ -1035,7 +1145,7 @@ async function saveConfig(entries) {
 api.net.onChange(() => { if (navigator.onLine) sync(); emit(); });
 window.addEventListener('visibilitychange', () => { if (!document.hidden) sync(); });
 
-__exp(exports, { state, subscribe, emit, settings, go, bootstrap, loadClass, createClass, updateClassMeta, deleteClass, setStudents, ensureColumn, updateColumn, deleteColumn, setCells, getCell, sync, isSyncing, recalcOnServer, saveConfig });
+__exp(exports, { state, subscribe, emit, settings, go, bootstrap, bootAll, loadClass, createClass, updateClassMeta, deleteClass, setStudents, ensureColumn, updateColumn, deleteColumn, setCells, getCell, sync, isSyncing, recalcOnServer, saveConfig });
 
   };
 
@@ -1931,7 +2041,23 @@ function stepDay(delta) {
 /** แถบหัวสีเข้มของหน้านี้ (มือถือ) — วันที่ · คาบ · ตัวนับ · ปุ่มหลัก */
 viewAttendance.head = function () {
   const cls = state.cls;
-  if (!cls || !cls.students.length || ui.mode !== 'check') return null;
+  if (!cls || !cls.students.length) return null;
+
+  // หน้าประวัติ — แถบหัวบางกว่า มีแค่ชื่อหน้ากับทางกลับ
+  if (ui.mode !== 'check') {
+    const total = (cls.columns || []).filter(c => c.kind === 'ATT').length;
+    return h('header', { class: 'pagehead' },
+      h('div', { class: 'ph-row' },
+        h('button', {
+          class: 'ph-back', 'aria-label': 'กลับไปเช็ควันนี้',
+          onclick: () => enterCheck(todayISO(), periodsOn(todayISO())[0]?.period || 1)
+        }, '‹'),
+        h('div', { class: 'ph-grow' },
+          h('div', { class: 'ph-title' }, 'ประวัติการเช็คชื่อ'),
+          h('div', { class: 'ph-sub' },
+            `${[cls.meta.grade, cls.meta.room].filter(Boolean).join('/')} ${cls.meta.subject} · ${total} คาบ`))));
+  }
+
   const { available, key, st } = resolve();
   const done = cls.students.length - st.blank;
 
@@ -1973,48 +2099,39 @@ function dayListScreen() {
 
   return h('div', { class: 'page' },
 
-    // ── การ์ดวันนี้ — ปุ่มเดียวจบ ──
-    h('div', { class: 'card', style: { textAlign: 'center', padding: '18px 14px' } },
-      h('div', { style: { fontSize: '12.5px', color: 'var(--ink-2)' } }, 'วันนี้'),
-      h('div', { style: { fontSize: '20px', fontWeight: '700', margin: '2px 0 4px' } }, fmtDayFull(today)),
-      h('div', { style: { fontSize: '13px', color: checked ? 'var(--green)' : 'var(--ink-3)', marginBottom: '14px' } },
-        checked
-          ? `เช็คแล้ว ${cols.length > 1 ? cols.length + ' คาบ · ' : ''}มา ${sum['ม']} · สาย ${sum['ส']} · ลา ${sum['ล']} · ขาด ${sum['ข']}`
-          : 'ยังไม่ได้เช็คชื่อ'),
+    // PC: หัวหน้าจอ + ทางกลับ (มือถืออยู่ในแถบเข้มแล้ว)
+    h('div', { class: 'ctxbar' },
+      h('button', {
+        class: 'ctx-step', 'aria-label': 'กลับไปเช็ควันนี้',
+        onclick: () => enterCheck(today, cols[0]?.period || 1)
+      }, '‹'),
+      h('div', { style: { flex: '1', minWidth: '0' } },
+        h('div', { class: 'ctx-title' }, 'ประวัติการเช็คชื่อ'),
+        h('div', { class: 'ctx-sub' },
+          checked
+            ? `วันนี้เช็คแล้ว · มา ${sum['ม']} · สาย ${sum['ส']} · ลา ${sum['ล']} · ขาด ${sum['ข']}`
+            : 'วันนี้ยังไม่ได้เช็คชื่อ')),
+      h('div', { class: 'ctx-end' },
+        h('button', { class: 'btn', onclick: () => enterCheck(today, cols[0]?.period || 1) },
+          checked ? 'เช็คชื่อวันนี้ต่อ' : '✓ เริ่มเช็คชื่อวันนี้'))),
 
-      checked
-        ? h('div', { class: 'btn-row', style: { justifyContent: 'center' } },
-            cols.map(c => h('button', {
-              class: 'btn btn-soft',
-              onclick: () => enterCheck(today, c.period)
-            }, cols.length > 1 ? `แก้ไขคาบ ${c.period}` : 'ดู / แก้ไข')),
-            h('button', {
-              class: 'btn btn-ghost',
-              onclick: () => addPeriod(cols.map(c => c.period), today)
-            }, '+ เพิ่มคาบ'))
-        : h('div', { style: { display: 'grid', gap: '8px' } },
-            h('button', {
-              class: 'btn btn-block', style: { padding: '14px', fontSize: '15px' },
-              onclick: () => enterCheck(today, 1, { markAllPresent: true })
-            }, '✓ เริ่มเช็ค · ทุกคนมา'),
-            h('button', {
-              class: 'btn btn-ghost btn-block',
-              onclick: () => enterCheck(today, 1)
-            }, 'เช็คเองทีละคน'))
-    ),
-
-    // ── วันอื่น ──
-    h('div', { class: 'card', style: { display: 'flex', alignItems: 'center', gap: '10px' } },
+    // ── ย้อนไปวันอื่น ──
+    h('div', { class: 'card', style: { display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' } },
       h('span', { style: { fontSize: '13px', color: 'var(--ink-2)', flex: 'none' } }, 'ย้อนไปเช็ควันอื่น'),
       h('input', {
-        type: 'date', value: ui.date, style: { flex: '1' },
+        type: 'date', value: ui.date, style: { flex: '1', minWidth: '160px' },
         onchange: (e) => {
           if (!e.target.value) return;
           const d = e.target.value;
           const p = periodsOn(d);
           enterCheck(d, p.length ? p[0].period : 1);
         }
-      })
+      }),
+      // มือถือไม่มีปุ่มหลักในแถบบริบท จึงใส่ไว้ตรงนี้แทน
+      h('button', {
+        class: 'btn pc-hide', style: { flexBasis: '100%' },
+        onclick: () => enterCheck(today, cols[0]?.period || 1)
+      }, checked ? 'เช็คชื่อวันนี้ต่อ' : '✓ เริ่มเช็คชื่อวันนี้')
     ),
 
     historyCard()
@@ -2214,6 +2331,12 @@ function openMenu(available, key) {
         onclick: () => { close(); addPeriod(available, ui.date); }
       }, '➕ เพิ่มคาบของวันนี้'),
 
+      // บน PC ไม่มีปุ่ม ‹ แบบมือถือ ทางเข้าหน้าประวัติจึงต้องอยู่ในเมนูนี้
+      h('button', {
+        class: 'btn btn-ghost btn-block',
+        onclick: () => { close(); ui.mode = 'list'; emit(); }
+      }, '🗓 ประวัติการเช็ค / เลือกวันอื่น'),
+
       h('div', { style: { fontSize: '12.5px', color: 'var(--ink-2)', marginTop: '6px' } },
         `ช่วงคะแนน: ${half === 1 ? 'ก่อนกลางภาค' : 'หลังกลางภาค'}`,
         midSet ? ' (คำนวณจากวันสอบกลางภาค)' : ' — ยังไม่ได้ตั้งวันสอบกลางภาค'),
@@ -2318,7 +2441,7 @@ __exp(exports, { viewAttendance });
 /* หน้ากรอกงานและคะแนนสอบ (ส่งงาน · สอบเก็บคะแนน · กลางภาค · ปลายภาค) */
 
 const { h, modal, toast, confirmBox, nf } = __req("js/dom.js");
-const { state, emit, ensureColumn, setCells, getCell, deleteColumn, updateColumn, settings } = __req("js/state.js");
+const { state, emit, loadClass, ensureColumn, setCells, getCell, deleteColumn, updateColumn, settings } = __req("js/state.js");
 const { BUCKETS, NOT_SUBMITTED, parseWork, formatWork } = __req("js/score.js");
 
 /**
@@ -2786,17 +2909,33 @@ function studentScreen(col) {
         h('button', { class: 'btn btn-ghost btn-sm', disabled: ui.si === 0, onclick: () => step(-1) }, '‹'),
         h('button', { class: 'btn btn-ghost btn-sm', disabled: ui.si >= cls.students.length - 1, onclick: () => step(1) }, '›'))),
 
-    // ค้นหา / เปลี่ยนคน
-    h('div', { class: 'card', style: { display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 13px' } },
-      h('input', {
-        placeholder: '🔍 ค้นหาชื่อ หรือเลขที่',
-        onchange: (e) => {
-          const q = e.target.value.trim().toLowerCase();
-          const i = cls.students.findIndex(x =>
-            String(x.no) === q || String(x.sid) === q || (x.name || '').toLowerCase().includes(q));
-          if (i >= 0) { ui.si = i; emit(); } else if (q) toast('ไม่พบนักเรียนคนนี้', 'err');
-        }
-      })),
+    // เลือกห้อง แล้วเลือกคน — เลื่อนหาเร็วกว่าพิมพ์ชื่อ โดยเฉพาะบนมือถือ
+    h('div', { class: 'pick2row' },
+      h('label', { class: 'pickbox' },
+        h('span', null, 'ห้อง'),
+        h('select', {
+          'aria-label': 'เลือกห้องเรียน',
+          onchange: async (e) => {
+            ui.si = 0;
+            await loadClass(e.target.value);
+            // คอลัมน์ของห้องเดิมใช้กับห้องใหม่ไม่ได้ ต้องชี้ไปชิ้นแรกของถังเดิมในห้องใหม่
+            const first = columnsIn(curBucket().id)[0];
+            ui.open = first ? first.key : null;
+            emit();
+          }
+        }, state.classes.map(c => h('option', {
+          value: c.classId, selected: c.classId === state.classId
+        }, `${[c.grade, c.room].filter(Boolean).join('/')} · ${c.subject}`)))),
+
+      h('label', { class: 'pickbox grow' },
+        h('span', null, 'นักเรียน'),
+        h('select', {
+          'aria-label': 'เลือกนักเรียน',
+          onchange: (e) => { ui.si = Number(e.target.value); emit(); }
+        }, cls.students.map((x, i) => h('option', {
+          value: String(i), selected: i === ui.si
+        }, `${x.no}. ${x.name || '—'}`))))
+    ),
 
     // สรุปคะแนนถังนี้ของคนนี้
     h('div', { class: 'card', style: { display: 'flex', alignItems: 'center', gap: '10px' } },
@@ -3745,7 +3884,7 @@ __exp(exports, { viewReport });
  */
 
 const { h, toast, confirmBox, modal } = __req("js/dom.js");
-const { state, saveConfig, sync, bootstrap, go, emit } = __req("js/state.js");
+const { state, saveConfig, sync, bootAll, go, emit } = __req("js/state.js");
 const api = __req("js/api.js");
 const { auth } = __req("js/auth.js");
 const { icon } = __req("js/icons.js");
@@ -4010,7 +4149,7 @@ function secData() {
       row('โหลดข้อมูลใหม่จากชีต', 'ใช้เมื่อไปแก้ในชีตโดยตรงแล้วอยากให้แอปเห็น',
         h('button', {
           class: 'btn btn-ghost btn-sm',
-          onclick: async () => { await bootstrap(); toast('โหลดใหม่แล้ว', 'ok'); }
+          onclick: async () => { await bootAll(); toast('โหลดใหม่แล้ว', 'ok'); }
         }, '↓ โหลดใหม่')),
       row('ล้างสำเนาในเครื่อง', 'ไม่กระทบข้อมูลในชีต แต่ต้องต่อเน็ตเพื่อโหลดใหม่',
         h('button', {
@@ -4294,46 +4433,71 @@ const api = __req("js/api.js");
 const { auth } = __req("js/auth.js");
 const { APP_VERSION, NEEDS_SERVER, cmpVersion, FEATURES } = __req("js/version.js");
 
+/** ข้อความสรุปหัวหน้า — ใช้ทั้งแถบเข้ม (มือถือ) และแถบบริบท (PC) */
+function summary(items) {
+  const bad = items.filter(i => i.level === 'err').length;
+  const warn = items.filter(i => i.level === 'warn').length;
+  if (bad) return { tone: 'bad', title: `ต้องแก้ ${bad} เรื่อง`, sub: 'ทำตามรายการด้านล่างจากบนลงล่าง' };
+  if (warn) return { tone: 'warn', title: `ใช้ได้ · ควรตั้งอีก ${warn} เรื่อง`, sub: 'ไม่เร่ง แต่ตั้งไว้แล้วคะแนนจะแม่นขึ้น' };
+  return { tone: 'ok', title: 'พร้อมใช้งานครบทุกอย่าง', sub: 'ระบบตรวจตัวเองทุกครั้งที่เปิดหน้านี้' };
+}
+
+/** แถบหัวสีเข้ม (มือถือ) */
+viewHealth.head = function () {
+  const s = summary(runChecks());
+  return h('header', { class: 'pagehead' },
+    h('div', { class: 'ph-row' },
+      h('button', { class: 'ph-back', 'aria-label': 'กลับ', onclick: () => go('settings') }, '‹'),
+      h('div', { class: 'ph-grow' },
+        h('div', { class: 'ph-title' }, 'ตรวจสอบระบบ'),
+        h('div', { class: 'ph-sub' }, s.title)))
+  );
+};
+
+const GROUPS = [
+  { level: 'err',  label: 'ต้องแก้ก่อน' },
+  { level: 'warn', label: 'ควรตั้งค่าเพิ่ม' },
+  { level: 'ok',   label: 'ผ่านแล้ว' }
+];
+
 function viewHealth() {
   const items = runChecks();
-  const bad = items.filter(i => i.level === 'err');
-  const warn = items.filter(i => i.level === 'warn');
+  const s = summary(items);
 
-  return h('div', { class: 'page', style: { maxWidth: '640px' } },
+  return h('div', { class: 'page', style: { maxWidth: '720px' } },
 
-    h('div', {
-      class: 'card',
-      style: {
-        textAlign: 'center',
-        background: bad.length ? 'var(--red-soft)' : warn.length ? 'var(--amber-soft)' : 'var(--green-soft)'
-      }
-    },
-      h('div', { style: { fontSize: '34px' } }, bad.length ? '🔧' : warn.length ? '⚠️' : '🎉'),
-      h('div', { style: { fontSize: '17px', fontWeight: '700', margin: '4px 0' } },
-        bad.length ? `ต้องแก้ ${bad.length} เรื่อง`
-          : warn.length ? `ใช้ได้ แต่ควรตั้งค่าอีก ${warn.length} เรื่อง`
-          : 'พร้อมใช้งานครบทุกอย่าง'),
-      h('div', { style: { fontSize: '13px', color: 'var(--ink-2)' } },
-        bad.length ? 'ทำตามรายการสีแดงด้านล่างก่อน' : 'ระบบตรวจตัวเองทุกครั้งที่เปิดหน้านี้')
-    ),
+    h('div', { class: 'ctxbar' },
+      h('div', { style: { flex: '1', minWidth: '0' } },
+        h('div', { class: 'ctx-title' }, 'ตรวจสอบระบบ'),
+        h('div', { class: 'ctx-sub' }, s.sub)),
+      h('span', { class: 'badge ' + { bad: 'r', warn: 'a', ok: 'g' }[s.tone] }, s.title)),
 
-    h('div', { class: 'card card-tight' }, items.map(checkRow)),
+    // มือถือ: แถบเข้มบอกหัวข้อแล้ว เหลือแค่คำอธิบายสั้น ๆ
+    h('div', { class: 'hint pc-hide', style: { margin: '0 2px 12px' } }, s.sub),
 
-    h('div', { style: { textAlign: 'center', color: 'var(--ink-3)', fontSize: '11.5px', padding: '14px 0' } },
+    GROUPS.map(g => {
+      const list = items.filter(i => i.level === g.level);
+      if (!list.length) return null;
+      return h('div', { style: { marginBottom: '14px' } },
+        h('div', { class: 'section-title' }, `${g.label} · ${list.length}`),
+        h('div', { class: 'card card-tight' }, list.map(checkRow)));
+    }),
+
+    h('div', { style: { textAlign: 'center', color: 'var(--ink-3)', fontSize: '11.5px', padding: '6px 0 14px' } },
       `หน้าเว็บ v${APP_VERSION} · โค้ดในชีต v${api.serverInfo.version || 'ไม่ทราบ'}`)
   );
 }
 
 function checkRow(c) {
-  const icon = { ok: '✅', warn: '⚠️', err: '❌' }[c.level];
-  return h('div', { class: 'check-row' },
-    h('div', { class: 'check-ic' }, icon),
+  return h('div', { class: 'check-row', 'data-level': c.level },
+    h('span', { class: 'check-dot' }),
     h('div', { style: { flex: '1', minWidth: '0' } },
       h('div', { class: 'check-title' }, c.title),
       h('div', { class: 'check-sub' }, c.detail),
-      c.fix && h('div', { class: 'check-fix' }, '👉 ' + c.fix),
+      c.fix && h('div', { class: 'check-fix' }, c.fix),
+      // ปุ่มในหน้านี้ไม่ใช้สีไลม์ — ไลม์สงวนไว้ให้ปุ่มหลักหนึ่งเดียวของแต่ละหน้า
       c.action && h('button', {
-        class: 'btn btn-sm', style: { marginTop: '8px' },
+        class: 'btn btn-soft btn-sm', style: { marginTop: '9px' },
         onclick: c.action.run
       }, c.action.label))
   );
