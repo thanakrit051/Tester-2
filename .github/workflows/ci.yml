@@ -1,0 +1,38 @@
+name: CI
+
+# ตรวจสิ่งที่เคยหลุดไปจริง ๆ และดู "ปกติดีทุกอย่าง" จนกว่าจะไปเจอหน้าห้อง:
+#   1. sw.js เก็บไฟล์ครบ + เวอร์ชันตรงกับ APP_VERSION ไหม (tools/check-sw.mjs)
+#   2. สูตรคะแนนฝั่งเบราว์เซอร์กับฝั่งชีตตรงกันไหม (test/parity.mjs)
+#   3. dist/ กับ docs/ ที่ commit ไว้ ตรงกับผล build จากซอร์สล่าสุดไหม
+#      (ลืมรัน build ก่อน commit = โค้ดที่แก้ไม่ถึงเครื่องครูเลย)
+#
+# ไม่ต้องตั้งอะไรเพิ่ม — รันอัตโนมัติทุก push และทุก pull request
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: ['**']
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: ตรวจ sw.js + สูตรคะแนน 2 ฝั่ง
+        run: node tools/preflight.mjs
+
+      - name: build แล้วเทียบกับของที่ commit ไว้
+        run: |
+          node tools/build-webapp.mjs
+          node tools/build-pages.mjs
+          if ! git diff --quiet -- dist docs apps-script/Index.html; then
+            echo "::error::dist/ หรือ docs/ ที่ commit ไว้ไม่ตรงกับผล build ล่าสุด — รัน 'node tools/build-webapp.mjs && node tools/build-pages.mjs' แล้ว commit ผลลัพธ์ด้วย"
+            git diff --stat -- dist docs apps-script/Index.html
+            exit 1
+          fi

@@ -432,14 +432,25 @@ function clear(el) { while (el.firstChild) el.removeChild(el.firstChild); return
 function mount(el, ...children) { clear(el); add(el, children); return el; }
 
 // ── Toast ───────────────────────────────────────────────────
-function toast(msg, kind = '', ms = 2400) {
+/**
+ * action = { label, onclick } → เพิ่มปุ่มเล็กในตัว toast (ใช้กับ "เลิกทำ")
+ * มี action แล้วปล่อยอยู่นานขึ้นเป็นพิเศษ ให้เวลาอ่านและกดทัน
+ */
+function toast(msg, kind = '', ms = 2400, action = null) {
   const root = document.getElementById('toasts');
-  const t = h('div', { class: 'toast ' + kind }, msg);
-  root.append(t);
-  setTimeout(() => {
+  const remove = () => {
     t.style.transition = 'opacity .2s'; t.style.opacity = '0';
     setTimeout(() => t.remove(), 220);
-  }, ms);
+  };
+  const t = h('div', { class: 'toast ' + kind },
+    h('span', null, msg),
+    action && h('button', {
+      class: 'toast-action',
+      onclick: () => { action.onclick(); remove(); }
+    }, action.label)
+  );
+  root.append(t);
+  setTimeout(remove, action ? Math.max(ms, 5000) : ms);
 }
 
 // ── Modal ───────────────────────────────────────────────────
@@ -1434,11 +1445,28 @@ async function deleteColumn(key) {
 // ── เขียนค่า (optimistic เสมอ) ──────────────────────────────
 
 /**
+ * ประวัติแก้ไข (เลิกทำ) — เก็บเฉพาะรอบเปิดแอปนี้ ปิดหน้าแล้วหาย
+ *
+ * จุดเสี่ยงพลาดสุดคือปุ่ม "แก้ทีเดียวทั้งคอลัมน์/ทั้งวัน" (✓ ทุกคนมา,
+ * ตั้งเต็มทั้งห้อง, ล้างคะแนน, วางจาก Excel) เพราะย้อนกลับด้วยมือไม่ไหว
+ * ช่องเดียวไม่บันทึกไว้ใช้เพราะกดปุ่มเดิมซ้ำ = ยกเลิกอยู่แล้ว (ดู work.js/attendance.js)
+ */
+const HISTORY_MAX = 20;
+let history = [];   // [{ classId, cells: [{ key, sid, prev }] }]
+
+/**
  * cells: [{ key, sid, value }]
  * quiet = true → ไม่วาดหน้าใหม่ (ให้ view อัปเดต DOM เองเพื่อความลื่น)
  */
 function setCells(cells, { quiet = false } = {}) {
   if (!cells.length || !state.cls) return;
+
+  history.push({
+    classId: state.classId,
+    cells: cells.map(c => ({ key: c.key, sid: c.sid, prev: (state.cls.values[c.key] || {})[c.sid] ?? '' }))
+  });
+  if (history.length > HISTORY_MAX) history.shift();
+
   for (const c of cells) {
     if (!state.cls.values[c.key]) state.cls.values[c.key] = {};
     if (c.value === '' || c.value === null || c.value === undefined) delete state.cls.values[c.key][c.sid];
@@ -1448,6 +1476,19 @@ function setCells(cells, { quiet = false } = {}) {
   api.queue.push('setCells', { classId: state.classId, cells });
   scheduleSync();
   if (!quiet) emit();
+}
+
+/**
+ * ย้อนการแก้ไขครั้งล่าสุดของห้องที่เปิดอยู่ (ค้นจากท้ายสุดของประวัติ
+ * เผื่อสลับห้องไปมาระหว่างที่ยังไม่ปิดแอป) — เรียกจากปุ่ม "เลิกทำ" ใน toast
+ * @returns จำนวนช่องที่ย้อนกลับ · 0 = ไม่มีอะไรให้ย้อน
+ */
+function undoLastEdit() {
+  const i = history.map(h => h.classId).lastIndexOf(state.classId);
+  if (i < 0) return 0;
+  const h = history.splice(i, 1)[0];
+  setCells(h.cells.map(c => ({ key: c.key, sid: c.sid, value: c.prev })));
+  return h.cells.length;
 }
 
 function getCell(key, sid) {
@@ -1535,7 +1576,7 @@ async function saveConfig(entries, { quiet = false } = {}) {
 api.net.onChange(() => { if (navigator.onLine) sync(); emit(); });
 window.addEventListener('visibilitychange', () => { if (!document.hidden) sync(); });
 
-__exp(exports, { state, subscribe, emit, settings, go, bootAll, loadClass, createClass, updateClassMeta, deleteClass, setStudents, ensureColumn, updateColumn, deleteColumn, setCells, getCell, sync, isSyncing, recalcOnServer, saveConfig });
+__exp(exports, { state, subscribe, emit, settings, go, bootAll, loadClass, createClass, updateClassMeta, deleteClass, setStudents, ensureColumn, updateColumn, deleteColumn, setCells, undoLastEdit, getCell, sync, isSyncing, recalcOnServer, saveConfig });
 
   };
 
@@ -2350,8 +2391,14 @@ __exp(exports, { viewHome });
  */
 
 const { h, toast, todayISO, fmtDate, fmtDayFull, isToday, confirmBox, modal } = __req("js/dom.js");
-const { state, emit, ensureColumn, setCells, getCell, deleteColumn, go } = __req("js/state.js");
+const { state, emit, ensureColumn, setCells, getCell, deleteColumn, go, undoLastEdit } = __req("js/state.js");
 const { ATT_CODES, ATT_NAMES, attStats } = __req("js/score.js");
+
+/** ปุ่ม "เลิกทำ" แปะท้าย toast — ใช้กับปุ่มที่แก้ทีเดียวหลายคน */
+const undoAction = () => ({
+  label: 'เลิกทำ',
+  onclick: () => { const n = undoLastEdit(); if (n) toast(`เลิกทำแล้ว · ${n} ช่อง`, 'ok'); }
+});
 
 const ui = {
   // ดีไซน์ให้แตะ "เช็คชื่อ" แล้วเข้าหน้าเช็คของวันนี้เลย ไม่ต้องผ่านหน้าเลือกวัน
@@ -2404,7 +2451,7 @@ function enterCheck(dateISO, period, { markAllPresent = false } = {}) {
     const key = keyFor(dateISO, period);
     ensureColumn(colSpecFromKey(key), { quiet: true });
     setCells(state.cls.students.map(s => ({ key, sid: s.sid, value: 'ม' })), { quiet: true });
-    toast('ทำเครื่องหมาย "มา" ทุกคนแล้ว — แตะแก้เฉพาะคนที่ไม่ปกติ', 'ok', 3200);
+    toast('ทำเครื่องหมาย "มา" ทุกคนแล้ว — แตะแก้เฉพาะคนที่ไม่ปกติ', 'ok', 3200, undoAction());
   }
   emit();
 }
@@ -2824,7 +2871,7 @@ function addPeriod(used, dateISO) {
 function markAll(key, value) {
   ensureColumn(colSpecFromKey(key), { quiet: true });
   setCells(state.cls.students.map(s => ({ key, sid: s.sid, value })));
-  toast('ทำเครื่องหมาย "มา" ทั้งห้อง', 'ok', 1400);
+  toast('ทำเครื่องหมาย "มา" ทั้งห้อง', 'ok', 1400, undoAction());
 }
 
 function colSpecFromKey(key) {
@@ -2866,8 +2913,14 @@ __exp(exports, { viewAttendance });
 /* หน้ากรอกงานและคะแนนสอบ (ส่งงาน · สอบเก็บคะแนน · กลางภาค · ปลายภาค) */
 
 const { h, modal, toast, confirmBox, nf } = __req("js/dom.js");
-const { state, emit, loadClass, ensureColumn, setCells, getCell, deleteColumn, updateColumn, settings } = __req("js/state.js");
+const { state, emit, loadClass, ensureColumn, setCells, getCell, deleteColumn, updateColumn, settings, undoLastEdit } = __req("js/state.js");
 const { BUCKETS, NOT_SUBMITTED, parseWork, formatWork } = __req("js/score.js");
+
+/** ปุ่ม "เลิกทำ" แปะท้าย toast — ใช้กับปุ่มที่แก้ทีเดียวหลายคน */
+const undoAction = () => ({
+  label: 'เลิกทำ',
+  onclick: () => { const n = undoLastEdit(); if (n) toast(`เลิกทำแล้ว · ${n} ช่อง`, 'ok'); }
+});
 
 /**
  * ดีไซน์แยก "ชนิดของคะแนน" กับ "ช่วง" ออกจากกัน (หน้า 03)
@@ -3277,7 +3330,7 @@ function gradeScreen(col) {
           class: 'btn btn-soft btn-sm',
           onclick: () => {
             setCells(state.cls.students.map(s => ({ key: col.key, sid: s.sid, value: col.max })));
-            toast(W.bulkToast, 'ok', 1400);
+            toast(W.bulkToast, 'ok', 1400, undoAction());
           }
         }, `✓ ${W.bulk} (${col.max})`),
         h('button', {
@@ -3285,6 +3338,7 @@ function gradeScreen(col) {
           onclick: async () => {
             if (!await confirmBox('ล้างคะแนน?', 'คะแนนของรายการนี้จะถูกลบทั้งห้อง', 'ล้าง')) return;
             setCells(state.cls.students.map(s => ({ key: col.key, sid: s.sid, value: '' })));
+            toast('ล้างคะแนนแล้ว', 'ok', 1400, undoAction());
           }
         }, '↺ ล้าง')
       )),
@@ -3510,7 +3564,7 @@ function openItemMenu(col) {
         onclick: () => {
           close();
           setCells(state.cls.students.map(s => ({ key: col.key, sid: s.sid, value: col.max })));
-          toast(words(col).bulkToast, 'ok', 1400);
+          toast(words(col).bulkToast, 'ok', 1400, undoAction());
         }
       }, `✓ ${words(col).bulk} (${col.max})`),
       h('button', {
@@ -3519,6 +3573,7 @@ function openItemMenu(col) {
           close();
           if (!await confirmBox('ล้างคะแนน?', 'คะแนนของรายการนี้จะถูกลบทั้งห้อง', 'ล้าง')) return;
           setCells(state.cls.students.map(s => ({ key: col.key, sid: s.sid, value: '' })));
+          toast('ล้างคะแนนแล้ว', 'ok', 1400, undoAction());
         }
       }, '↺ ล้างคะแนนทั้งรายการ'),
       h('button', {
@@ -3559,7 +3614,7 @@ function openPaste(col) {
         cells.push({ key: col.key, sid: s.sid, value: formatWork(late ? 'late' : 'ok', clamped) });
       });
       setCells(cells);
-      toast(`นำเข้า ${cells.length} รายการ`, 'ok');
+      toast(`นำเข้า ${cells.length} รายการ`, 'ok', 2400, undoAction());
       close();
     };
     return h('div', null,
@@ -5264,7 +5319,7 @@ __exp(exports, { viewHealth });
  * ⚠️ เวลาแก้โค้ดที่กระทบทั้ง 2 ฝั่ง ให้บวกเลขนี้ และแก้ SERVER_VERSION
  *    ใน apps-script/00_Constants.gs ให้ตรงกันด้วย
  */
-const APP_VERSION = '3.0.1';
+const APP_VERSION = '3.1.0';
 
 /** เวอร์ชันต่ำสุดของฝั่งชีตที่หน้าเว็บนี้ทำงานด้วยได้ครบทุกฟีเจอร์ */
 const NEEDS_SERVER = '2.8.0';

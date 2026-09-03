@@ -10,6 +10,8 @@ function onOpen() {
     .addSeparator()
     .addItem('📊 คำนวณคะแนนสรุปแท็บนี้', 'recalcActiveSheet')
     .addItem('📊 คำนวณคะแนนสรุปทุกห้อง', 'recalcAllClasses')
+    .addSeparator()
+    .addItem('💾 สำรองไฟล์นี้เดี๋ยวนี้', 'backupNowMenu')
     .addToUi();
 }
 
@@ -24,6 +26,10 @@ function setupWorkbook() {
     setConfigValue_('apiKey', Utilities.getUuid().replace(/-/g, ''));
     SpreadsheetApp.flush();
   }
+
+  // ตั้งสำรองไฟล์อัตโนมัติทุกสัปดาห์ — เรียกซ้ำได้ ไม่สร้างทริกเกอร์ซ้ำ
+  try { ensureAutoBackupTrigger_(); } catch (e) { console.error('ตั้งสำรองอัตโนมัติไม่สำเร็จ: ' + e); }
+
   ensureHelpSheet_(ss);
 
   // จัดลำดับแท็บระบบไว้หน้าสุด
@@ -203,7 +209,12 @@ function ensureHelpSheet_(ss) {
     ['🔑 รหัสลับ (API Key) — เก็บเป็นความลับ ห้ามแชร์ไฟล์นี้แบบสาธารณะ'],
     ['', apiKey],
     [''],
-    ['🔗 URL เว็บแอป (Apps Script)', url]
+    ['🔗 URL เว็บแอป (Apps Script)', url],
+    [''],
+    ['🗄️ สำรองข้อมูล'],
+    ['อัตโนมัติ', 'สำเนาทั้งไฟล์ทุกวันอาทิตย์ตี 3 เก็บ ' + BACKUP_KEEP + ' ก้อนล่าสุด — ดูใน Google Drive โฟลเดอร์ "' + BACKUP_FOLDER_NAME + '"'],
+    ['สำรองเอง', 'เมนู 📗 AssignCheck → 💾 สำรองไฟล์นี้เดี๋ยวนี้ (ทำก่อนแก้อะไรใหญ่ ๆ ได้)'],
+    ['กู้คืน', 'เปิดไฟล์สำรองที่ต้องการ → Deploy เป็น Web app ใหม่ (URL จะเปลี่ยน ต้องอัปเดตในเว็บแอปด้วย)']
   ];
 
   sh.getRange(1, 1, rows.length, 2).setValues(rows.map(function (r) {
@@ -214,7 +225,7 @@ function ensureHelpSheet_(ss) {
 
   // เน้นแถวหัวข้อ (แถวที่มีข้อความคอลัมน์เดียว) และแถวรหัสลับ — คำนวณจากข้อมูลจริง
   for (var i = 1; i < rows.length; i++) {
-    var isHeading = rows[i][0] && !rows[i][1] && /^[🧭📁🚀🔑🔗⚠️]/.test(rows[i][0]);
+    var isHeading = rows[i][0] && !rows[i][1] && /^[🧭📁🚀🔑🔗⚠️🗄️]/.test(rows[i][0]);
     if (isHeading) sh.getRange(i + 1, 1, 1, 2).setFontWeight('bold').setBackground('#e8f5e9');
     if (rows[i][1] === apiKey) sh.getRange(i + 1, 2).setFontFamily('Courier New').setBackground('#fff3e0');
   }

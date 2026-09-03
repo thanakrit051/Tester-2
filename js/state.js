@@ -388,11 +388,28 @@ export async function deleteColumn(key) {
 // ── เขียนค่า (optimistic เสมอ) ──────────────────────────────
 
 /**
+ * ประวัติแก้ไข (เลิกทำ) — เก็บเฉพาะรอบเปิดแอปนี้ ปิดหน้าแล้วหาย
+ *
+ * จุดเสี่ยงพลาดสุดคือปุ่ม "แก้ทีเดียวทั้งคอลัมน์/ทั้งวัน" (✓ ทุกคนมา,
+ * ตั้งเต็มทั้งห้อง, ล้างคะแนน, วางจาก Excel) เพราะย้อนกลับด้วยมือไม่ไหว
+ * ช่องเดียวไม่บันทึกไว้ใช้เพราะกดปุ่มเดิมซ้ำ = ยกเลิกอยู่แล้ว (ดู work.js/attendance.js)
+ */
+const HISTORY_MAX = 20;
+let history = [];   // [{ classId, cells: [{ key, sid, prev }] }]
+
+/**
  * cells: [{ key, sid, value }]
  * quiet = true → ไม่วาดหน้าใหม่ (ให้ view อัปเดต DOM เองเพื่อความลื่น)
  */
 export function setCells(cells, { quiet = false } = {}) {
   if (!cells.length || !state.cls) return;
+
+  history.push({
+    classId: state.classId,
+    cells: cells.map(c => ({ key: c.key, sid: c.sid, prev: (state.cls.values[c.key] || {})[c.sid] ?? '' }))
+  });
+  if (history.length > HISTORY_MAX) history.shift();
+
   for (const c of cells) {
     if (!state.cls.values[c.key]) state.cls.values[c.key] = {};
     if (c.value === '' || c.value === null || c.value === undefined) delete state.cls.values[c.key][c.sid];
@@ -402,6 +419,19 @@ export function setCells(cells, { quiet = false } = {}) {
   api.queue.push('setCells', { classId: state.classId, cells });
   scheduleSync();
   if (!quiet) emit();
+}
+
+/**
+ * ย้อนการแก้ไขครั้งล่าสุดของห้องที่เปิดอยู่ (ค้นจากท้ายสุดของประวัติ
+ * เผื่อสลับห้องไปมาระหว่างที่ยังไม่ปิดแอป) — เรียกจากปุ่ม "เลิกทำ" ใน toast
+ * @returns จำนวนช่องที่ย้อนกลับ · 0 = ไม่มีอะไรให้ย้อน
+ */
+export function undoLastEdit() {
+  const i = history.map(h => h.classId).lastIndexOf(state.classId);
+  if (i < 0) return 0;
+  const h = history.splice(i, 1)[0];
+  setCells(h.cells.map(c => ({ key: c.key, sid: c.sid, value: c.prev })));
+  return h.cells.length;
 }
 
 export function getCell(key, sid) {

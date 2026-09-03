@@ -1,8 +1,14 @@
 /* หน้ากรอกงานและคะแนนสอบ (ส่งงาน · สอบเก็บคะแนน · กลางภาค · ปลายภาค) */
 
 import { h, modal, toast, confirmBox, nf } from '../dom.js';
-import { state, emit, loadClass, ensureColumn, setCells, getCell, deleteColumn, updateColumn, settings } from '../state.js';
+import { state, emit, loadClass, ensureColumn, setCells, getCell, deleteColumn, updateColumn, settings, undoLastEdit } from '../state.js';
 import { BUCKETS, NOT_SUBMITTED, parseWork, formatWork } from '../score.js';
+
+/** ปุ่ม "เลิกทำ" แปะท้าย toast — ใช้กับปุ่มที่แก้ทีเดียวหลายคน */
+const undoAction = () => ({
+  label: 'เลิกทำ',
+  onclick: () => { const n = undoLastEdit(); if (n) toast(`เลิกทำแล้ว · ${n} ช่อง`, 'ok'); }
+});
 
 /**
  * ดีไซน์แยก "ชนิดของคะแนน" กับ "ช่วง" ออกจากกัน (หน้า 03)
@@ -412,7 +418,7 @@ function gradeScreen(col) {
           class: 'btn btn-soft btn-sm',
           onclick: () => {
             setCells(state.cls.students.map(s => ({ key: col.key, sid: s.sid, value: col.max })));
-            toast(W.bulkToast, 'ok', 1400);
+            toast(W.bulkToast, 'ok', 1400, undoAction());
           }
         }, `✓ ${W.bulk} (${col.max})`),
         h('button', {
@@ -420,6 +426,7 @@ function gradeScreen(col) {
           onclick: async () => {
             if (!await confirmBox('ล้างคะแนน?', 'คะแนนของรายการนี้จะถูกลบทั้งห้อง', 'ล้าง')) return;
             setCells(state.cls.students.map(s => ({ key: col.key, sid: s.sid, value: '' })));
+            toast('ล้างคะแนนแล้ว', 'ok', 1400, undoAction());
           }
         }, '↺ ล้าง')
       )),
@@ -645,7 +652,7 @@ function openItemMenu(col) {
         onclick: () => {
           close();
           setCells(state.cls.students.map(s => ({ key: col.key, sid: s.sid, value: col.max })));
-          toast(words(col).bulkToast, 'ok', 1400);
+          toast(words(col).bulkToast, 'ok', 1400, undoAction());
         }
       }, `✓ ${words(col).bulk} (${col.max})`),
       h('button', {
@@ -654,6 +661,7 @@ function openItemMenu(col) {
           close();
           if (!await confirmBox('ล้างคะแนน?', 'คะแนนของรายการนี้จะถูกลบทั้งห้อง', 'ล้าง')) return;
           setCells(state.cls.students.map(s => ({ key: col.key, sid: s.sid, value: '' })));
+          toast('ล้างคะแนนแล้ว', 'ok', 1400, undoAction());
         }
       }, '↺ ล้างคะแนนทั้งรายการ'),
       h('button', {
@@ -694,7 +702,7 @@ function openPaste(col) {
         cells.push({ key: col.key, sid: s.sid, value: formatWork(late ? 'late' : 'ok', clamped) });
       });
       setCells(cells);
-      toast(`นำเข้า ${cells.length} รายการ`, 'ok');
+      toast(`นำเข้า ${cells.length} รายการ`, 'ok', 2400, undoAction());
       close();
     };
     return h('div', null,

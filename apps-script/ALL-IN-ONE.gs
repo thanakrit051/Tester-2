@@ -23,7 +23,7 @@
 // ── เวอร์ชัน ────────────────────────────────────────────────
 // ⚠️ ต้องตรงกับ APP_VERSION ใน js/version.js
 //    ถ้าเลขไม่ตรง หน้าเว็บจะขึ้นแถบเตือนให้ผู้ใช้อัปเดต/Deploy ใหม่
-var SERVER_VERSION = '2.8.1';
+var SERVER_VERSION = '2.9.0';
 
 // ── ชื่อแท็บระบบ ────────────────────────────────────────────
 var SHEET_CONFIG  = '⚙️ ตั้งค่า';
@@ -200,6 +200,8 @@ function onOpen() {
     .addSeparator()
     .addItem('📊 คำนวณคะแนนสรุปแท็บนี้', 'recalcActiveSheet')
     .addItem('📊 คำนวณคะแนนสรุปทุกห้อง', 'recalcAllClasses')
+    .addSeparator()
+    .addItem('💾 สำรองไฟล์นี้เดี๋ยวนี้', 'backupNowMenu')
     .addToUi();
 }
 
@@ -214,6 +216,10 @@ function setupWorkbook() {
     setConfigValue_('apiKey', Utilities.getUuid().replace(/-/g, ''));
     SpreadsheetApp.flush();
   }
+
+  // ตั้งสำรองไฟล์อัตโนมัติทุกสัปดาห์ — เรียกซ้ำได้ ไม่สร้างทริกเกอร์ซ้ำ
+  try { ensureAutoBackupTrigger_(); } catch (e) { console.error('ตั้งสำรองอัตโนมัติไม่สำเร็จ: ' + e); }
+
   ensureHelpSheet_(ss);
 
   // จัดลำดับแท็บระบบไว้หน้าสุด
@@ -393,7 +399,12 @@ function ensureHelpSheet_(ss) {
     ['🔑 รหัสลับ (API Key) — เก็บเป็นความลับ ห้ามแชร์ไฟล์นี้แบบสาธารณะ'],
     ['', apiKey],
     [''],
-    ['🔗 URL เว็บแอป (Apps Script)', url]
+    ['🔗 URL เว็บแอป (Apps Script)', url],
+    [''],
+    ['🗄️ สำรองข้อมูล'],
+    ['อัตโนมัติ', 'สำเนาทั้งไฟล์ทุกวันอาทิตย์ตี 3 เก็บ ' + BACKUP_KEEP + ' ก้อนล่าสุด — ดูใน Google Drive โฟลเดอร์ "' + BACKUP_FOLDER_NAME + '"'],
+    ['สำรองเอง', 'เมนู 📗 AssignCheck → 💾 สำรองไฟล์นี้เดี๋ยวนี้ (ทำก่อนแก้อะไรใหญ่ ๆ ได้)'],
+    ['กู้คืน', 'เปิดไฟล์สำรองที่ต้องการ → Deploy เป็น Web app ใหม่ (URL จะเปลี่ยน ต้องอัปเดตในเว็บแอปด้วย)']
   ];
 
   sh.getRange(1, 1, rows.length, 2).setValues(rows.map(function (r) {
@@ -404,7 +415,7 @@ function ensureHelpSheet_(ss) {
 
   // เน้นแถวหัวข้อ (แถวที่มีข้อความคอลัมน์เดียว) และแถวรหัสลับ — คำนวณจากข้อมูลจริง
   for (var i = 1; i < rows.length; i++) {
-    var isHeading = rows[i][0] && !rows[i][1] && /^[🧭📁🚀🔑🔗⚠️]/.test(rows[i][0]);
+    var isHeading = rows[i][0] && !rows[i][1] && /^[🧭📁🚀🔑🔗⚠️🗄️]/.test(rows[i][0]);
     if (isHeading) sh.getRange(i + 1, 1, 1, 2).setFontWeight('bold').setBackground('#e8f5e9');
     if (rows[i][1] === apiKey) sh.getRange(i + 1, 2).setFontFamily('Courier New').setBackground('#fff3e0');
   }
@@ -1680,3 +1691,85 @@ var STU_BUCKET_META = {
   att2:  { label: 'เข้าเรียน',     phase: 2, sgs: 'ช่อง 12' },
   fin:   { label: 'สอบปลายภาค',   phase: 2, sgs: 'ปลายภาค' }
 };
+
+
+/* ══════ 06_Backup.gs ══════ */
+
+/**
+ * AssignCheck V2 — สำรองไฟล์อัตโนมัติ
+ *
+ * ทำไมต้องมี: ข้อมูลจริงทั้งหมดอยู่ใน Google Sheet ไฟล์เดียว ไม่มีฐานข้อมูล
+ * สำรอง — ถ้าไฟล์เสีย ถูกลบผิด หรือมีคนแก้พลาดจนพังทั้งไฟล์ Google เก็บ
+ * Version History ให้อยู่แล้วแต่กู้ยาก (ต้องรู้ว่าจะย้อนไปช่วงไหน)
+ * ไฟล์นี้จึงทำสำเนาทั้งไฟล์แยกไว้ต่างหากเป็นระยะ กู้คืนได้ง่ายแค่เปิดไฟล์สำรอง
+ *
+ *   BACKUP_KEEP  ก้อนล่าสุด — เกินกว่านี้ลบก้อนเก่าสุดทิ้งอัตโนมัติ
+ *
+ * ติดตั้งทริกเกอร์อัตโนมัติทุกครั้งที่กด "🚀 ติดตั้ง / ซ่อมแซมโครงสร้าง"
+ * (ดู setupWorkbook() ใน 01_Setup.gs) — ไม่ต้องตั้งอะไรเพิ่ม
+ */
+
+var BACKUP_FOLDER_NAME = 'AssignCheck — สำรองข้อมูล';
+var BACKUP_KEEP = 8;                 // ทุกสัปดาห์ ~2 เดือนย้อนหลัง
+var BACKUP_TRIGGER_FN = 'scheduledBackup_';
+
+/** สำเนาไฟล์นี้ทั้งไฟล์ไปไว้ในโฟลเดอร์สำรอง แล้วลบก้อนเก่าสุดถ้าเกิน BACKUP_KEEP */
+function backupNow_() {
+  var file = DriveApp.getFileById(ss_().getId());
+  var parents = file.getParents();
+  var parent = parents.hasNext() ? parents.next() : DriveApp.getRootFolder();
+  var folder = getOrCreateBackupFolder_(parent);
+
+  var stamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'Asia/Bangkok', 'yyyy-MM-dd HH:mm');
+  var copy = file.makeCopy('สำรอง ' + stamp + ' — ' + file.getName(), folder);
+  pruneBackups_(folder);
+  return copy;
+}
+
+/** หาโฟลเดอร์สำรองในที่เดียวกับไฟล์ต้นฉบับ สร้างใหม่ถ้ายังไม่มี */
+function getOrCreateBackupFolder_(parent) {
+  var it = parent.getFoldersByName(BACKUP_FOLDER_NAME);
+  if (it.hasNext()) return it.next();
+  return parent.createFolder(BACKUP_FOLDER_NAME);
+}
+
+/** เหลือไว้แค่ก้อนล่าสุด BACKUP_KEEP ก้อน ก้อนเก่ากว่านั้นย้ายลงถังขยะ */
+function pruneBackups_(folder) {
+  var files = [];
+  var it = folder.getFiles();
+  while (it.hasNext()) files.push(it.next());
+  if (files.length <= BACKUP_KEEP) return;
+
+  files.sort(function (a, b) { return b.getDateCreated() - a.getDateCreated(); });
+  files.slice(BACKUP_KEEP).forEach(function (f) { f.setTrashed(true); });
+}
+
+/** เมนู "💾 สำรองไฟล์นี้เดี๋ยวนี้" — ทำก่อนจะแก้อะไรใหญ่ ๆ เอง */
+function backupNowMenu() {
+  try {
+    var copy = backupNow_();
+    SpreadsheetApp.getUi().alert(
+      'สำรองแล้ว ✅\n\n' + copy.getName() +
+      '\n\nอยู่ในโฟลเดอร์เดียวกับไฟล์นี้ ในโฟลเดอร์ "' + BACKUP_FOLDER_NAME + '"');
+  } catch (err) {
+    SpreadsheetApp.getUi().alert('สำรองไม่สำเร็จ: ' + String(err && err.message ? err.message : err));
+  }
+}
+
+/** ติดตั้งทริกเกอร์รายสัปดาห์ — เรียกซ้ำได้ ไม่สร้างซ้ำ */
+function ensureAutoBackupTrigger_() {
+  var exists = ScriptApp.getProjectTriggers().some(function (t) {
+    return t.getHandlerFunction() === BACKUP_TRIGGER_FN;
+  });
+  if (exists) return;
+  ScriptApp.newTrigger(BACKUP_TRIGGER_FN)
+    .timeBased()
+    .onWeekDay(ScriptApp.WeekDay.SUNDAY)
+    .atHour(3)
+    .create();
+}
+
+/** ทริกเกอร์เรียกอันนี้ — ห้ามให้พังจนกระทบงานอื่นของสคริปต์ */
+function scheduledBackup_() {
+  try { backupNow_(); } catch (err) { console.error('สำรองอัตโนมัติล้มเหลว: ' + err); }
+}

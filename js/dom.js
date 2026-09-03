@@ -35,14 +35,25 @@ export function clear(el) { while (el.firstChild) el.removeChild(el.firstChild);
 export function mount(el, ...children) { clear(el); add(el, children); return el; }
 
 // ── Toast ───────────────────────────────────────────────────
-export function toast(msg, kind = '', ms = 2400) {
+/**
+ * action = { label, onclick } → เพิ่มปุ่มเล็กในตัว toast (ใช้กับ "เลิกทำ")
+ * มี action แล้วปล่อยอยู่นานขึ้นเป็นพิเศษ ให้เวลาอ่านและกดทัน
+ */
+export function toast(msg, kind = '', ms = 2400, action = null) {
   const root = document.getElementById('toasts');
-  const t = h('div', { class: 'toast ' + kind }, msg);
-  root.append(t);
-  setTimeout(() => {
+  const remove = () => {
     t.style.transition = 'opacity .2s'; t.style.opacity = '0';
     setTimeout(() => t.remove(), 220);
-  }, ms);
+  };
+  const t = h('div', { class: 'toast ' + kind },
+    h('span', null, msg),
+    action && h('button', {
+      class: 'toast-action',
+      onclick: () => { action.onclick(); remove(); }
+    }, action.label)
+  );
+  root.append(t);
+  setTimeout(remove, action ? Math.max(ms, 5000) : ms);
 }
 
 // ── Modal ───────────────────────────────────────────────────
