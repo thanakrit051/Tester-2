@@ -57,22 +57,85 @@ export function toast(msg, kind = '', ms = 2400, action = null) {
 }
 
 // ── Modal ───────────────────────────────────────────────────
+
+/* กล่องที่เปิดค้างอยู่ เรียงจากล่างขึ้นบน
+ * ซ้อนกันได้จริง เพราะ confirmBox ถูกเรียกจากในปุ่มของกล่องอื่นหลายที่
+ * (เช่น "ลบการเช็คชื่อ?" ที่เด้งจากในกล่องแก้คาบ) */
+const modalStack = [];
+
+/**
+ * ปิดกล่องบนสุด — คืน true ถ้ามีกล่องให้ปิดจริง
+ * ใช้ให้ปุ่มย้อนกลับของเครื่องปิดกล่องแทนที่จะเปลี่ยนหน้าทั้งหน้า
+ */
+export function closeTopModal() {
+  const top = modalStack[modalStack.length - 1];
+  if (!top) return false;
+  top();
+  return true;
+}
+
+const FOCUSABLE = [
+  'a[href]', 'button:not([disabled])', 'input:not([disabled])',
+  'select:not([disabled])', 'textarea:not([disabled])', '[tabindex]:not([tabindex="-1"])'
+].join(',');
+
+/** เฉพาะตัวที่มองเห็นจริง — ตัวที่ถูกซ่อนอยู่ห้ามรับโฟกัส */
+function focusables(box) {
+  return [...box.querySelectorAll(FOCUSABLE)].filter(el => el.getClientRects().length > 0);
+}
+
 /**
  * เปิดกล่องโต้ตอบ
  * builder(close) ต้องคืน element ที่จะใส่ในกล่อง
+ *
+ * ของเดิมปิดได้ทางเดียวคือคลิกฉากหลัง — คนที่ใช้คีย์บอร์ดจึงออกจากกล่องไม่ได้เลย
+ * และกด Tab แล้วโฟกัสหลุดไปอยู่ปุ่มด้านหลังกล่องซึ่งมองไม่เห็น
+ * ตอนนี้ปิดด้วย Esc ได้ · Tab วนอยู่ในกล่อง · ปิดแล้วโฟกัสกลับไปที่ปุ่มที่เปิดมัน
  */
 export function modal(builder) {
   const root = document.getElementById('modal-root');
+  const prevFocus = document.activeElement;
   const back = h('div', { class: 'modal-back' });
-  const close = () => { back.remove(); document.body.style.overflow = ''; };
-  const box = h('div', { class: 'modal', onclick: (e) => e.stopPropagation() });
-  back.addEventListener('click', close);
+  const box = h('div', {
+    class: 'modal', role: 'dialog', 'aria-modal': 'true', tabindex: '-1',
+    onclick: (e) => e.stopPropagation()
+  });
+
+  let closed = false;
+  const close = () => {
+    if (closed) return;            // กันปิดซ้ำ (กด Esc พร้อมคลิกฉากหลัง ฯลฯ)
+    closed = true;
+    const i = modalStack.indexOf(close);
+    if (i >= 0) modalStack.splice(i, 1);
+    back.remove();
+    document.removeEventListener('keydown', onKey, true);
+    if (!modalStack.length) document.body.style.overflow = '';
+    // คืนโฟกัสให้ปุ่มที่เปิดกล่องนี้ — ถ้าปุ่มนั้นถูกวาดใหม่ไปแล้วก็แค่ไม่มีอะไรเกิดขึ้น
+    try { if (prevFocus && prevFocus.focus) prevFocus.focus(); } catch (e) {}
+  };
+
+  function onKey(e) {
+    if (modalStack[modalStack.length - 1] !== close) return;   // ไม่ใช่กล่องบนสุด
+    if (e.key === 'Escape') { e.preventDefault(); close(); return; }
+    if (e.key !== 'Tab') return;
+    const f = focusables(box);
+    if (!f.length) { e.preventDefault(); box.focus(); return; }
+    const first = f[0], last = f[f.length - 1];
+    const here = document.activeElement;
+    if (e.shiftKey && (here === first || !box.contains(here))) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && here === last) { e.preventDefault(); first.focus(); }
+  }
+
+  back.addEventListener('click', () => close());
   box.append(builder(close));
   back.append(box);
   root.append(back);
+  modalStack.push(close);
   document.body.style.overflow = 'hidden';
+  document.addEventListener('keydown', onKey, true);
+
   const first = box.querySelector('input,select,textarea');
-  if (first) setTimeout(() => first.focus(), 60);
+  setTimeout(() => (first || box).focus(), 60);
   return close;
 }
 

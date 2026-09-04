@@ -103,10 +103,48 @@ try {
 
 export function settings() { return settingsFrom(state.config); }
 
-/** เปลี่ยนหน้า */
-export function go(view) {
+/* ── เราเตอร์: ผูกหน้าเข้ากับประวัติของเบราว์เซอร์ ──────────
+ *
+ * เดิม go() เปลี่ยนแค่ตัวแปรในหน่วยความจำ ปุ่มย้อนกลับของเครื่องจึงไม่รู้จักแอปเลย
+ * ครูที่อยู่หน้า "งาน/คะแนน" แล้วกดย้อนกลับ = ออกจากแอปทันที
+ * (ถ้าติดตั้งเป็นแอปบนมือถือคือปิดไปเลย) แถมส่งลิงก์เจาะจงหน้าให้กันก็ไม่ได้
+ *
+ * ตัวตัดสินว่าหน้าไหนเปิดได้บ้างอยู่ที่ app.js เพราะรายชื่อหน้าอยู่ที่นั่น
+ * ตรงนี้รับผิดชอบแค่การบันทึกลงประวัติอย่างเดียว
+ */
+
+/**
+ * บันทึกหน้าปัจจุบันลงประวัติ (replace = เขียนทับรายการล่าสุดแทนการเพิ่มใหม่)
+ *
+ * ⚠️ ต้องเขียน window.history ให้เต็ม — ไฟล์นี้มีตัวแปรชื่อ editLog ที่เมื่อก่อน
+ *    ชื่อ history อยู่ก่อนแล้ว เขียนสั้น ๆ ว่า history เมื่อไหร่จะไปโดนตัวนั้นแทน
+ *    แล้วเงียบหายไปกับ catch ข้างล่างโดยไม่มีใครรู้
+ */
+export function pushView(view, replace) {
+  try {
+    const url = location.pathname + location.search + '#' + view;
+    const h = window.history;
+    if (replace) h.replaceState({ acView: view }, '', url);
+    else h.pushState({ acView: view }, '', url);
+  } catch (e) {
+    // ประวัติเป็นของแถม ห้ามทำให้การเปลี่ยนหน้าพัง
+  }
+}
+
+/**
+ * เปลี่ยนหน้า
+ * @param opts.silent  true = มาจากปุ่มย้อนกลับ อย่าไปเพิ่มรายการประวัติซ้ำ
+ */
+export function go(view, opts = {}) {
   if (state.view === view) return;
+  const prev = state.view;
   state.view = view;
+  if (!opts.silent) {
+    // ยังไม่เคยมีรายการของแอปในประวัติเลย (เช่นเพิ่งเชื่อมต่อเสร็จ)
+    // ปักหมุดหน้าเดิมไว้ก่อน ไม่งั้นกดย้อนกลับครั้งแรกจะหลุดออกจากแอปทันที
+    try { if (!window.history.state || !window.history.state.acView) pushView(prev, true); } catch (e) {}
+    pushView(view);
+  }
   window.scrollTo({ top: 0 });
   emit();
 }
@@ -395,7 +433,7 @@ export async function deleteColumn(key) {
  * ช่องเดียวไม่บันทึกไว้ใช้เพราะกดปุ่มเดิมซ้ำ = ยกเลิกอยู่แล้ว (ดู work.js/attendance.js)
  */
 const HISTORY_MAX = 20;
-let history = [];   // [{ classId, cells: [{ key, sid, prev }] }]
+let editLog = [];   // [{ classId, cells: [{ key, sid, prev }] }] — ประวัติการแก้ สำหรับปุ่ม "เลิกทำ"
 
 /**
  * cells: [{ key, sid, value }]
@@ -404,11 +442,11 @@ let history = [];   // [{ classId, cells: [{ key, sid, prev }] }]
 export function setCells(cells, { quiet = false } = {}) {
   if (!cells.length || !state.cls) return;
 
-  history.push({
+  editLog.push({
     classId: state.classId,
     cells: cells.map(c => ({ key: c.key, sid: c.sid, prev: (state.cls.values[c.key] || {})[c.sid] ?? '' }))
   });
-  if (history.length > HISTORY_MAX) history.shift();
+  if (editLog.length > HISTORY_MAX) editLog.shift();
 
   for (const c of cells) {
     if (!state.cls.values[c.key]) state.cls.values[c.key] = {};
@@ -427,9 +465,9 @@ export function setCells(cells, { quiet = false } = {}) {
  * @returns จำนวนช่องที่ย้อนกลับ · 0 = ไม่มีอะไรให้ย้อน
  */
 export function undoLastEdit() {
-  const i = history.map(h => h.classId).lastIndexOf(state.classId);
+  const i = editLog.map(e => e.classId).lastIndexOf(state.classId);
   if (i < 0) return 0;
-  const h = history.splice(i, 1)[0];
+  const h = editLog.splice(i, 1)[0];
   setCells(h.cells.map(c => ({ key: c.key, sid: c.sid, value: c.prev })));
   return h.cells.length;
 }

@@ -15,9 +15,9 @@
   __defs["js/app.js"] = function (exports, __req) {
 /* AssignCheck V2 — จุดเริ่มต้นแอป: เปลือกหน้าจอ + เราเตอร์ */
 
-const { h, mount, toast } = __req("js/dom.js");
+const { h, mount, toast, closeTopModal } = __req("js/dom.js");
 const api = __req("js/api.js");
-const { state, subscribe, bootAll, loadClass, sync, isSyncing, go } = __req("js/state.js");
+const { state, subscribe, bootAll, loadClass, sync, isSyncing, go, pushView } = __req("js/state.js");
 const { auth } = __req("js/auth.js");
 const { icon } = __req("js/icons.js");
 const { applyTheme, watchSystemTheme } = __req("js/theme.js");
@@ -322,6 +322,39 @@ function showBroken(err) {
     )));
 }
 
+// ── เราเตอร์ ────────────────────────────────────────────────
+
+/**
+ * ชื่อหน้าที่อ่านจาก URL → หน้าที่เปิดได้จริง (คืน '' ถ้าเปิดไม่ได้)
+ *
+ * ลิงก์ที่ส่งต่อกันมาอาจชี้หน้าที่ต้องเลือกห้องเรียนก่อน ถ้าปล่อยให้เปิดตรง ๆ
+ * view จะ throw แล้วไปโผล่หน้า "หน้านี้เปิดไม่ขึ้น" ทั้งที่แค่ควรเด้งกลับหน้าแรก
+ */
+function resolveView(id) {
+  if (!id) return '';
+  if (EXTRA_VIEWS[id]) return id;
+  const n = NAV.find(x => x.id === id);
+  if (!n) return '';
+  if (n.needClass && !state.classId) return '';
+  return id;
+}
+
+const viewFromHash = () => {
+  try { return decodeURIComponent(String(location.hash || '').replace(/^#/, '')); }
+  catch (e) { return ''; }
+};
+
+window.addEventListener('popstate', (e) => {
+  // มีกล่องเปิดค้างอยู่ → ปุ่มย้อนกลับปิดกล่องก่อน (พฤติกรรมที่คนใช้มือถือคาดหวัง)
+  // แล้วคืนตำแหน่งในประวัติกลับที่เดิม เพื่อไม่ให้หน้าเปลี่ยนตามไปด้วย
+  if (closeTopModal()) { pushView(state.view); return; }
+
+  const want = (e.state && e.state.acView) || viewFromHash() || 'home';
+  const ok = resolveView(want) || 'home';
+  go(ok, { silent: true });
+  if (ok !== want) pushView(ok, true);   // เปิดหน้าที่ขอไม่ได้ → แก้ URL ให้ตรงกับที่เห็นจริง
+});
+
 // ── เริ่มทำงาน ──────────────────────────────────────────────
 
 // งานเสริมพวกนี้ห้ามทำให้แอปเปิดไม่ขึ้น ถ้าพังก็แค่ข้ามไป
@@ -358,7 +391,46 @@ setTimeout(() => {
 // โหมดที่ Apps Script เสิร์ฟเอง อยู่ใน iframe ปิด ลงทะเบียน service worker ไม่ได้
 if (api.MODE === 'remote' && 'serviceWorker' in navigator && location.protocol !== 'file:') {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').catch(() => {});
+    navigator.serviceWorker.register('./sw.js').then(watchUpdate).catch(() => {});
+  });
+}
+
+/**
+ * มีเวอร์ชันใหม่รออยู่ → บอกครูแล้วให้เลือกจังหวะรีเฟรชเอง
+ *
+ * คู่กับการที่ sw.js เลิกเรียก skipWaiting() ตอนติดตั้ง
+ * ถ้าไม่มีอะไรบอกเลย ครูจะติดอยู่กับโค้ดเก่าจนกว่าจะปิดแท็บแอปให้หมดทุกแท็บ
+ */
+function watchUpdate(reg) {
+  if (!reg) return;
+
+  // รีเฟรชเฉพาะตอนที่ครูกดเองเท่านั้น
+  // controllerchange ยิงตอนติดตั้งครั้งแรกด้วย ถ้ารีโหลดทุกครั้งที่ยิง
+  // ครูจะโดนหน้าเด้งใหม่ตั้งแต่เปิดแอปครั้งแรกโดยไม่มีเหตุผล
+  let wantReload = false;
+  try {
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!wantReload) return;
+      wantReload = false;
+      location.reload();
+    });
+  } catch (e) {}
+
+  const offer = (worker) => toast('มีเวอร์ชันใหม่พร้อมใช้', '', 12000, {
+    label: 'รีเฟรช',
+    onclick: () => { wantReload = true; try { worker.postMessage('skipWaiting'); } catch (e) {} }
+  });
+
+  // เข้าหน้ามาแล้วเจอของใหม่ค้างรออยู่ตั้งแต่รอบก่อน
+  if (reg.waiting && navigator.serviceWorker.controller) offer(reg.waiting);
+
+  reg.addEventListener('updatefound', () => {
+    const w = reg.installing;
+    if (!w) return;
+    w.addEventListener('statechange', () => {
+      // มี controller อยู่ = ไม่ใช่การติดตั้งครั้งแรก แปลว่าเป็นของใหม่มาแทนของเก่าจริง
+      if (w.state === 'installed' && navigator.serviceWorker.controller) offer(w);
+    });
   });
 }
 window.addEventListener('beforeinstallprompt', (e) => {
@@ -380,6 +452,12 @@ window.addEventListener('appinstalled', () => { state.installPrompt = null; safe
         }
       }
       sync();
+
+      // เปิดหน้าตามที่อยู่ใน URL — ต้องหลัง bootAll เพราะก่อนหน้านั้น
+      // ยังไม่รู้ว่ามีห้องเรียนค้างไว้ไหม หน้าที่ต้องใช้ห้องจึงตัดสินไม่ได้
+      const first = resolveView(viewFromHash()) || 'home';
+      state.view = first;
+      pushView(first, true);
     }
     safeRender();
   } catch (e) {
@@ -454,22 +532,85 @@ function toast(msg, kind = '', ms = 2400, action = null) {
 }
 
 // ── Modal ───────────────────────────────────────────────────
+
+/* กล่องที่เปิดค้างอยู่ เรียงจากล่างขึ้นบน
+ * ซ้อนกันได้จริง เพราะ confirmBox ถูกเรียกจากในปุ่มของกล่องอื่นหลายที่
+ * (เช่น "ลบการเช็คชื่อ?" ที่เด้งจากในกล่องแก้คาบ) */
+const modalStack = [];
+
+/**
+ * ปิดกล่องบนสุด — คืน true ถ้ามีกล่องให้ปิดจริง
+ * ใช้ให้ปุ่มย้อนกลับของเครื่องปิดกล่องแทนที่จะเปลี่ยนหน้าทั้งหน้า
+ */
+function closeTopModal() {
+  const top = modalStack[modalStack.length - 1];
+  if (!top) return false;
+  top();
+  return true;
+}
+
+const FOCUSABLE = [
+  'a[href]', 'button:not([disabled])', 'input:not([disabled])',
+  'select:not([disabled])', 'textarea:not([disabled])', '[tabindex]:not([tabindex="-1"])'
+].join(',');
+
+/** เฉพาะตัวที่มองเห็นจริง — ตัวที่ถูกซ่อนอยู่ห้ามรับโฟกัส */
+function focusables(box) {
+  return [...box.querySelectorAll(FOCUSABLE)].filter(el => el.getClientRects().length > 0);
+}
+
 /**
  * เปิดกล่องโต้ตอบ
  * builder(close) ต้องคืน element ที่จะใส่ในกล่อง
+ *
+ * ของเดิมปิดได้ทางเดียวคือคลิกฉากหลัง — คนที่ใช้คีย์บอร์ดจึงออกจากกล่องไม่ได้เลย
+ * และกด Tab แล้วโฟกัสหลุดไปอยู่ปุ่มด้านหลังกล่องซึ่งมองไม่เห็น
+ * ตอนนี้ปิดด้วย Esc ได้ · Tab วนอยู่ในกล่อง · ปิดแล้วโฟกัสกลับไปที่ปุ่มที่เปิดมัน
  */
 function modal(builder) {
   const root = document.getElementById('modal-root');
+  const prevFocus = document.activeElement;
   const back = h('div', { class: 'modal-back' });
-  const close = () => { back.remove(); document.body.style.overflow = ''; };
-  const box = h('div', { class: 'modal', onclick: (e) => e.stopPropagation() });
-  back.addEventListener('click', close);
+  const box = h('div', {
+    class: 'modal', role: 'dialog', 'aria-modal': 'true', tabindex: '-1',
+    onclick: (e) => e.stopPropagation()
+  });
+
+  let closed = false;
+  const close = () => {
+    if (closed) return;            // กันปิดซ้ำ (กด Esc พร้อมคลิกฉากหลัง ฯลฯ)
+    closed = true;
+    const i = modalStack.indexOf(close);
+    if (i >= 0) modalStack.splice(i, 1);
+    back.remove();
+    document.removeEventListener('keydown', onKey, true);
+    if (!modalStack.length) document.body.style.overflow = '';
+    // คืนโฟกัสให้ปุ่มที่เปิดกล่องนี้ — ถ้าปุ่มนั้นถูกวาดใหม่ไปแล้วก็แค่ไม่มีอะไรเกิดขึ้น
+    try { if (prevFocus && prevFocus.focus) prevFocus.focus(); } catch (e) {}
+  };
+
+  function onKey(e) {
+    if (modalStack[modalStack.length - 1] !== close) return;   // ไม่ใช่กล่องบนสุด
+    if (e.key === 'Escape') { e.preventDefault(); close(); return; }
+    if (e.key !== 'Tab') return;
+    const f = focusables(box);
+    if (!f.length) { e.preventDefault(); box.focus(); return; }
+    const first = f[0], last = f[f.length - 1];
+    const here = document.activeElement;
+    if (e.shiftKey && (here === first || !box.contains(here))) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && here === last) { e.preventDefault(); first.focus(); }
+  }
+
+  back.addEventListener('click', () => close());
   box.append(builder(close));
   back.append(box);
   root.append(back);
+  modalStack.push(close);
   document.body.style.overflow = 'hidden';
+  document.addEventListener('keydown', onKey, true);
+
   const first = box.querySelector('input,select,textarea');
-  if (first) setTimeout(() => first.focus(), 60);
+  setTimeout(() => (first || box).focus(), 60);
   return close;
 }
 
@@ -517,7 +658,7 @@ function nf(v, digits = 2) {
   return String(Math.round(n * 10 ** digits) / 10 ** digits);
 }
 
-__exp(exports, { h, clear, mount, toast, modal, confirmBox, todayISO, fmtDate, fmtDayFull, isToday, nf });
+__exp(exports, { h, clear, mount, toast, closeTopModal, modal, confirmBox, todayISO, fmtDate, fmtDayFull, isToday, nf });
 
   };
 
@@ -1160,10 +1301,48 @@ try {
 
 function settings() { return settingsFrom(state.config); }
 
-/** เปลี่ยนหน้า */
-function go(view) {
+/* ── เราเตอร์: ผูกหน้าเข้ากับประวัติของเบราว์เซอร์ ──────────
+ *
+ * เดิม go() เปลี่ยนแค่ตัวแปรในหน่วยความจำ ปุ่มย้อนกลับของเครื่องจึงไม่รู้จักแอปเลย
+ * ครูที่อยู่หน้า "งาน/คะแนน" แล้วกดย้อนกลับ = ออกจากแอปทันที
+ * (ถ้าติดตั้งเป็นแอปบนมือถือคือปิดไปเลย) แถมส่งลิงก์เจาะจงหน้าให้กันก็ไม่ได้
+ *
+ * ตัวตัดสินว่าหน้าไหนเปิดได้บ้างอยู่ที่ app.js เพราะรายชื่อหน้าอยู่ที่นั่น
+ * ตรงนี้รับผิดชอบแค่การบันทึกลงประวัติอย่างเดียว
+ */
+
+/**
+ * บันทึกหน้าปัจจุบันลงประวัติ (replace = เขียนทับรายการล่าสุดแทนการเพิ่มใหม่)
+ *
+ * ⚠️ ต้องเขียน window.history ให้เต็ม — ไฟล์นี้มีตัวแปรชื่อ editLog ที่เมื่อก่อน
+ *    ชื่อ history อยู่ก่อนแล้ว เขียนสั้น ๆ ว่า history เมื่อไหร่จะไปโดนตัวนั้นแทน
+ *    แล้วเงียบหายไปกับ catch ข้างล่างโดยไม่มีใครรู้
+ */
+function pushView(view, replace) {
+  try {
+    const url = location.pathname + location.search + '#' + view;
+    const h = window.history;
+    if (replace) h.replaceState({ acView: view }, '', url);
+    else h.pushState({ acView: view }, '', url);
+  } catch (e) {
+    // ประวัติเป็นของแถม ห้ามทำให้การเปลี่ยนหน้าพัง
+  }
+}
+
+/**
+ * เปลี่ยนหน้า
+ * @param opts.silent  true = มาจากปุ่มย้อนกลับ อย่าไปเพิ่มรายการประวัติซ้ำ
+ */
+function go(view, opts = {}) {
   if (state.view === view) return;
+  const prev = state.view;
   state.view = view;
+  if (!opts.silent) {
+    // ยังไม่เคยมีรายการของแอปในประวัติเลย (เช่นเพิ่งเชื่อมต่อเสร็จ)
+    // ปักหมุดหน้าเดิมไว้ก่อน ไม่งั้นกดย้อนกลับครั้งแรกจะหลุดออกจากแอปทันที
+    try { if (!window.history.state || !window.history.state.acView) pushView(prev, true); } catch (e) {}
+    pushView(view);
+  }
   window.scrollTo({ top: 0 });
   emit();
 }
@@ -1452,7 +1631,7 @@ async function deleteColumn(key) {
  * ช่องเดียวไม่บันทึกไว้ใช้เพราะกดปุ่มเดิมซ้ำ = ยกเลิกอยู่แล้ว (ดู work.js/attendance.js)
  */
 const HISTORY_MAX = 20;
-let history = [];   // [{ classId, cells: [{ key, sid, prev }] }]
+let editLog = [];   // [{ classId, cells: [{ key, sid, prev }] }] — ประวัติการแก้ สำหรับปุ่ม "เลิกทำ"
 
 /**
  * cells: [{ key, sid, value }]
@@ -1461,11 +1640,11 @@ let history = [];   // [{ classId, cells: [{ key, sid, prev }] }]
 function setCells(cells, { quiet = false } = {}) {
   if (!cells.length || !state.cls) return;
 
-  history.push({
+  editLog.push({
     classId: state.classId,
     cells: cells.map(c => ({ key: c.key, sid: c.sid, prev: (state.cls.values[c.key] || {})[c.sid] ?? '' }))
   });
-  if (history.length > HISTORY_MAX) history.shift();
+  if (editLog.length > HISTORY_MAX) editLog.shift();
 
   for (const c of cells) {
     if (!state.cls.values[c.key]) state.cls.values[c.key] = {};
@@ -1484,9 +1663,9 @@ function setCells(cells, { quiet = false } = {}) {
  * @returns จำนวนช่องที่ย้อนกลับ · 0 = ไม่มีอะไรให้ย้อน
  */
 function undoLastEdit() {
-  const i = history.map(h => h.classId).lastIndexOf(state.classId);
+  const i = editLog.map(e => e.classId).lastIndexOf(state.classId);
   if (i < 0) return 0;
-  const h = history.splice(i, 1)[0];
+  const h = editLog.splice(i, 1)[0];
   setCells(h.cells.map(c => ({ key: c.key, sid: c.sid, value: c.prev })));
   return h.cells.length;
 }
@@ -1576,7 +1755,7 @@ async function saveConfig(entries, { quiet = false } = {}) {
 api.net.onChange(() => { if (navigator.onLine) sync(); emit(); });
 window.addEventListener('visibilitychange', () => { if (!document.hidden) sync(); });
 
-__exp(exports, { state, subscribe, emit, settings, go, bootAll, loadClass, createClass, updateClassMeta, deleteClass, setStudents, ensureColumn, updateColumn, deleteColumn, setCells, undoLastEdit, getCell, sync, isSyncing, recalcOnServer, saveConfig });
+__exp(exports, { state, subscribe, emit, settings, pushView, go, bootAll, loadClass, createClass, updateClassMeta, deleteClass, setStudents, ensureColumn, updateColumn, deleteColumn, setCells, undoLastEdit, getCell, sync, isSyncing, recalcOnServer, saveConfig });
 
   };
 

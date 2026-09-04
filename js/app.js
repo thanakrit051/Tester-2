@@ -1,8 +1,8 @@
 /* AssignCheck V2 — จุดเริ่มต้นแอป: เปลือกหน้าจอ + เราเตอร์ */
 
-import { h, mount, toast } from './dom.js';
+import { h, mount, toast, closeTopModal } from './dom.js';
 import * as api from './api.js';
-import { state, subscribe, bootAll, loadClass, sync, isSyncing, go } from './state.js';
+import { state, subscribe, bootAll, loadClass, sync, isSyncing, go, pushView } from './state.js';
 import { auth } from './auth.js';
 import { icon } from './icons.js';
 import { applyTheme, watchSystemTheme } from './theme.js';
@@ -307,6 +307,39 @@ function showBroken(err) {
     )));
 }
 
+// ── เราเตอร์ ────────────────────────────────────────────────
+
+/**
+ * ชื่อหน้าที่อ่านจาก URL → หน้าที่เปิดได้จริง (คืน '' ถ้าเปิดไม่ได้)
+ *
+ * ลิงก์ที่ส่งต่อกันมาอาจชี้หน้าที่ต้องเลือกห้องเรียนก่อน ถ้าปล่อยให้เปิดตรง ๆ
+ * view จะ throw แล้วไปโผล่หน้า "หน้านี้เปิดไม่ขึ้น" ทั้งที่แค่ควรเด้งกลับหน้าแรก
+ */
+function resolveView(id) {
+  if (!id) return '';
+  if (EXTRA_VIEWS[id]) return id;
+  const n = NAV.find(x => x.id === id);
+  if (!n) return '';
+  if (n.needClass && !state.classId) return '';
+  return id;
+}
+
+const viewFromHash = () => {
+  try { return decodeURIComponent(String(location.hash || '').replace(/^#/, '')); }
+  catch (e) { return ''; }
+};
+
+window.addEventListener('popstate', (e) => {
+  // มีกล่องเปิดค้างอยู่ → ปุ่มย้อนกลับปิดกล่องก่อน (พฤติกรรมที่คนใช้มือถือคาดหวัง)
+  // แล้วคืนตำแหน่งในประวัติกลับที่เดิม เพื่อไม่ให้หน้าเปลี่ยนตามไปด้วย
+  if (closeTopModal()) { pushView(state.view); return; }
+
+  const want = (e.state && e.state.acView) || viewFromHash() || 'home';
+  const ok = resolveView(want) || 'home';
+  go(ok, { silent: true });
+  if (ok !== want) pushView(ok, true);   // เปิดหน้าที่ขอไม่ได้ → แก้ URL ให้ตรงกับที่เห็นจริง
+});
+
 // ── เริ่มทำงาน ──────────────────────────────────────────────
 
 // งานเสริมพวกนี้ห้ามทำให้แอปเปิดไม่ขึ้น ถ้าพังก็แค่ข้ามไป
@@ -343,7 +376,46 @@ setTimeout(() => {
 // โหมดที่ Apps Script เสิร์ฟเอง อยู่ใน iframe ปิด ลงทะเบียน service worker ไม่ได้
 if (api.MODE === 'remote' && 'serviceWorker' in navigator && location.protocol !== 'file:') {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').catch(() => {});
+    navigator.serviceWorker.register('./sw.js').then(watchUpdate).catch(() => {});
+  });
+}
+
+/**
+ * มีเวอร์ชันใหม่รออยู่ → บอกครูแล้วให้เลือกจังหวะรีเฟรชเอง
+ *
+ * คู่กับการที่ sw.js เลิกเรียก skipWaiting() ตอนติดตั้ง
+ * ถ้าไม่มีอะไรบอกเลย ครูจะติดอยู่กับโค้ดเก่าจนกว่าจะปิดแท็บแอปให้หมดทุกแท็บ
+ */
+function watchUpdate(reg) {
+  if (!reg) return;
+
+  // รีเฟรชเฉพาะตอนที่ครูกดเองเท่านั้น
+  // controllerchange ยิงตอนติดตั้งครั้งแรกด้วย ถ้ารีโหลดทุกครั้งที่ยิง
+  // ครูจะโดนหน้าเด้งใหม่ตั้งแต่เปิดแอปครั้งแรกโดยไม่มีเหตุผล
+  let wantReload = false;
+  try {
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!wantReload) return;
+      wantReload = false;
+      location.reload();
+    });
+  } catch (e) {}
+
+  const offer = (worker) => toast('มีเวอร์ชันใหม่พร้อมใช้', '', 12000, {
+    label: 'รีเฟรช',
+    onclick: () => { wantReload = true; try { worker.postMessage('skipWaiting'); } catch (e) {} }
+  });
+
+  // เข้าหน้ามาแล้วเจอของใหม่ค้างรออยู่ตั้งแต่รอบก่อน
+  if (reg.waiting && navigator.serviceWorker.controller) offer(reg.waiting);
+
+  reg.addEventListener('updatefound', () => {
+    const w = reg.installing;
+    if (!w) return;
+    w.addEventListener('statechange', () => {
+      // มี controller อยู่ = ไม่ใช่การติดตั้งครั้งแรก แปลว่าเป็นของใหม่มาแทนของเก่าจริง
+      if (w.state === 'installed' && navigator.serviceWorker.controller) offer(w);
+    });
   });
 }
 window.addEventListener('beforeinstallprompt', (e) => {
@@ -365,6 +437,12 @@ window.addEventListener('appinstalled', () => { state.installPrompt = null; safe
         }
       }
       sync();
+
+      // เปิดหน้าตามที่อยู่ใน URL — ต้องหลัง bootAll เพราะก่อนหน้านั้น
+      // ยังไม่รู้ว่ามีห้องเรียนค้างไว้ไหม หน้าที่ต้องใช้ห้องจึงตัดสินไม่ได้
+      const first = resolveView(viewFromHash()) || 'home';
+      state.view = first;
+      pushView(first, true);
     }
     safeRender();
   } catch (e) {

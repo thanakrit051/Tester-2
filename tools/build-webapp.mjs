@@ -193,7 +193,7 @@ ${coreCss}
 </div>
 
 <div id="app" hidden></div>
-<div id="toasts" class="toasts"></div>
+<div id="toasts" class="toasts" aria-live="polite" aria-atomic="false"></div>
 <div id="modal-root"></div>
 
 ${guard}
