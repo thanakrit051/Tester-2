@@ -30,7 +30,7 @@ const { viewSummary } = __req("js/views/summary.js");
 const { viewReport } = __req("js/views/report.js");
 const { viewSettings } = __req("js/views/settings.js");
 const { viewHealth } = __req("js/views/health.js");
-const { NEEDS_SERVER, cmpVersion } = __req("js/version.js");
+const { APP_VERSION, NEEDS_SERVER, cmpVersion } = __req("js/version.js");
 
 const NAV = [
   { id: 'home',    ic: 'home',  label: 'หน้าแรก',   view: viewHome },
@@ -106,6 +106,64 @@ function readyToShow() {
   return state.classes.length > 0 || !!state.cls;   // มีของจากแคชให้ดูแล้ว
 }
 
+/* ── รายงานปัญหา ───────────────────────────────────────────
+ *
+ * เดิมหน้าจอบอกครูว่า "ส่งข้อความนี้ให้คนดูแลระบบ" ซึ่งในทางปฏิบัติไม่มีใครส่ง
+ * เพราะต้องพิมพ์เอง คนดูแลจึงไม่รู้เลยว่ามีอะไรพัง จนกว่าจะมีคนโทรมาบ่น
+ *
+ * ตรงนี้จึงรวบบริบทที่ต้องใช้ไล่ปัญหาไว้ที่เดียว แล้ว
+ *   · ส่งขึ้นชีตเงียบ ๆ (ถ้าโค้ดในชีตยังเก่าก็แค่เงียบไป ไม่มีอะไรเสีย)
+ *   · มีปุ่มคัดลอกไว้ให้ เผื่อตอนนั้นต่อเน็ตไม่ได้เลย
+ */
+function problemReport(msg) {
+  return [
+    'AssignCheck v' + APP_VERSION,
+    'หน้าที่ค้างอยู่: ' + state.view,
+    'งานค้างในคิว: ' + api.queue.size,
+    'ออนไลน์: ' + (navigator.onLine ? 'ใช่' : 'ไม่'),
+    'โค้ดในชีต: v' + (api.serverInfo.version || 'ไม่ทราบ'),
+    'เบราว์เซอร์: ' + navigator.userAgent,
+    '',
+    msg
+  ].join('\n');
+}
+
+let reported = false;
+
+/** ส่งขึ้นชีตครั้งเดียวต่อการเปิดแอปหนึ่งรอบ — ต่อให้พังวนลูปก็ไม่ยิงรัว */
+function reportProblem(msg) {
+  if (reported) return;
+  reported = true;
+  try {
+    if (!api.conn.ready) return;
+    api.call('logError', {
+      message: String(msg).slice(0, 1500),
+      version: APP_VERSION,
+      view: state.view,
+      queued: api.queue.size,
+      ua: navigator.userAgent
+    }).catch(() => {});
+  } catch (e) {
+    // รายงานปัญหาห้ามกลายเป็นปัญหาเสียเอง
+  }
+}
+
+/** ปุ่มคัดลอกรายงาน — ครูส่งต่อให้คนดูแลได้ในคลิกเดียว */
+function copyReportBtn(msg) {
+  return h('button', {
+    class: 'btn btn-ghost', style: { flex: '1' },
+    onclick: async (e) => {
+      const btn = e.currentTarget;
+      try {
+        await navigator.clipboard.writeText(problemReport(msg));
+        btn.textContent = 'คัดลอกแล้ว ✓';
+      } catch (err) {
+        btn.textContent = 'คัดลอกไม่ได้ — ลากคลุมข้อความด้านบนแทน';
+      }
+    }
+  }, 'คัดลอกรายงาน');
+}
+
 /**
  * แสดงข้อผิดพลาดให้เห็นบนหน้าจอ แทนที่จะค้างอยู่ที่หน้าโหลดเงียบ ๆ
  * ครูจะได้อ่านข้อความส่งมาให้ช่วยดูได้ ไม่ต้องเปิด console เอง
@@ -118,15 +176,18 @@ function showFatal(err) {
     h('div', { class: 'card' },
       h('div', { style: { fontSize: '17px', fontWeight: '700', marginBottom: '8px' } }, 'เปิดแอปไม่สำเร็จ'),
       h('div', { style: { fontSize: '13.5px', color: 'var(--ink-2)', marginBottom: '12px', lineHeight: '1.6' } },
-        'ลองกดโหลดใหม่ก่อน ถ้ายังไม่หาย ให้ส่งข้อความด้านล่างนี้ให้คนดูแลระบบ'),
+        'ลองกดโหลดใหม่ก่อน ถ้ายังไม่หาย ให้กดคัดลอกรายงานแล้วส่งให้คนดูแลระบบ'),
       h('pre', {
         style: {
           background: 'var(--surface-3)', padding: '11px 13px', borderRadius: '10px',
           fontSize: '12px', whiteSpace: 'pre-wrap', wordBreak: 'break-word', margin: '0 0 12px'
         }
       }, msg),
-      h('button', { class: 'btn btn-block', onclick: () => location.reload() }, 'โหลดใหม่')
+      h('div', { class: 'btn-row' },
+        copyReportBtn(msg),
+        h('button', { class: 'btn', style: { flex: '1' }, onclick: () => location.reload() }, 'โหลดใหม่'))
     )));
+  reportProblem(msg);
 }
 
 // กันไว้อีกชั้น — พังตรงไหนก็ตาม อย่างน้อยต้องไม่ค้างที่หน้าโหลด
@@ -318,8 +379,9 @@ function showBroken(err) {
       }, msg),
       h('div', { class: 'btn-row' },
         h('button', { class: 'btn', style: { flex: '1' }, onclick: () => go('home') }, 'กลับหน้าแรก'),
-        h('button', { class: 'btn btn-ghost', style: { flex: '1' }, onclick: () => location.reload() }, 'โหลดใหม่'))
+        copyReportBtn(msg))
     )));
+  reportProblem(msg);
 }
 
 // ── เราเตอร์ ────────────────────────────────────────────────
@@ -5522,7 +5584,7 @@ __exp(exports, { viewHealth });
  * ⚠️ เวลาแก้โค้ดที่กระทบทั้ง 2 ฝั่ง ให้บวกเลขนี้ และแก้ SERVER_VERSION
  *    ใน apps-script/00_Constants.gs ให้ตรงกันด้วย
  */
-const APP_VERSION = '3.1.0';
+const APP_VERSION = '3.2.0';
 
 /** เวอร์ชันต่ำสุดของฝั่งชีตที่หน้าเว็บนี้ทำงานด้วยได้ครบทุกฟีเจอร์ */
 const NEEDS_SERVER = '2.8.0';

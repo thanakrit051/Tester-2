@@ -392,6 +392,11 @@ function dispatch_(action, p, cfg) {
         catch (err) { return { classId: c.classId, ok: false, error: String(err) }; }
       });
 
+    // รายงานปัญหาจากเครื่องครู — ยิงแล้วลืม ไม่คืนอะไรที่แอปต้องใช้
+    // (ดู 07_ErrorLog.gs · แท็บจะถูกสร้างต่อเมื่อมีปัญหาเกิดขึ้นจริง)
+    case 'logError':
+      return logClientError_(p, p.__user || null);
+
     default:
       throw new Error('ไม่รู้จักคำสั่ง: ' + action);
   }

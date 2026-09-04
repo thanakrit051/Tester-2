@@ -40,6 +40,9 @@ const missing = [...needed].filter(f => !shell.has(f)).sort();
 const appVer = (read('js/version.js').match(/APP_VERSION\s*=\s*'([^']+)'/) || [])[1];
 const swVer  = (sw.match(/VERSION\s*=\s*'ac-v([^']+)'/) || [])[1];
 
+// เลขใน package.json ต้องตรงด้วย ไม่งั้นคนอ่านโปรเจกต์จะเห็นเวอร์ชันคนละตัวกับที่ครูใช้จริง
+const pkgVer = JSON.parse(read('package.json')).version;
+
 let bad = false;
 if (missing.length) {
   bad = true;
@@ -52,5 +55,10 @@ if (appVer !== swVer) {
   console.error(`   แก้ sw.js เป็น  const VERSION = 'ac-v${appVer}';  ไม่งั้นเครื่องครูจะยังใช้โค้ดเก่า`);
 }
 
+if (appVer !== pkgVer) {
+  bad = true;
+  console.error(`❌ เวอร์ชันไม่ตรงกัน — APP_VERSION=${appVer} แต่ package.json เป็น ${pkgVer}`);
+}
+
 if (bad) process.exit(1);
-console.log(`✅ sw.js ครบ ${needed.size} ไฟล์ · เวอร์ชันตรงกันที่ ${appVer}`);
+console.log(`✅ sw.js ครบ ${needed.size} ไฟล์ · เวอร์ชันตรงกันที่ ${appVer} (js/version.js · sw.js · package.json)`);
