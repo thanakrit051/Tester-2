@@ -105,7 +105,7 @@ var CONFIG_DEFAULTS = [
   ['บัญชี Google', 'allowed_emails',  '', 'อีเมลที่อนุญาต คั่นด้วยจุลภาค — เว้นว่าง = เฉพาะเจ้าของไฟล์นี้'],
   ['ทั่วไป', 'mid_date',    '',     'วันสอบกลางภาค (YYYY-MM-DD) — ใช้เดาว่าวันที่เช็คชื่ออยู่ช่วงก่อนหรือหลังกลางภาค'],
   ['ทั่วไป', 'student_portal', 'on', 'หน้าให้นักเรียนดูผลตัวเอง: on = เปิด | off = ปิด'],
-  ['ทั่วไป', 'assets_url',     '',   'ที่อยู่ไฟล์หน้าตาบน GitHub Pages เช่น https://ชื่อคุณ.github.io/assigncheck/'],
+  ['ทั่วไป', 'assets_url',     '',   'ที่อยู่ไฟล์บน GitHub Pages ต้องลงท้ายด้วย /docs/ เช่น https://ชื่อคุณ.github.io/assigncheck/docs/'],
 
   ['น้ำหนักคะแนน', 'w_work1', '10', 'ส่งงาน ก่อนกลางภาค → SGS ช่อง 1'],
   ['น้ำหนักคะแนน', 'w_quiz1', '10', 'สอบเก็บคะแนน ก่อนกลางภาค → SGS ช่อง 2'],
@@ -1126,7 +1126,8 @@ function setupNeededPage_() {
     'เปิด Google Sheet → แท็บ <b>⚙️ ตั้งค่า</b> → หาแถว <code>assets_url</code><br>' +
     'ใส่ที่อยู่ GitHub Pages ของคุณ เช่น<br>' +
     '<code style="background:#eef1ef;padding:3px 7px;border-radius:6px;display:inline-block;margin-top:6px">' +
-    'https://ชื่อคุณ.github.io/assigncheck/</code><br><br>' +
+    'https://ชื่อคุณ.github.io/assigncheck/docs/</code><br>' +
+    '<span style="font-size:12.5px">ต้องลงท้ายด้วย <b>/docs/</b> — ไฟล์ที่หน้านี้ต้องใช้อยู่ในนั้น</span><br><br>' +
     'แล้วรีเฟรชหน้านี้ (ไม่ต้อง Deploy ใหม่)</div></div>')
     .setTitle('AssignCheck — ตั้งค่า');
 }
