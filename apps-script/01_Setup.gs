@@ -225,7 +225,7 @@ function ensureHelpSheet_(ss) {
 
   // เน้นแถวหัวข้อ (แถวที่มีข้อความคอลัมน์เดียว) และแถวรหัสลับ — คำนวณจากข้อมูลจริง
   for (var i = 1; i < rows.length; i++) {
-    var isHeading = rows[i][0] && !rows[i][1] && /^[🧭📁🚀🔑🔗⚠️🗄️]/.test(rows[i][0]);
+    var isHeading = rows[i][0] && !rows[i][1] && /^(🧭|📁|🚀|🔑|🔗|⚠️|🗄️)/u.test(rows[i][0]);
     if (isHeading) sh.getRange(i + 1, 1, 1, 2).setFontWeight('bold').setBackground('#e8f5e9');
     if (rows[i][1] === apiKey) sh.getRange(i + 1, 2).setFontFamily('Courier New').setBackground('#fff3e0');
   }

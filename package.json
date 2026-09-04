@@ -1,0 +1,22 @@
+{
+  "name": "assigncheck",
+  "version": "3.1.0",
+  "private": true,
+  "type": "module",
+  "description": "ระบบเช็คชื่อ เช็คการส่งงาน และสรุปคะแนน SGS สำหรับครู — หน้าเว็บ static + Google Apps Script + Google Sheet",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node tools/preflight.mjs",
+    "lint": "eslint .",
+    "build": "node tools/bundle.mjs && node tools/build-webapp.mjs && node tools/build-pages.mjs",
+    "icons": "powershell -ExecutionPolicy Bypass -File tools/make-icons.ps1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.9.1",
+    "globals": "^17.12.0"
+  }
+}

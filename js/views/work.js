@@ -311,7 +311,7 @@ function scoreRow(col, s, { head, nextInput } = {}) {
       if (n) { n.focus(); n.select(); }
     },
     onchange: (e) => {
-      let v = e.target.value.trim();
+      const v = e.target.value.trim();
       if (v === '') return apply('none');
       let n = Number(v);
       if (isNaN(n)) { e.target.value = ''; return apply('none'); }
@@ -369,7 +369,6 @@ function gradeScreen(col) {
   });
 
   const W = words(col);
-  const b = curBucket();
   const siblings = columnsIn(curBucket().id);
 
   return h('div', { class: 'page' },

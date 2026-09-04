@@ -52,7 +52,7 @@ export function viewReport() {
   );
 }
 
-const wide = () => { try { return matchMedia('(min-width: 900px)').matches; } catch (e) { return false; } };
+
 
 // ── ตัวช่วยรวมข้อมูล ────────────────────────────────────────
 
@@ -190,7 +190,7 @@ function classReport() {
         ? h('div', { class: 'bar-empty' }, 'ยังไม่มีรายการงาน/สอบ')
         : h('div', null,
             h('div', { class: 'legend', style: { marginBottom: '8px' } },
-              Object.entries(WORK_STYLE).map(([k, v]) => {
+              Object.entries(WORK_STYLE).map(([, v]) => {
                 const hasWork = wCols.some(c => !isExam(c)), hasExam = wCols.some(isExam);
                 const txt = hasWork && hasExam && v.label !== v.exam
                   ? `${v.label} / ${v.exam}` : (hasExam && !hasWork ? v.exam : v.label);

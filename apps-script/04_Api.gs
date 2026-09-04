@@ -205,7 +205,7 @@ function handle_(req, embedded) {
   //   1) เปิดจากหน้าเว็บที่ Apps Script เสิร์ฟเอง — Google ล็อกอินให้แล้ว
   //   2) ID token จาก Google Sign-In (กรณีเปิดจากโฮสต์ภายนอก)
   //   3) รหัสลับ (วิธีสำรอง)
-  var user = null;
+  var user;
 
   if (embedded) {
     var email = activeEmail_();

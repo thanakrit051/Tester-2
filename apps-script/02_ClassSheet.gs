@@ -37,7 +37,7 @@ function sheetForClass_(classId) {
 }
 
 function safeSheetName_(name) {
-  var n = String(name).replace(/[\[\]]/g, '').trim().substring(0, 95);
+  var n = String(name).replace(/[[\]]/g, '').trim().substring(0, 95);
   if (!n) n = 'ห้องเรียน';
   var ss = ss_(), base = n, i = 2;
   while (ss.getSheetByName(n)) { n = base + ' (' + (i++) + ')'; }

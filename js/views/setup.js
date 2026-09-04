@@ -84,7 +84,7 @@ function stepUrl() {
 // ── ขั้นที่ 2: เข้าสู่ระบบ ──────────────────────────────────
 
 function stepSignIn() {
-  const info = ui.info;
+
   const gBox = h('div', { style: { display: 'flex', justifyContent: 'center', minHeight: '48px' } },
     h('div', { class: 'boot-spin' }));
 

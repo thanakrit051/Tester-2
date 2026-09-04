@@ -415,7 +415,7 @@ function ensureHelpSheet_(ss) {
 
   // เน้นแถวหัวข้อ (แถวที่มีข้อความคอลัมน์เดียว) และแถวรหัสลับ — คำนวณจากข้อมูลจริง
   for (var i = 1; i < rows.length; i++) {
-    var isHeading = rows[i][0] && !rows[i][1] && /^[🧭📁🚀🔑🔗⚠️🗄️]/.test(rows[i][0]);
+    var isHeading = rows[i][0] && !rows[i][1] && /^(🧭|📁|🚀|🔑|🔗|⚠️|🗄️)/u.test(rows[i][0]);
     if (isHeading) sh.getRange(i + 1, 1, 1, 2).setFontWeight('bold').setBackground('#e8f5e9');
     if (rows[i][1] === apiKey) sh.getRange(i + 1, 2).setFontFamily('Courier New').setBackground('#fff3e0');
   }
@@ -468,7 +468,7 @@ function sheetForClass_(classId) {
 }
 
 function safeSheetName_(name) {
-  var n = String(name).replace(/[\[\]]/g, '').trim().substring(0, 95);
+  var n = String(name).replace(/[[\]]/g, '').trim().substring(0, 95);
   if (!n) n = 'ห้องเรียน';
   var ss = ss_(), base = n, i = 2;
   while (ss.getSheetByName(n)) { n = base + ' (' + (i++) + ')'; }
@@ -1280,7 +1280,7 @@ function handle_(req, embedded) {
   //   1) เปิดจากหน้าเว็บที่ Apps Script เสิร์ฟเอง — Google ล็อกอินให้แล้ว
   //   2) ID token จาก Google Sign-In (กรณีเปิดจากโฮสต์ภายนอก)
   //   3) รหัสลับ (วิธีสำรอง)
-  var user = null;
+  var user;
 
   if (embedded) {
     var email = activeEmail_();

@@ -1631,7 +1631,7 @@ async function deleteColumn(key) {
  * ช่องเดียวไม่บันทึกไว้ใช้เพราะกดปุ่มเดิมซ้ำ = ยกเลิกอยู่แล้ว (ดู work.js/attendance.js)
  */
 const HISTORY_MAX = 20;
-let editLog = [];   // [{ classId, cells: [{ key, sid, prev }] }] — ประวัติการแก้ สำหรับปุ่ม "เลิกทำ"
+const editLog = [];   // [{ classId, cells: [{ key, sid, prev }] }] — ประวัติการแก้ สำหรับปุ่ม "เลิกทำ"
 
 /**
  * cells: [{ key, sid, value }]
@@ -2206,7 +2206,7 @@ function stepUrl() {
 // ── ขั้นที่ 2: เข้าสู่ระบบ ──────────────────────────────────
 
 function stepSignIn() {
-  const info = ui.info;
+
   const gBox = h('div', { style: { display: 'flex', justifyContent: 'center', minHeight: '48px' } },
     h('div', { class: 'boot-spin' }));
 
@@ -3427,7 +3427,7 @@ function scoreRow(col, s, { head, nextInput } = {}) {
       if (n) { n.focus(); n.select(); }
     },
     onchange: (e) => {
-      let v = e.target.value.trim();
+      const v = e.target.value.trim();
       if (v === '') return apply('none');
       let n = Number(v);
       if (isNaN(n)) { e.target.value = ''; return apply('none'); }
@@ -3485,7 +3485,6 @@ function gradeScreen(col) {
   });
 
   const W = words(col);
-  const b = curBucket();
   const siblings = columnsIn(curBucket().id);
 
   return h('div', { class: 'page' },
@@ -4209,7 +4208,7 @@ function viewReport() {
   );
 }
 
-const wide = () => { try { return matchMedia('(min-width: 900px)').matches; } catch (e) { return false; } };
+
 
 // ── ตัวช่วยรวมข้อมูล ────────────────────────────────────────
 
@@ -4347,7 +4346,7 @@ function classReport() {
         ? h('div', { class: 'bar-empty' }, 'ยังไม่มีรายการงาน/สอบ')
         : h('div', null,
             h('div', { class: 'legend', style: { marginBottom: '8px' } },
-              Object.entries(WORK_STYLE).map(([k, v]) => {
+              Object.entries(WORK_STYLE).map(([, v]) => {
                 const hasWork = wCols.some(c => !isExam(c)), hasExam = wCols.some(isExam);
                 const txt = hasWork && hasExam && v.label !== v.exam
                   ? `${v.label} / ${v.exam}` : (hasExam && !hasWork ? v.exam : v.label);

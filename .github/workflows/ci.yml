@@ -1,9 +1,10 @@
 name: CI
 
 # ตรวจสิ่งที่เคยหลุดไปจริง ๆ และดู "ปกติดีทุกอย่าง" จนกว่าจะไปเจอหน้าห้อง:
-#   1. sw.js เก็บไฟล์ครบ + เวอร์ชันตรงกับ APP_VERSION ไหม (tools/check-sw.mjs)
-#   2. สูตรคะแนนฝั่งเบราว์เซอร์กับฝั่งชีตตรงกันไหม (test/parity.mjs)
-#   3. dist/ กับ docs/ ที่ commit ไว้ ตรงกับผล build จากซอร์สล่าสุดไหม
+#   1. โค้ดมีที่ผิดที่เห็นได้ตั้งแต่ยังไม่รันไหม (ESLint)
+#   2. sw.js เก็บไฟล์ครบ + เวอร์ชันตรงกับ APP_VERSION ไหม (tools/check-sw.mjs)
+#   3. สูตรคะแนนฝั่งเบราว์เซอร์กับฝั่งชีตตรงกันไหม (test/parity.mjs)
+#   4. dist/ กับ docs/ ที่ commit ไว้ ตรงกับผล build จากซอร์สล่าสุดไหม
 #      (ลืมรัน build ก่อน commit = โค้ดที่แก้ไม่ถึงเครื่องครูเลย)
 #
 # ไม่ต้องตั้งอะไรเพิ่ม — รันอัตโนมัติทุก push และทุก pull request
@@ -23,6 +24,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: 'npm'
+
+      # ติดตั้งเฉพาะเครื่องมือตรวจโค้ด — ตัวเว็บที่ deploy ไม่มี dependency
+      - name: ติดตั้งเครื่องมือตรวจ
+        run: npm ci
+
+      - name: ตรวจโค้ดด้วย ESLint
+        run: npm run lint
 
       - name: ตรวจ sw.js + สูตรคะแนน 2 ฝั่ง
         run: node tools/preflight.mjs
