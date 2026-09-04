@@ -3,10 +3,17 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#ffffff">
+<meta name="theme-color" content="#0b2b24" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#061210" media="(prefers-color-scheme: dark)">
 <meta name="robots" content="noindex">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="ผลการเรียน">
 <title>ผลการเรียนของฉัน</title>
-<script>try{var t=localStorage.getItem('ac.theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+<link rel="icon" href="./icons/favicon.ico">
+<link rel="icon" href="./icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
+<script>try{var t=localStorage.getItem('ac.theme');if(t==='light'||t==='dark'){document.documentElement.setAttribute('data-theme',t);var c=t==='dark'?'#061210':'#0b2b24',m=document.querySelectorAll('meta[name="theme-color"]');for(var i=0;i<m.length;i++)m[i].content=c;}}catch(e){}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- โหลดฟอนต์แบบไม่บล็อกการวาดหน้า
@@ -737,9 +744,14 @@ table.grid td.total { background: var(--accent-soft) !important; font-weight: 70
   background: var(--bar); color: #fff; padding: 11px 18px; border-radius: 999px;
   font-size: 13.5px; font-weight: 600; box-shadow: var(--sh-3);
   animation: rise .2s ease;
+  display: flex; align-items: center; gap: 14px;
 }
 .toast.ok  { background: #14663f; }
 .toast.err { background: #9c1035; }
+.toast-action {
+  color: var(--lime); font-weight: 700; font-size: 13px;
+  white-space: nowrap; text-decoration: underline; text-underline-offset: 2px;
+}
 
 /* ── สถานะซิงค์ ───────────────────────────────────────────── */
 .sync-pill {
@@ -1620,7 +1632,7 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
 <div id="boot" class="boot">
   <div class="boot-mark">A<span>✓</span></div>
   <div class="boot-title">ผลการเรียนของฉัน</div>
-  <div class="boot-ver">v3.0.1</div>
+  <div class="boot-ver">v3.2.0</div>
   <div class="boot-spin"></div>
 </div>
 
@@ -1672,12 +1684,6 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
     warn: '<path d="M12 9v4.5"/><path d="M12 17h.01"/><path d="M10.3 3.9 2.5 17.4A2 2 0 0 0 4.2 20.5h15.6a2 2 0 0 0 1.7-3.1L13.7 3.9a2 2 0 0 0-3.4 0z"/>'
   };
   var nf = function (n) { return String(Math.round(Number(n) * 100) / 100); };
-
-  /** ตัวย่อบนวงกลม — ตัดคำนำหน้า (เด็กชาย/นางสาว/ด.ช.) ออกก่อน ไม่งั้นได้ "เ" ทุกคน */
-  function initial(name) {
-    var s = String(name || '').replace(/^(เด็กชาย|เด็กหญิง|นางสาว|นาง|นาย|ด\.ช\.|ด\.ญ\.|น\.ส\.)\s*/, '').trim();
-    return (s || String(name || '?').trim() || '?').charAt(0);
-  }
 
   // ── เรียกเซิร์ฟเวอร์ ──────────────────────────────────────
   //

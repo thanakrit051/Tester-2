@@ -15,9 +15,9 @@
   __defs["js/app.js"] = function (exports, __req) {
 /* AssignCheck V2 — จุดเริ่มต้นแอป: เปลือกหน้าจอ + เราเตอร์ */
 
-const { h, mount, toast } = __req("js/dom.js");
+const { h, mount, toast, closeTopModal } = __req("js/dom.js");
 const api = __req("js/api.js");
-const { state, subscribe, bootAll, loadClass, sync, isSyncing, go } = __req("js/state.js");
+const { state, subscribe, bootAll, loadClass, sync, isSyncing, go, pushView } = __req("js/state.js");
 const { auth } = __req("js/auth.js");
 const { icon } = __req("js/icons.js");
 const { applyTheme, watchSystemTheme } = __req("js/theme.js");
@@ -30,7 +30,7 @@ const { viewSummary } = __req("js/views/summary.js");
 const { viewReport } = __req("js/views/report.js");
 const { viewSettings } = __req("js/views/settings.js");
 const { viewHealth } = __req("js/views/health.js");
-const { NEEDS_SERVER, cmpVersion } = __req("js/version.js");
+const { APP_VERSION, NEEDS_SERVER, cmpVersion } = __req("js/version.js");
 
 const NAV = [
   { id: 'home',    ic: 'home',  label: 'หน้าแรก',   view: viewHome },
@@ -106,6 +106,64 @@ function readyToShow() {
   return state.classes.length > 0 || !!state.cls;   // มีของจากแคชให้ดูแล้ว
 }
 
+/* ── รายงานปัญหา ───────────────────────────────────────────
+ *
+ * เดิมหน้าจอบอกครูว่า "ส่งข้อความนี้ให้คนดูแลระบบ" ซึ่งในทางปฏิบัติไม่มีใครส่ง
+ * เพราะต้องพิมพ์เอง คนดูแลจึงไม่รู้เลยว่ามีอะไรพัง จนกว่าจะมีคนโทรมาบ่น
+ *
+ * ตรงนี้จึงรวบบริบทที่ต้องใช้ไล่ปัญหาไว้ที่เดียว แล้ว
+ *   · ส่งขึ้นชีตเงียบ ๆ (ถ้าโค้ดในชีตยังเก่าก็แค่เงียบไป ไม่มีอะไรเสีย)
+ *   · มีปุ่มคัดลอกไว้ให้ เผื่อตอนนั้นต่อเน็ตไม่ได้เลย
+ */
+function problemReport(msg) {
+  return [
+    'AssignCheck v' + APP_VERSION,
+    'หน้าที่ค้างอยู่: ' + state.view,
+    'งานค้างในคิว: ' + api.queue.size,
+    'ออนไลน์: ' + (navigator.onLine ? 'ใช่' : 'ไม่'),
+    'โค้ดในชีต: v' + (api.serverInfo.version || 'ไม่ทราบ'),
+    'เบราว์เซอร์: ' + navigator.userAgent,
+    '',
+    msg
+  ].join('\n');
+}
+
+let reported = false;
+
+/** ส่งขึ้นชีตครั้งเดียวต่อการเปิดแอปหนึ่งรอบ — ต่อให้พังวนลูปก็ไม่ยิงรัว */
+function reportProblem(msg) {
+  if (reported) return;
+  reported = true;
+  try {
+    if (!api.conn.ready) return;
+    api.call('logError', {
+      message: String(msg).slice(0, 1500),
+      version: APP_VERSION,
+      view: state.view,
+      queued: api.queue.size,
+      ua: navigator.userAgent
+    }).catch(() => {});
+  } catch (e) {
+    // รายงานปัญหาห้ามกลายเป็นปัญหาเสียเอง
+  }
+}
+
+/** ปุ่มคัดลอกรายงาน — ครูส่งต่อให้คนดูแลได้ในคลิกเดียว */
+function copyReportBtn(msg) {
+  return h('button', {
+    class: 'btn btn-ghost', style: { flex: '1' },
+    onclick: async (e) => {
+      const btn = e.currentTarget;
+      try {
+        await navigator.clipboard.writeText(problemReport(msg));
+        btn.textContent = 'คัดลอกแล้ว ✓';
+      } catch (err) {
+        btn.textContent = 'คัดลอกไม่ได้ — ลากคลุมข้อความด้านบนแทน';
+      }
+    }
+  }, 'คัดลอกรายงาน');
+}
+
 /**
  * แสดงข้อผิดพลาดให้เห็นบนหน้าจอ แทนที่จะค้างอยู่ที่หน้าโหลดเงียบ ๆ
  * ครูจะได้อ่านข้อความส่งมาให้ช่วยดูได้ ไม่ต้องเปิด console เอง
@@ -118,15 +176,18 @@ function showFatal(err) {
     h('div', { class: 'card' },
       h('div', { style: { fontSize: '17px', fontWeight: '700', marginBottom: '8px' } }, 'เปิดแอปไม่สำเร็จ'),
       h('div', { style: { fontSize: '13.5px', color: 'var(--ink-2)', marginBottom: '12px', lineHeight: '1.6' } },
-        'ลองกดโหลดใหม่ก่อน ถ้ายังไม่หาย ให้ส่งข้อความด้านล่างนี้ให้คนดูแลระบบ'),
+        'ลองกดโหลดใหม่ก่อน ถ้ายังไม่หาย ให้กดคัดลอกรายงานแล้วส่งให้คนดูแลระบบ'),
       h('pre', {
         style: {
           background: 'var(--surface-3)', padding: '11px 13px', borderRadius: '10px',
           fontSize: '12px', whiteSpace: 'pre-wrap', wordBreak: 'break-word', margin: '0 0 12px'
         }
       }, msg),
-      h('button', { class: 'btn btn-block', onclick: () => location.reload() }, 'โหลดใหม่')
+      h('div', { class: 'btn-row' },
+        copyReportBtn(msg),
+        h('button', { class: 'btn', style: { flex: '1' }, onclick: () => location.reload() }, 'โหลดใหม่'))
     )));
+  reportProblem(msg);
 }
 
 // กันไว้อีกชั้น — พังตรงไหนก็ตาม อย่างน้อยต้องไม่ค้างที่หน้าโหลด
@@ -318,9 +379,43 @@ function showBroken(err) {
       }, msg),
       h('div', { class: 'btn-row' },
         h('button', { class: 'btn', style: { flex: '1' }, onclick: () => go('home') }, 'กลับหน้าแรก'),
-        h('button', { class: 'btn btn-ghost', style: { flex: '1' }, onclick: () => location.reload() }, 'โหลดใหม่'))
+        copyReportBtn(msg))
     )));
+  reportProblem(msg);
 }
+
+// ── เราเตอร์ ────────────────────────────────────────────────
+
+/**
+ * ชื่อหน้าที่อ่านจาก URL → หน้าที่เปิดได้จริง (คืน '' ถ้าเปิดไม่ได้)
+ *
+ * ลิงก์ที่ส่งต่อกันมาอาจชี้หน้าที่ต้องเลือกห้องเรียนก่อน ถ้าปล่อยให้เปิดตรง ๆ
+ * view จะ throw แล้วไปโผล่หน้า "หน้านี้เปิดไม่ขึ้น" ทั้งที่แค่ควรเด้งกลับหน้าแรก
+ */
+function resolveView(id) {
+  if (!id) return '';
+  if (EXTRA_VIEWS[id]) return id;
+  const n = NAV.find(x => x.id === id);
+  if (!n) return '';
+  if (n.needClass && !state.classId) return '';
+  return id;
+}
+
+const viewFromHash = () => {
+  try { return decodeURIComponent(String(location.hash || '').replace(/^#/, '')); }
+  catch (e) { return ''; }
+};
+
+window.addEventListener('popstate', (e) => {
+  // มีกล่องเปิดค้างอยู่ → ปุ่มย้อนกลับปิดกล่องก่อน (พฤติกรรมที่คนใช้มือถือคาดหวัง)
+  // แล้วคืนตำแหน่งในประวัติกลับที่เดิม เพื่อไม่ให้หน้าเปลี่ยนตามไปด้วย
+  if (closeTopModal()) { pushView(state.view); return; }
+
+  const want = (e.state && e.state.acView) || viewFromHash() || 'home';
+  const ok = resolveView(want) || 'home';
+  go(ok, { silent: true });
+  if (ok !== want) pushView(ok, true);   // เปิดหน้าที่ขอไม่ได้ → แก้ URL ให้ตรงกับที่เห็นจริง
+});
 
 // ── เริ่มทำงาน ──────────────────────────────────────────────
 
@@ -358,7 +453,46 @@ setTimeout(() => {
 // โหมดที่ Apps Script เสิร์ฟเอง อยู่ใน iframe ปิด ลงทะเบียน service worker ไม่ได้
 if (api.MODE === 'remote' && 'serviceWorker' in navigator && location.protocol !== 'file:') {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').catch(() => {});
+    navigator.serviceWorker.register('./sw.js').then(watchUpdate).catch(() => {});
+  });
+}
+
+/**
+ * มีเวอร์ชันใหม่รออยู่ → บอกครูแล้วให้เลือกจังหวะรีเฟรชเอง
+ *
+ * คู่กับการที่ sw.js เลิกเรียก skipWaiting() ตอนติดตั้ง
+ * ถ้าไม่มีอะไรบอกเลย ครูจะติดอยู่กับโค้ดเก่าจนกว่าจะปิดแท็บแอปให้หมดทุกแท็บ
+ */
+function watchUpdate(reg) {
+  if (!reg) return;
+
+  // รีเฟรชเฉพาะตอนที่ครูกดเองเท่านั้น
+  // controllerchange ยิงตอนติดตั้งครั้งแรกด้วย ถ้ารีโหลดทุกครั้งที่ยิง
+  // ครูจะโดนหน้าเด้งใหม่ตั้งแต่เปิดแอปครั้งแรกโดยไม่มีเหตุผล
+  let wantReload = false;
+  try {
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!wantReload) return;
+      wantReload = false;
+      location.reload();
+    });
+  } catch (e) {}
+
+  const offer = (worker) => toast('มีเวอร์ชันใหม่พร้อมใช้', '', 12000, {
+    label: 'รีเฟรช',
+    onclick: () => { wantReload = true; try { worker.postMessage('skipWaiting'); } catch (e) {} }
+  });
+
+  // เข้าหน้ามาแล้วเจอของใหม่ค้างรออยู่ตั้งแต่รอบก่อน
+  if (reg.waiting && navigator.serviceWorker.controller) offer(reg.waiting);
+
+  reg.addEventListener('updatefound', () => {
+    const w = reg.installing;
+    if (!w) return;
+    w.addEventListener('statechange', () => {
+      // มี controller อยู่ = ไม่ใช่การติดตั้งครั้งแรก แปลว่าเป็นของใหม่มาแทนของเก่าจริง
+      if (w.state === 'installed' && navigator.serviceWorker.controller) offer(w);
+    });
   });
 }
 window.addEventListener('beforeinstallprompt', (e) => {
@@ -380,6 +514,12 @@ window.addEventListener('appinstalled', () => { state.installPrompt = null; safe
         }
       }
       sync();
+
+      // เปิดหน้าตามที่อยู่ใน URL — ต้องหลัง bootAll เพราะก่อนหน้านั้น
+      // ยังไม่รู้ว่ามีห้องเรียนค้างไว้ไหม หน้าที่ต้องใช้ห้องจึงตัดสินไม่ได้
+      const first = resolveView(viewFromHash()) || 'home';
+      state.view = first;
+      pushView(first, true);
     }
     safeRender();
   } catch (e) {
@@ -432,33 +572,107 @@ function clear(el) { while (el.firstChild) el.removeChild(el.firstChild); return
 function mount(el, ...children) { clear(el); add(el, children); return el; }
 
 // ── Toast ───────────────────────────────────────────────────
-function toast(msg, kind = '', ms = 2400) {
+/**
+ * action = { label, onclick } → เพิ่มปุ่มเล็กในตัว toast (ใช้กับ "เลิกทำ")
+ * มี action แล้วปล่อยอยู่นานขึ้นเป็นพิเศษ ให้เวลาอ่านและกดทัน
+ */
+function toast(msg, kind = '', ms = 2400, action = null) {
   const root = document.getElementById('toasts');
-  const t = h('div', { class: 'toast ' + kind }, msg);
-  root.append(t);
-  setTimeout(() => {
+  const remove = () => {
     t.style.transition = 'opacity .2s'; t.style.opacity = '0';
     setTimeout(() => t.remove(), 220);
-  }, ms);
+  };
+  const t = h('div', { class: 'toast ' + kind },
+    h('span', null, msg),
+    action && h('button', {
+      class: 'toast-action',
+      onclick: () => { action.onclick(); remove(); }
+    }, action.label)
+  );
+  root.append(t);
+  setTimeout(remove, action ? Math.max(ms, 5000) : ms);
 }
 
 // ── Modal ───────────────────────────────────────────────────
+
+/* กล่องที่เปิดค้างอยู่ เรียงจากล่างขึ้นบน
+ * ซ้อนกันได้จริง เพราะ confirmBox ถูกเรียกจากในปุ่มของกล่องอื่นหลายที่
+ * (เช่น "ลบการเช็คชื่อ?" ที่เด้งจากในกล่องแก้คาบ) */
+const modalStack = [];
+
+/**
+ * ปิดกล่องบนสุด — คืน true ถ้ามีกล่องให้ปิดจริง
+ * ใช้ให้ปุ่มย้อนกลับของเครื่องปิดกล่องแทนที่จะเปลี่ยนหน้าทั้งหน้า
+ */
+function closeTopModal() {
+  const top = modalStack[modalStack.length - 1];
+  if (!top) return false;
+  top();
+  return true;
+}
+
+const FOCUSABLE = [
+  'a[href]', 'button:not([disabled])', 'input:not([disabled])',
+  'select:not([disabled])', 'textarea:not([disabled])', '[tabindex]:not([tabindex="-1"])'
+].join(',');
+
+/** เฉพาะตัวที่มองเห็นจริง — ตัวที่ถูกซ่อนอยู่ห้ามรับโฟกัส */
+function focusables(box) {
+  return [...box.querySelectorAll(FOCUSABLE)].filter(el => el.getClientRects().length > 0);
+}
+
 /**
  * เปิดกล่องโต้ตอบ
  * builder(close) ต้องคืน element ที่จะใส่ในกล่อง
+ *
+ * ของเดิมปิดได้ทางเดียวคือคลิกฉากหลัง — คนที่ใช้คีย์บอร์ดจึงออกจากกล่องไม่ได้เลย
+ * และกด Tab แล้วโฟกัสหลุดไปอยู่ปุ่มด้านหลังกล่องซึ่งมองไม่เห็น
+ * ตอนนี้ปิดด้วย Esc ได้ · Tab วนอยู่ในกล่อง · ปิดแล้วโฟกัสกลับไปที่ปุ่มที่เปิดมัน
  */
 function modal(builder) {
   const root = document.getElementById('modal-root');
+  const prevFocus = document.activeElement;
   const back = h('div', { class: 'modal-back' });
-  const close = () => { back.remove(); document.body.style.overflow = ''; };
-  const box = h('div', { class: 'modal', onclick: (e) => e.stopPropagation() });
-  back.addEventListener('click', close);
+  const box = h('div', {
+    class: 'modal', role: 'dialog', 'aria-modal': 'true', tabindex: '-1',
+    onclick: (e) => e.stopPropagation()
+  });
+
+  let closed = false;
+  const close = () => {
+    if (closed) return;            // กันปิดซ้ำ (กด Esc พร้อมคลิกฉากหลัง ฯลฯ)
+    closed = true;
+    const i = modalStack.indexOf(close);
+    if (i >= 0) modalStack.splice(i, 1);
+    back.remove();
+    document.removeEventListener('keydown', onKey, true);
+    if (!modalStack.length) document.body.style.overflow = '';
+    // คืนโฟกัสให้ปุ่มที่เปิดกล่องนี้ — ถ้าปุ่มนั้นถูกวาดใหม่ไปแล้วก็แค่ไม่มีอะไรเกิดขึ้น
+    try { if (prevFocus && prevFocus.focus) prevFocus.focus(); } catch (e) {}
+  };
+
+  function onKey(e) {
+    if (modalStack[modalStack.length - 1] !== close) return;   // ไม่ใช่กล่องบนสุด
+    if (e.key === 'Escape') { e.preventDefault(); close(); return; }
+    if (e.key !== 'Tab') return;
+    const f = focusables(box);
+    if (!f.length) { e.preventDefault(); box.focus(); return; }
+    const first = f[0], last = f[f.length - 1];
+    const here = document.activeElement;
+    if (e.shiftKey && (here === first || !box.contains(here))) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && here === last) { e.preventDefault(); first.focus(); }
+  }
+
+  back.addEventListener('click', () => close());
   box.append(builder(close));
   back.append(box);
   root.append(back);
+  modalStack.push(close);
   document.body.style.overflow = 'hidden';
+  document.addEventListener('keydown', onKey, true);
+
   const first = box.querySelector('input,select,textarea');
-  if (first) setTimeout(() => first.focus(), 60);
+  setTimeout(() => (first || box).focus(), 60);
   return close;
 }
 
@@ -506,7 +720,7 @@ function nf(v, digits = 2) {
   return String(Math.round(n * 10 ** digits) / 10 ** digits);
 }
 
-__exp(exports, { h, clear, mount, toast, modal, confirmBox, todayISO, fmtDate, fmtDayFull, isToday, nf });
+__exp(exports, { h, clear, mount, toast, closeTopModal, modal, confirmBox, todayISO, fmtDate, fmtDayFull, isToday, nf });
 
   };
 
@@ -1149,10 +1363,48 @@ try {
 
 function settings() { return settingsFrom(state.config); }
 
-/** เปลี่ยนหน้า */
-function go(view) {
+/* ── เราเตอร์: ผูกหน้าเข้ากับประวัติของเบราว์เซอร์ ──────────
+ *
+ * เดิม go() เปลี่ยนแค่ตัวแปรในหน่วยความจำ ปุ่มย้อนกลับของเครื่องจึงไม่รู้จักแอปเลย
+ * ครูที่อยู่หน้า "งาน/คะแนน" แล้วกดย้อนกลับ = ออกจากแอปทันที
+ * (ถ้าติดตั้งเป็นแอปบนมือถือคือปิดไปเลย) แถมส่งลิงก์เจาะจงหน้าให้กันก็ไม่ได้
+ *
+ * ตัวตัดสินว่าหน้าไหนเปิดได้บ้างอยู่ที่ app.js เพราะรายชื่อหน้าอยู่ที่นั่น
+ * ตรงนี้รับผิดชอบแค่การบันทึกลงประวัติอย่างเดียว
+ */
+
+/**
+ * บันทึกหน้าปัจจุบันลงประวัติ (replace = เขียนทับรายการล่าสุดแทนการเพิ่มใหม่)
+ *
+ * ⚠️ ต้องเขียน window.history ให้เต็ม — ไฟล์นี้มีตัวแปรชื่อ editLog ที่เมื่อก่อน
+ *    ชื่อ history อยู่ก่อนแล้ว เขียนสั้น ๆ ว่า history เมื่อไหร่จะไปโดนตัวนั้นแทน
+ *    แล้วเงียบหายไปกับ catch ข้างล่างโดยไม่มีใครรู้
+ */
+function pushView(view, replace) {
+  try {
+    const url = location.pathname + location.search + '#' + view;
+    const h = window.history;
+    if (replace) h.replaceState({ acView: view }, '', url);
+    else h.pushState({ acView: view }, '', url);
+  } catch (e) {
+    // ประวัติเป็นของแถม ห้ามทำให้การเปลี่ยนหน้าพัง
+  }
+}
+
+/**
+ * เปลี่ยนหน้า
+ * @param opts.silent  true = มาจากปุ่มย้อนกลับ อย่าไปเพิ่มรายการประวัติซ้ำ
+ */
+function go(view, opts = {}) {
   if (state.view === view) return;
+  const prev = state.view;
   state.view = view;
+  if (!opts.silent) {
+    // ยังไม่เคยมีรายการของแอปในประวัติเลย (เช่นเพิ่งเชื่อมต่อเสร็จ)
+    // ปักหมุดหน้าเดิมไว้ก่อน ไม่งั้นกดย้อนกลับครั้งแรกจะหลุดออกจากแอปทันที
+    try { if (!window.history.state || !window.history.state.acView) pushView(prev, true); } catch (e) {}
+    pushView(view);
+  }
   window.scrollTo({ top: 0 });
   emit();
 }
@@ -1434,11 +1686,28 @@ async function deleteColumn(key) {
 // ── เขียนค่า (optimistic เสมอ) ──────────────────────────────
 
 /**
+ * ประวัติแก้ไข (เลิกทำ) — เก็บเฉพาะรอบเปิดแอปนี้ ปิดหน้าแล้วหาย
+ *
+ * จุดเสี่ยงพลาดสุดคือปุ่ม "แก้ทีเดียวทั้งคอลัมน์/ทั้งวัน" (✓ ทุกคนมา,
+ * ตั้งเต็มทั้งห้อง, ล้างคะแนน, วางจาก Excel) เพราะย้อนกลับด้วยมือไม่ไหว
+ * ช่องเดียวไม่บันทึกไว้ใช้เพราะกดปุ่มเดิมซ้ำ = ยกเลิกอยู่แล้ว (ดู work.js/attendance.js)
+ */
+const HISTORY_MAX = 20;
+const editLog = [];   // [{ classId, cells: [{ key, sid, prev }] }] — ประวัติการแก้ สำหรับปุ่ม "เลิกทำ"
+
+/**
  * cells: [{ key, sid, value }]
  * quiet = true → ไม่วาดหน้าใหม่ (ให้ view อัปเดต DOM เองเพื่อความลื่น)
  */
 function setCells(cells, { quiet = false } = {}) {
   if (!cells.length || !state.cls) return;
+
+  editLog.push({
+    classId: state.classId,
+    cells: cells.map(c => ({ key: c.key, sid: c.sid, prev: (state.cls.values[c.key] || {})[c.sid] ?? '' }))
+  });
+  if (editLog.length > HISTORY_MAX) editLog.shift();
+
   for (const c of cells) {
     if (!state.cls.values[c.key]) state.cls.values[c.key] = {};
     if (c.value === '' || c.value === null || c.value === undefined) delete state.cls.values[c.key][c.sid];
@@ -1448,6 +1717,19 @@ function setCells(cells, { quiet = false } = {}) {
   api.queue.push('setCells', { classId: state.classId, cells });
   scheduleSync();
   if (!quiet) emit();
+}
+
+/**
+ * ย้อนการแก้ไขครั้งล่าสุดของห้องที่เปิดอยู่ (ค้นจากท้ายสุดของประวัติ
+ * เผื่อสลับห้องไปมาระหว่างที่ยังไม่ปิดแอป) — เรียกจากปุ่ม "เลิกทำ" ใน toast
+ * @returns จำนวนช่องที่ย้อนกลับ · 0 = ไม่มีอะไรให้ย้อน
+ */
+function undoLastEdit() {
+  const i = editLog.map(e => e.classId).lastIndexOf(state.classId);
+  if (i < 0) return 0;
+  const h = editLog.splice(i, 1)[0];
+  setCells(h.cells.map(c => ({ key: c.key, sid: c.sid, value: c.prev })));
+  return h.cells.length;
 }
 
 function getCell(key, sid) {
@@ -1535,7 +1817,7 @@ async function saveConfig(entries, { quiet = false } = {}) {
 api.net.onChange(() => { if (navigator.onLine) sync(); emit(); });
 window.addEventListener('visibilitychange', () => { if (!document.hidden) sync(); });
 
-__exp(exports, { state, subscribe, emit, settings, go, bootAll, loadClass, createClass, updateClassMeta, deleteClass, setStudents, ensureColumn, updateColumn, deleteColumn, setCells, getCell, sync, isSyncing, recalcOnServer, saveConfig });
+__exp(exports, { state, subscribe, emit, settings, pushView, go, bootAll, loadClass, createClass, updateClassMeta, deleteClass, setStudents, ensureColumn, updateColumn, deleteColumn, setCells, undoLastEdit, getCell, sync, isSyncing, recalcOnServer, saveConfig });
 
   };
 
@@ -1804,7 +2086,10 @@ __exp(exports, { icon });
 const { store } = __req("js/storage.js");
 
 const KEY = 'ac.theme';
-const BAR = { light: '#ffffff', dark: '#101211' };
+/* สีแถบบนของเบราว์เซอร์/มือถือ — ต้องเท่ากับ --bar ใน styles.css เสมอ
+ * ของเดิมเป็น #ffffff กับ #101211 ซึ่งไม่ตรงกับดีไซน์ทั้งคู่
+ * ผลคือบนมือถือมีแถบสีคนละสีคาดอยู่เหนือแถบหัวแอปพอดี */
+const BAR = { light: '#0b2b24', dark: '#061210' };
 
 /* store สลับไปเก็บในหน่วยความจำให้เองเมื่อเบราว์เซอร์บล็อก localStorage
  * (Chrome ที่ปิดคุกกี้ของบุคคลที่สาม ใน iframe ของ Google)
@@ -1842,6 +2127,34 @@ function resolvedTheme() {
   return q && q.matches ? 'dark' : 'light';
 }
 
+/**
+ * ทาสีแถบบนของเบราว์เซอร์
+ *
+ * ในหน้า HTML มี meta theme-color สองอัน แยกด้วย media query
+ * เพื่อให้ได้สีถูกตั้งแต่ก่อน JS ทำงาน (กันแถบกะพริบตอนเปิดแอป)
+ *
+ *   โหมด auto  → ปล่อยให้ media query ตัดสิน แค่ย้ำค่าให้ตรงกับ BAR
+ *   บังคับโหมด → media query ช่วยไม่ได้ เพราะครูเลือกสวนกับเครื่องได้
+ *                จึงตั้งทุกอันเป็นสีเดียวกัน อันไหนถูกเลือกก็ได้สีที่ถูก
+ *
+ * ของเดิมเขียนทับอันแรกที่เจอเสมอ พอมี media query สองอันจะกลายเป็น
+ * ทับอันของโหมดสว่างด้วยสีของโหมดมืด แล้วสีเพี้ยนทั้งคู่
+ */
+function paintBar(auto, resolved) {
+  const metas = document.querySelectorAll('meta[name="theme-color"]');
+  if (!metas.length) {
+    const m = document.createElement('meta');
+    m.name = 'theme-color';
+    m.content = BAR[resolved];
+    document.head.append(m);
+    return;
+  }
+  metas.forEach((m) => {
+    const q = m.getAttribute('media') || '';
+    m.content = (auto && q) ? (q.includes('dark') ? BAR.dark : BAR.light) : BAR[resolved];
+  });
+}
+
 function applyTheme() {
   try {
     const t = getTheme();
@@ -1849,13 +2162,7 @@ function applyTheme() {
     if (t === 'auto') root.removeAttribute('data-theme');
     else root.setAttribute('data-theme', t);
 
-    let meta = document.querySelector('meta[name="theme-color"]');
-    if (!meta) {
-      meta = document.createElement('meta');
-      meta.name = 'theme-color';
-      document.head.append(meta);
-    }
-    meta.content = BAR[resolvedTheme()];
+    paintBar(t === 'auto', resolvedTheme());
   } catch (e) {
     // ธีมเป็นเรื่องความสวยงาม ห้ามทำให้ทั้งแอปเปิดไม่ขึ้น
   }
@@ -1961,7 +2268,7 @@ function stepUrl() {
 // ── ขั้นที่ 2: เข้าสู่ระบบ ──────────────────────────────────
 
 function stepSignIn() {
-  const info = ui.info;
+
   const gBox = h('div', { style: { display: 'flex', justifyContent: 'center', minHeight: '48px' } },
     h('div', { class: 'boot-spin' }));
 
@@ -2350,8 +2657,14 @@ __exp(exports, { viewHome });
  */
 
 const { h, toast, todayISO, fmtDate, fmtDayFull, isToday, confirmBox, modal } = __req("js/dom.js");
-const { state, emit, ensureColumn, setCells, getCell, deleteColumn, go } = __req("js/state.js");
+const { state, emit, ensureColumn, setCells, getCell, deleteColumn, go, undoLastEdit } = __req("js/state.js");
 const { ATT_CODES, ATT_NAMES, attStats } = __req("js/score.js");
+
+/** ปุ่ม "เลิกทำ" แปะท้าย toast — ใช้กับปุ่มที่แก้ทีเดียวหลายคน */
+const undoAction = () => ({
+  label: 'เลิกทำ',
+  onclick: () => { const n = undoLastEdit(); if (n) toast(`เลิกทำแล้ว · ${n} ช่อง`, 'ok'); }
+});
 
 const ui = {
   // ดีไซน์ให้แตะ "เช็คชื่อ" แล้วเข้าหน้าเช็คของวันนี้เลย ไม่ต้องผ่านหน้าเลือกวัน
@@ -2404,7 +2717,7 @@ function enterCheck(dateISO, period, { markAllPresent = false } = {}) {
     const key = keyFor(dateISO, period);
     ensureColumn(colSpecFromKey(key), { quiet: true });
     setCells(state.cls.students.map(s => ({ key, sid: s.sid, value: 'ม' })), { quiet: true });
-    toast('ทำเครื่องหมาย "มา" ทุกคนแล้ว — แตะแก้เฉพาะคนที่ไม่ปกติ', 'ok', 3200);
+    toast('ทำเครื่องหมาย "มา" ทุกคนแล้ว — แตะแก้เฉพาะคนที่ไม่ปกติ', 'ok', 3200, undoAction());
   }
   emit();
 }
@@ -2824,7 +3137,7 @@ function addPeriod(used, dateISO) {
 function markAll(key, value) {
   ensureColumn(colSpecFromKey(key), { quiet: true });
   setCells(state.cls.students.map(s => ({ key, sid: s.sid, value })));
-  toast('ทำเครื่องหมาย "มา" ทั้งห้อง', 'ok', 1400);
+  toast('ทำเครื่องหมาย "มา" ทั้งห้อง', 'ok', 1400, undoAction());
 }
 
 function colSpecFromKey(key) {
@@ -2866,8 +3179,14 @@ __exp(exports, { viewAttendance });
 /* หน้ากรอกงานและคะแนนสอบ (ส่งงาน · สอบเก็บคะแนน · กลางภาค · ปลายภาค) */
 
 const { h, modal, toast, confirmBox, nf } = __req("js/dom.js");
-const { state, emit, loadClass, ensureColumn, setCells, getCell, deleteColumn, updateColumn, settings } = __req("js/state.js");
+const { state, emit, loadClass, ensureColumn, setCells, getCell, deleteColumn, updateColumn, settings, undoLastEdit } = __req("js/state.js");
 const { BUCKETS, NOT_SUBMITTED, parseWork, formatWork } = __req("js/score.js");
+
+/** ปุ่ม "เลิกทำ" แปะท้าย toast — ใช้กับปุ่มที่แก้ทีเดียวหลายคน */
+const undoAction = () => ({
+  label: 'เลิกทำ',
+  onclick: () => { const n = undoLastEdit(); if (n) toast(`เลิกทำแล้ว · ${n} ช่อง`, 'ok'); }
+});
 
 /**
  * ดีไซน์แยก "ชนิดของคะแนน" กับ "ช่วง" ออกจากกัน (หน้า 03)
@@ -3170,7 +3489,7 @@ function scoreRow(col, s, { head, nextInput } = {}) {
       if (n) { n.focus(); n.select(); }
     },
     onchange: (e) => {
-      let v = e.target.value.trim();
+      const v = e.target.value.trim();
       if (v === '') return apply('none');
       let n = Number(v);
       if (isNaN(n)) { e.target.value = ''; return apply('none'); }
@@ -3228,7 +3547,6 @@ function gradeScreen(col) {
   });
 
   const W = words(col);
-  const b = curBucket();
   const siblings = columnsIn(curBucket().id);
 
   return h('div', { class: 'page' },
@@ -3277,7 +3595,7 @@ function gradeScreen(col) {
           class: 'btn btn-soft btn-sm',
           onclick: () => {
             setCells(state.cls.students.map(s => ({ key: col.key, sid: s.sid, value: col.max })));
-            toast(W.bulkToast, 'ok', 1400);
+            toast(W.bulkToast, 'ok', 1400, undoAction());
           }
         }, `✓ ${W.bulk} (${col.max})`),
         h('button', {
@@ -3285,6 +3603,7 @@ function gradeScreen(col) {
           onclick: async () => {
             if (!await confirmBox('ล้างคะแนน?', 'คะแนนของรายการนี้จะถูกลบทั้งห้อง', 'ล้าง')) return;
             setCells(state.cls.students.map(s => ({ key: col.key, sid: s.sid, value: '' })));
+            toast('ล้างคะแนนแล้ว', 'ok', 1400, undoAction());
           }
         }, '↺ ล้าง')
       )),
@@ -3510,7 +3829,7 @@ function openItemMenu(col) {
         onclick: () => {
           close();
           setCells(state.cls.students.map(s => ({ key: col.key, sid: s.sid, value: col.max })));
-          toast(words(col).bulkToast, 'ok', 1400);
+          toast(words(col).bulkToast, 'ok', 1400, undoAction());
         }
       }, `✓ ${words(col).bulk} (${col.max})`),
       h('button', {
@@ -3519,6 +3838,7 @@ function openItemMenu(col) {
           close();
           if (!await confirmBox('ล้างคะแนน?', 'คะแนนของรายการนี้จะถูกลบทั้งห้อง', 'ล้าง')) return;
           setCells(state.cls.students.map(s => ({ key: col.key, sid: s.sid, value: '' })));
+          toast('ล้างคะแนนแล้ว', 'ok', 1400, undoAction());
         }
       }, '↺ ล้างคะแนนทั้งรายการ'),
       h('button', {
@@ -3559,7 +3879,7 @@ function openPaste(col) {
         cells.push({ key: col.key, sid: s.sid, value: formatWork(late ? 'late' : 'ok', clamped) });
       });
       setCells(cells);
-      toast(`นำเข้า ${cells.length} รายการ`, 'ok');
+      toast(`นำเข้า ${cells.length} รายการ`, 'ok', 2400, undoAction());
       close();
     };
     return h('div', null,
@@ -3950,7 +4270,7 @@ function viewReport() {
   );
 }
 
-const wide = () => { try { return matchMedia('(min-width: 900px)').matches; } catch (e) { return false; } };
+
 
 // ── ตัวช่วยรวมข้อมูล ────────────────────────────────────────
 
@@ -4088,7 +4408,7 @@ function classReport() {
         ? h('div', { class: 'bar-empty' }, 'ยังไม่มีรายการงาน/สอบ')
         : h('div', null,
             h('div', { class: 'legend', style: { marginBottom: '8px' } },
-              Object.entries(WORK_STYLE).map(([k, v]) => {
+              Object.entries(WORK_STYLE).map(([, v]) => {
                 const hasWork = wCols.some(c => !isExam(c)), hasExam = wCols.some(isExam);
                 const txt = hasWork && hasExam && v.label !== v.exam
                   ? `${v.label} / ${v.exam}` : (hasExam && !hasWork ? v.exam : v.label);
@@ -5264,7 +5584,7 @@ __exp(exports, { viewHealth });
  * ⚠️ เวลาแก้โค้ดที่กระทบทั้ง 2 ฝั่ง ให้บวกเลขนี้ และแก้ SERVER_VERSION
  *    ใน apps-script/00_Constants.gs ให้ตรงกันด้วย
  */
-const APP_VERSION = '3.0.1';
+const APP_VERSION = '3.2.0';
 
 /** เวอร์ชันต่ำสุดของฝั่งชีตที่หน้าเว็บนี้ทำงานด้วยได้ครบทุกฟีเจอร์ */
 const NEEDS_SERVER = '2.8.0';
