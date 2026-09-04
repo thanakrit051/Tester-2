@@ -218,7 +218,13 @@ function setupWorkbook() {
   }
 
   // ตั้งสำรองไฟล์อัตโนมัติทุกสัปดาห์ — เรียกซ้ำได้ ไม่สร้างทริกเกอร์ซ้ำ
-  try { ensureAutoBackupTrigger_(); } catch (e) { console.error('ตั้งสำรองอัตโนมัติไม่สำเร็จ: ' + e); }
+  var backupErr = '';
+  try {
+    ensureAutoBackupTrigger_();
+  } catch (e) {
+    backupErr = String((e && e.message) || e);
+    console.error('ตั้งสำรองอัตโนมัติไม่สำเร็จ: ' + backupErr);
+  }
 
   ensureHelpSheet_(ss);
 
@@ -237,7 +243,9 @@ function setupWorkbook() {
   var backupMsg = autoBackupOn_()
     ? '💾 สำรองไฟล์อัตโนมัติ: เปิดอยู่ (ทุกวันอาทิตย์ ตี 3)'
     : '⚠️ ยังตั้งสำรองไฟล์อัตโนมัติไม่ได้\n' +
-      'ถ้ามีหน้าต่างขออนุญาตสิทธิ์ ให้กดอนุญาต แล้วกดเมนูนี้ซ้ำอีกครั้ง';
+      (backupErr ? 'สาเหตุ: ' + backupErr + '\n' : '') +
+      'วิธีแก้: Apps Script → ไอคอนนาฬิกา ⏰ → + Add Trigger\n' +
+      'เลือกฟังก์ชัน scheduledBackup · Time-driven · Week timer · Sunday · 3am';
 
   try {
     SpreadsheetApp.getUi().alert('ติดตั้งเรียบร้อย ✅\n\n' + backupMsg +
