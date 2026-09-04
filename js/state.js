@@ -11,6 +11,7 @@ export const state = {
   cls: null,
   view: 'home',
   stale: false,           // true = ข้อมูลมาจากแคช ยังไม่ได้ซิงค์
+  loadingClass: '',       // classId ที่กำลังรอข้อมูลจากชีตอยู่ ('' = ไม่ได้รออะไร)
   webAppUrl: '',          // ลิงก์เปิดแอป (โหมด Apps Script เสิร์ฟเอง)
   user: null,             // บัญชีที่กำลังใช้งาน { email, name }
   installPrompt: null
@@ -224,8 +225,7 @@ export async function bootAll() {
 
   const got = list[1];
   if (got && got.ok && got.data) {
-    const d = got.data;
-    state.cls = normalizeClass(d);
+    state.cls = withPending(normalizeClass(got.data), want);
     state.classId = want;
     api.cache.set('class.' + want, state.cls);
   }
@@ -238,6 +238,53 @@ export async function bootAll() {
     if (first) await loadClass(first.classId);
     else { state.cls = null; state.classId = ''; emit(); }
   }
+
+  prefetchClasses();   // โหลดห้องที่เหลือเผื่อไว้เบื้องหลัง — ไม่ต้องรอ
+}
+
+/* โหลดเผื่อได้ไม่เกินกี่ห้อง และยอมให้แคชกินพื้นที่เพิ่มได้เท่าไร
+ *
+ * localStorage มีราว 5 MB ต่อโดเมน และ "คิวงานที่รอส่งขึ้นชีต" ต้องมีที่อยู่เสมอ
+ * ถ้าแคชกินจนเต็ม storage.js จะถอยไปเก็บในหน่วยความจำแทน ซึ่งแปลว่า
+ * คะแนนที่ยังส่งไม่สำเร็จจะหายตอนปิดหน้า — แลกไม่คุ้มกับความเร็วที่ได้
+ */
+const PREFETCH_CLASSES = 4;
+const PREFETCH_BYTES = 800_000;
+
+/**
+ * ดึงห้องที่ยังไม่มีในแคชมาเก็บไว้เงียบ ๆ หลังเปิดแอปเสร็จ
+ *
+ * ครูส่วนใหญ่สอนหลายห้องและสลับไปมาทั้งวัน ห้องที่ยังไม่เคยเปิดในเครื่องนี้
+ * จะไม่มีอะไรให้วาดเลย ต้องนั่งรอเน็ตเต็ม ๆ ทุกครั้ง
+ * ขอทีเดียวหลายห้องผ่าน batch (เสีย 1 รอบเน็ต) แล้วเก็บใส่แคชไว้เฉย ๆ
+ * ไม่แตะหน้าจอและไม่ขึ้นแถบ "กำลังโหลด" เพราะครูไม่ได้สั่งงานนี้
+ */
+async function prefetchClasses() {
+  if (!api.conn.ready || !api.net.online || !api.storagePersistent()) return;
+
+  const ids = state.classes
+    .map(c => c.classId)
+    .filter(id => id && id !== state.classId && !api.cache.get('class.' + id))
+    .slice(0, PREFETCH_CLASSES);
+  if (!ids.length) return;
+
+  let res;
+  try {
+    res = await api.call('batch', {
+      ops: ids.map(id => ({ action: 'getClass', payload: { classId: id } }))
+    }, { quiet: true });
+  } catch (e) {
+    return;   // เป็นแค่การโหลดเผื่อ ล้มก็เงียบไป ครูไม่ต้องรับรู้
+  }
+
+  let used = 0;
+  (res.results || []).forEach((r, i) => {
+    if (!r || !r.ok || !r.data || !api.storagePersistent()) return;
+    const cls = normalizeClass(r.data);
+    used += JSON.stringify(cls).length;
+    if (used > PREFETCH_BYTES) return;
+    api.cache.set('class.' + ids[i], cls);
+  });
 }
 
 export async function loadClass(classId, { force = false } = {}) {
@@ -245,21 +292,53 @@ export async function loadClass(classId, { force = false } = {}) {
   state.classId = classId;
   api.lastClass.set(classId);
 
+  /* วางของที่มีอยู่ลงจอทันที แล้วค่อยไปถามชีตเบื้องหลัง
+   *
+   * ต้องล้าง state.cls ทิ้งด้วยเมื่อห้องใหม่ยังไม่มีในแคช ไม่งั้นหน้าที่เปิดต่อ
+   * จะโชว์รายชื่อของห้องเดิมค้างอยู่ 2-3 วินาทีเหมือนกดผิดห้อง
+   * (Apps Script ตอบรอบละ 2-3 วินาที บางครั้งถึง 10)
+   */
   const cached = api.cache.get('class.' + classId);
-  if (cached) { state.cls = normalizeClass(cached); state.stale = true; emit(); }
-  if (!force && cached && !api.net.online) return;
+  state.cls = cached ? normalizeClass(cached) : null;
+  state.stale = !!cached;
+  state.loadingClass = classId;
+  emit();
+
+  if (!force && cached && !api.net.online) { state.loadingClass = ''; emit(); return; }
 
   try {
     const data = await api.call('getClass', { classId });
-    state.cls = normalizeClass(data);
+    if (state.classId !== classId) return;          // ครูสลับไปห้องอื่นระหว่างรอ — ของที่ได้มาไม่ใช่ของหน้านี้แล้ว
+    state.cls = withPending(normalizeClass(data), classId);
     state.stale = false;
     api.cache.set('class.' + classId, state.cls);
   } catch (e) {
     if (!(e instanceof api.OfflineError)) toast(e.message, 'err');
-    if (!cached) state.cls = null;
   } finally {
+    if (state.classId === classId) state.loadingClass = '';
     emit();
   }
+}
+
+/**
+ * ทับค่าที่ยังค้างคิวลงบนข้อมูลที่เพิ่งดึงมาจากชีต
+ *
+ * ฝั่งชีตไม่จับ lock ตอนอ่านแล้ว (ดู 04_Api.gs) คำสั่งอ่านจึงแซงคำสั่งเขียน
+ * ที่ยังส่งไม่ถึงได้ ถ้าเอาของที่อ่านมาทับตรง ๆ ช่องที่ครูเพิ่งกดจะหายไปจากจอ
+ * ทั้งที่ยังอยู่ในคิวและกำลังจะถูกเขียนจริง — ครูจะกดซ้ำเพราะนึกว่าไม่ติด
+ */
+function withPending(cls, classId) {
+  if (!cls) return cls;
+  for (const job of api.queue.all()) {
+    const p = job.payload || {};
+    if (job.action !== 'setCells' || p.classId !== classId) continue;
+    for (const c of p.cells || []) {
+      if (!cls.values[c.key]) cls.values[c.key] = {};
+      if (c.value === '' || c.value === null || c.value === undefined) delete cls.values[c.key][c.sid];
+      else cls.values[c.key][c.sid] = c.value;
+    }
+  }
+  return cls;
 }
 
 function persistClass() {

@@ -142,14 +142,19 @@ function setBusy(delta) {
   try { window.dispatchEvent(new CustomEvent('ac:busy')); } catch (e) {}
 }
 
-export async function call(action, payload = {}) {
+/**
+ * @param opts.quiet true = งานเบื้องหลังที่ครูไม่ได้สั่ง (เช่นโหลดห้องอื่นเผื่อไว้)
+ *                   อย่าให้ขึ้นแถบ "กำลังโหลด" ไม่งั้นแอปจะดูเหมือนทำงานค้าง
+ *                   อยู่หลายวินาทีทั้งที่หน้าจอพร้อมใช้แล้ว
+ */
+export async function call(action, payload = {}, { quiet = false } = {}) {
   if (!conn.ready) throw new ApiError('ยังไม่ได้เชื่อมต่อกับ Google Sheet', 'NOCONN');
 
   // ส่งข้อมูลยืนยันตัวตนไปทั้ง 2 แบบ ฝั่งเซิร์ฟเวอร์รับอันไหนก็ได้ที่ผ่าน
-  setBusy(1);
+  if (!quiet) setBusy(1);
   let text;
   try { text = await post({ key: conn.key, idToken: auth.token, action, payload }); }
-  finally { setBusy(-1); }
+  finally { if (!quiet) setBusy(-1); }
 
   let body;
   try { body = JSON.parse(text); }

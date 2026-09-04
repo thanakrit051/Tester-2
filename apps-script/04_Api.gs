@@ -235,6 +235,21 @@ function handle_(req, embedded) {
     }
   }
 
+  var action = String(req.action || '');
+  var pl = req.payload || {};
+  if (user) pl.__user = user;
+
+  /* คำสั่งที่อ่านอย่างเดียว ไม่ต้องเข้าคิวรอ lock
+   *
+   * ของเดิมทุกคำขอไปคว้า lock ตัวเดียวกันหมด เวลาครูกรอกคะแนนแล้วกดเปิดห้องอื่น
+   * ต่อทันที คำสั่ง "อ่าน" จะต้องยืนรอคำสั่ง "เขียน" ที่แอปส่งเบื้องหลังให้เสร็จก่อน
+   * = รอ 2 เด้ง 4-6 วินาที ทั้งที่การอ่านไม่ได้แก้อะไรในชีตเลย
+   *
+   * แลกกับการที่ค่าที่อ่านได้อาจเก่ากว่าคำสั่งเขียนที่ยังส่งไม่ถึงเสี้ยววินาที
+   * ฝั่งเว็บกันไว้แล้วด้วยการทับค่าที่ยังค้างคิวลงไป (withPending ใน js/state.js)
+   */
+  if (readOnlyReq_(action, pl)) return run_(action, pl, cfg, user);
+
   var lock = LockService.getScriptLock();
   try {
     lock.waitLock(25000);
@@ -243,15 +258,34 @@ function handle_(req, embedded) {
   }
 
   try {
-    var pl = req.payload || {};
-    if (user) pl.__user = user;
-    var result = dispatch_(String(req.action || ''), pl, cfg);
-    return json_({ ok: true, data: result, user: user, version: SERVER_VERSION });
+    return run_(action, pl, cfg, user);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** คำสั่งที่ไม่แตะข้อมูลในชีตเลย */
+var READ_ONLY_ACTIONS_ = { ping: true, bootstrap: true, getClass: true };
+
+/** batch นับเป็น "อ่านอย่างเดียว" ต่อเมื่อทุกคำสั่งข้างในอ่านอย่างเดียวทั้งหมด
+ *  (ตอนเปิดแอปยิง batch ของ bootstrap + getClass ซึ่งเข้าเงื่อนไขนี้พอดี) */
+function readOnlyReq_(action, p) {
+  if (READ_ONLY_ACTIONS_[action]) return true;
+  if (action !== 'batch') return false;
+  var ops = (p && p.ops) || [];
+  if (!ops.length) return false;
+  for (var i = 0; i < ops.length; i++) {
+    if (!READ_ONLY_ACTIONS_[String((ops[i] && ops[i].action) || '')]) return false;
+  }
+  return true;
+}
+
+function run_(action, pl, cfg, user) {
+  try {
+    return json_({ ok: true, data: dispatch_(action, pl, cfg), user: user, version: SERVER_VERSION });
   } catch (err) {
     console.error(err);
     return json_({ ok: false, error: String(err && err.message ? err.message : err) });
-  } finally {
-    lock.releaseLock();
   }
 }
 

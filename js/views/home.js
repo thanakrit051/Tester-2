@@ -34,7 +34,9 @@ function classCard(c) {
   return h('div', { class: 'class-card', 'data-on': active ? '1' : '0' },
     h('button', {
       style: { display: 'flex', alignItems: 'center', gap: '12px', flex: '1', minWidth: '0', textAlign: 'left' },
-      onclick: async () => { await loadClass(c.classId); go('att'); }
+      // เปลี่ยนหน้าก่อน แล้วให้ข้อมูลตามมาทีหลัง — ของเดิม await ไว้
+      // ครูจึงกดแล้วจอนิ่งไป 2-10 วินาทีทั้งที่แคชพร้อมวาดตั้งแต่แรก
+      onclick: () => { loadClass(c.classId); go('att'); }
     },
       h('div', { class: 'class-avatar' }, [c.grade, c.room].filter(Boolean).join('/') || '—'),
       h('div', { style: { minWidth: '0' } },

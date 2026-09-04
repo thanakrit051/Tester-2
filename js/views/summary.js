@@ -50,7 +50,10 @@ function pendingMap(cls) {
 
 export function viewSummary() {
   const cls = state.cls;
-  if (!cls) return h('div', { class: 'page empty' }, 'ยังไม่ได้เลือกห้องเรียน');
+  if (!cls) {
+    return h('div', { class: 'page empty' },
+      state.loadingClass ? 'กำลังโหลดห้องเรียน…' : 'ยังไม่ได้เลือกห้องเรียน');
+  }
   if (!cls.students.length) {
     return h('div', { class: 'page' }, h('div', { class: 'card empty' },
       h('div', { class: 'empty-icon' }, '👥'), 'ห้องนี้ยังไม่มีรายชื่อนักเรียน'));
