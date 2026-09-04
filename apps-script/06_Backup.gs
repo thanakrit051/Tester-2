@@ -14,7 +14,12 @@
 
 var BACKUP_FOLDER_NAME = 'AssignCheck — สำรองข้อมูล';
 var BACKUP_KEEP = 8;                 // ทุกสัปดาห์ ~2 เดือนย้อนหลัง
-var BACKUP_TRIGGER_FN = 'scheduledBackup_';
+/* ⚠️ ห้ามลงท้ายชื่อนี้ด้วย _ เด็ดขาด
+ * Apps Script ถือว่าฟังก์ชันที่ลงท้ายด้วย _ เป็นฟังก์ชันส่วนตัว ทริกเกอร์เรียกไม่ได้
+ * และไม่โผล่ในรายการให้เลือกตอนตั้งทริกเกอร์เองด้วย
+ * ของเดิมเป็น 'scheduledBackup_' จึงตั้งทริกเกอร์ไม่สำเร็จมาตลอดโดยไม่มีอะไรบอก */
+var BACKUP_TRIGGER_FN = 'scheduledBackup';
+var BACKUP_TRIGGER_FN_OLD = 'scheduledBackup_';   // ชื่อเดิมที่ใช้ไม่ได้ — ไว้ตามเก็บกวาด
 
 /** สำเนาไฟล์นี้ทั้งไฟล์ไปไว้ในโฟลเดอร์สำรอง แล้วลบก้อนเก่าสุดถ้าเกิน BACKUP_KEEP */
 function backupNow_() {
@@ -59,7 +64,6 @@ function backupNowMenu() {
   }
 }
 
-/** ติดตั้งทริกเกอร์รายสัปดาห์ — เรียกซ้ำได้ ไม่สร้างซ้ำ */
 /** ตอนนี้มีทริกเกอร์สำรองอัตโนมัติอยู่จริงไหม — ใช้รายงานผลตามความจริง */
 function autoBackupOn_() {
   try {
@@ -71,8 +75,16 @@ function autoBackupOn_() {
   }
 }
 
+/** ติดตั้งทริกเกอร์รายสัปดาห์ — เรียกซ้ำได้ ไม่สร้างซ้ำ */
 function ensureAutoBackupTrigger_() {
-  var exists = ScriptApp.getProjectTriggers().some(function (t) {
+  var triggers = ScriptApp.getProjectTriggers();
+
+  // เก็บกวาดทริกเกอร์ที่ชี้ไปชื่อเดิมซึ่งเรียกไม่ได้ ถ้าเผลอสร้างค้างไว้
+  triggers.forEach(function (t) {
+    if (t.getHandlerFunction() === BACKUP_TRIGGER_FN_OLD) ScriptApp.deleteTrigger(t);
+  });
+
+  var exists = triggers.some(function (t) {
     return t.getHandlerFunction() === BACKUP_TRIGGER_FN;
   });
   if (exists) return;
@@ -83,7 +95,10 @@ function ensureAutoBackupTrigger_() {
     .create();
 }
 
-/** ทริกเกอร์เรียกอันนี้ — ห้ามให้พังจนกระทบงานอื่นของสคริปต์ */
-function scheduledBackup_() {
+/**
+ * ทริกเกอร์เรียกอันนี้ — ห้ามให้พังจนกระทบงานอื่นของสคริปต์
+ * ชื่อต้องไม่ลงท้ายด้วย _ ไม่งั้นทริกเกอร์เรียกไม่ได้ (ดูหมายเหตุที่ BACKUP_TRIGGER_FN)
+ */
+function scheduledBackup() {
   try { backupNow_(); } catch (err) { console.error('สำรองอัตโนมัติล้มเหลว: ' + err); }
 }
