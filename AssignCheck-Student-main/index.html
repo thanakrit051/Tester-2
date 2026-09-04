@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบตรวจสอบงานนักเรียน</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="style.css">
+    
+    <!-- Firebase SDK (v8 for easier modular usage in Vanilla JS) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+</head>
+<body>
+
+    <!-- พื้นหลังและตกแต่ง -->
+    <div class="background-shape shape-1"></div>
+    <div class="background-shape shape-2"></div>
+
+    <div class="container">
+        <!-- ส่วนหน้าจอ Login -->
+        <div id="loginSection" class="glass-panel">
+            <div class="header-content">
+                <div class="icon-wrapper">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-book-open"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
+                </div>
+                <h1>ตรวจสอบงานของฉัน</h1>
+                <p>กรอกรหัสประจำตัวเพื่อดูงานทุกวิชาของคุณ</p>
+            </div>
+            
+            <div class="input-group">
+                <div class="search-input-wrapper">
+                    <input type="text" id="studentIdInput" class="styled-input" placeholder="กรอกรหัสประจำตัว เช่น 12345" disabled>
+                    <div id="searchSuggestion" class="search-suggestion" style="display: none;"></div>
+                </div>
+
+                <button id="checkButton" class="primary-btn" disabled>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                    ค้นหางานทุกวิชา
+                </button>
+            </div>
+            
+            <div id="loginErrorMsg" class="error-msg" style="display: none;">
+                ไม่พบข้อมูล หรือเกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง
+            </div>
+        </div>
+
+        <!-- ส่วนหน้าจอแสดงงาน (ซ่อนไว้ก่อน) -->
+        <div id="tasksSection" class="glass-panel" style="display: none;">
+            <div class="task-header">
+                <div class="student-info">
+                    <h2>ข้อมูลงานของ: <span id="displayStudentName"></span></h2>
+                    <p class="student-id-label">รหัสประจำตัว: <span id="displayStudentId"></span></p>
+                </div>
+                <button id="logoutButton" class="secondary-btn">ค้นหาใหม่</button>
+            </div>
+
+            <!-- สรุปภาพรวม -->
+            <div id="summaryBar" class="summary-bar"></div>
+
+            <!-- โครงสร้างสำหรับแสดงผลงาน แยกตามวิชา -->
+            <div id="tasksList" class="tasks-list">
+                <!-- ข้อมูลจะถูกเพิ่มเข้ามาที่นี่ผ่าน JavaScript -->
+                <div class="loading-state">
+                    <div class="spinner"></div>
+                    <p>กำลังโหลดข้อมูล...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom JS -->
+    <script src="app.js"></script>
+</body>
+</html>

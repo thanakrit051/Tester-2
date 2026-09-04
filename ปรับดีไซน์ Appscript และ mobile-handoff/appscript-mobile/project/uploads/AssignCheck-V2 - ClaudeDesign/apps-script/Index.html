@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<base target="_top">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<title>AssignCheck</title>
+<script>try{var t=localStorage.getItem('ac.theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f4f6f5;--ink:#131917;--ink2:#56635d;--ink3:#8b948f;--line:#e5e9e7;--accent:#0f7a43}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#101211;--ink:#ecefed;--ink2:#a4ada8;--ink3:#79827d;--line:#2c2e2b;--accent:#2fa367}}
+[data-theme="dark"]{--bg:#101211;--ink:#ecefed;--ink2:#a4ada8;--ink3:#79827d;--line:#2c2e2b;--accent:#2fa367}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:'IBM Plex Sans Thai',system-ui,sans-serif;line-height:1.55}
+.boot{position:fixed;inset:0;display:grid;place-content:center;justify-items:center;gap:16px;background:var(--bg);z-index:999;text-align:center;padding:0 20px}
+.boot-mark{width:72px;height:72px;border-radius:22px;background:var(--accent);color:#fff;font-size:33px;font-weight:700;display:grid;place-content:center;position:relative}
+.boot-mark span{position:absolute;right:-7px;bottom:-7px;width:30px;height:30px;border-radius:50%;background:var(--bg);color:var(--accent);font-size:15px;display:grid;place-content:center}
+.boot-title{font-weight:700;font-size:19px}
+.boot-ver{font-size:11.5px;color:var(--ink3);margin-top:-8px}
+.boot-spin{width:22px;height:22px;border-radius:50%;border:2.5px solid var(--line);border-top-color:var(--accent);animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+<link rel="stylesheet" href="<?!= assets ?>styles.css?v=2.8.0">
+</head>
+<body>
+
+<div id="boot" class="boot">
+  <div class="boot-mark">A<span>&#10003;</span></div>
+  <div class="boot-title">AssignCheck</div>
+  <div class="boot-ver">v2.8.0</div>
+  <div class="boot-spin"></div>
+</div>
+
+<div id="app" hidden></div>
+<div id="toasts" class="toasts"></div>
+<div id="modal-root"></div>
+
+<script>
+window.__acErr = null;
+window.addEventListener('error', function (e) {
+  if (!window.__acErr && e.message) window.__acErr = String(e.message);
+}, true);
+setTimeout(function () {
+  var b = document.getElementById('boot');
+  if (!b || window.__acRunning) return;
+  var src = (document.getElementById('ac-js') || {}).src || '';
+  var base = src.split('app.bundle.js')[0];
+  var cssOk = !!getComputedStyle(document.documentElement).getPropertyValue('--st-ok').trim();
+  var why;
+  if (!window.__acJsOk) {
+    why = 'โหลดไฟล์โค้ดจาก GitHub ไม่สำเร็จ<br><br>'
+        + 'ตรวจว่ามีไฟล์ <b>app.bundle.js</b> อยู่ที่<br>'
+        + '<code style="font-size:11.5px;word-break:break-all">' + base + '</code>'
+        + '<br><br>แก้ที่อยู่ได้ในชีต แท็บ ⚙️ ตั้งค่า → <code>assets_url</code>';
+  } else if (!cssOk) {
+    why = 'โหลดไฟล์หน้าตา (styles.css) ไม่สำเร็จ<br>ตรวจว่าอัปไฟล์ styles.css ขึ้น GitHub แล้วหรือยัง';
+  } else if (window.__acErr) {
+    why = 'โค้ดมีข้อผิดพลาด<br><code style="font-size:12px">' + window.__acErr + '</code>';
+  } else {
+    why = 'เชื่อมต่อกับ Google Sheet ไม่สำเร็จ<br>ลองโหลดหน้านี้ใหม่อีกครั้ง';
+  }
+  b.innerHTML = '<div style="max-width:420px"><div style="font-size:17px;font-weight:700;margin-bottom:10px">'
+    + 'เปิดแอปไม่สำเร็จ</div><div style="font-size:13.5px;color:var(--ink2);line-height:1.9">' + why + '</div>'
+    + '<div style="font-size:11.5px;color:var(--ink3);margin-top:14px">v2.8.0</div></div>';
+}, 8000);
+
+// โหลด CSS ไม่ได้ = แอปใช้ได้แต่หน้าตาเพี้ยน ต้องบอกให้รู้ ไม่ใช่ปล่อยให้งงเอง
+setTimeout(function () {
+  if (getComputedStyle(document.documentElement).getPropertyValue('--st-ok').trim()) return;
+  var d = document.createElement('div');
+  d.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:#fdf1e0;'
+    + 'color:#a35700;font:600 13px system-ui,sans-serif;padding:9px 12px;text-align:center';
+  d.textContent = 'โหลดไฟล์หน้าตา (styles.css) ไม่สำเร็จ — ใช้งานได้แต่หน้าตาจะเพี้ยน';
+  document.body.appendChild(d);
+}, 3000);
+</script>
+<script id="ac-js" src="<?!= assets ?>app.bundle.js?v=2.8.0" onload="window.__acJsOk=true"></script>
+</body>
+</html>

@@ -1,0 +1,1618 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body { margin:0; background:#e7ebe9; font-family:'Anuphan',system-ui,sans-serif; }
+a { color:#0d7d6e; text-decoration:none; }
+a:hover { color:#0b2b24; text-decoration:underline; }
+</style>
+</helmet>
+
+<section style="display:flex; flex-direction:column; gap:36px; padding:48px; font-family:'Anuphan',system-ui,sans-serif;">
+
+  <div style="max-width:860px; display:flex; flex-direction:column; gap:10px;">
+    <div style="display:flex; align-items:center; gap:12px;">
+      <span style="font-family:'IBM Plex Mono',monospace; font-size:12px; background:#0b2b24; color:#c7f04a; padding:4px 9px; border-radius:6px;">2a</span>
+      <span style="font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:#5b6b66; font-family:'IBM Plex Mono',monospace;">Turn 2 · แนว 1c แอปห้องเรียน — ครบทุกหน้า</span>
+    </div>
+    <div style="font-size:30px; font-weight:700; color:#0b2b24; line-height:1.3;">AssignCheck — ดีไซน์ใหม่ 8 หน้า</div>
+    <div style="font-size:15px; color:#3f524c; line-height:1.75; text-wrap:pretty;">ทุกหน้ามีคู่ <b>PC</b> (แถบเมนูบนสุด เนื้อหากึ่งกลาง 900px) และ <b>มือถือ</b> (bottom nav 5 แท็บ) · ระบบสี: หมึกเขียวเข้ม #0b2b24 · เขียวน้ำทะเล #0d7d6e เป็นสีทำงาน · ไลม์ #c7f04a เป็นปุ่มหลัก <b>สีเดียวในแอป</b> — เห็นไลม์ที่ไหน คือปุ่มที่ควรกดตอนนี้ · สีสถานะ (มา/สาย/ลา/ขาด) แยกจากสีแบรนด์ทั้งหมด</div>
+    <div style="display:flex; gap:8px; flex-wrap:wrap; font-size:13px; margin-top:4px;">
+      <a href="#s1" style="padding:5px 11px; background:#fff; border-radius:20px; border:1px solid #dde5e2;">1 หน้าแรก</a>
+      <a href="#s2" style="padding:5px 11px; background:#fff; border-radius:20px; border:1px solid #dde5e2;">2 เช็คชื่อ</a>
+      <a href="#s3" style="padding:5px 11px; background:#fff; border-radius:20px; border:1px solid #dde5e2;">3 งาน/คะแนน</a>
+      <a href="#s4" style="padding:5px 11px; background:#fff; border-radius:20px; border:1px solid #dde5e2;">4 รายงาน</a>
+      <a href="#s5" style="padding:5px 11px; background:#fff; border-radius:20px; border:1px solid #dde5e2;">5 สรุป SGS</a>
+      <a href="#s6" style="padding:5px 11px; background:#fff; border-radius:20px; border:1px solid #dde5e2;">6 ตั้งค่า</a>
+      <a href="#s7" style="padding:5px 11px; background:#fff; border-radius:20px; border:1px solid #dde5e2;">7 ติดตั้งครั้งแรก</a>
+      <a href="#s8" style="padding:5px 11px; background:#fff; border-radius:20px; border:1px solid #dde5e2;">8 หน้านักเรียน</a>
+    </div>
+  </div>
+
+  <!-- ══════════ 1 หน้าแรก ══════════ -->
+  <div id="s1" style="display:flex; flex-direction:column; gap:14px;">
+    <div style="display:flex; align-items:baseline; gap:12px;">
+      <span style="font-family:'IBM Plex Mono',monospace; font-size:12px; background:#0b2b24; color:#c7f04a; padding:4px 9px; border-radius:6px;">01</span>
+      <span style="font-size:20px; font-weight:700; color:#0b2b24;">หน้าแรก · เลือกห้อง</span>
+      <span style="font-size:13px; color:#5b6b66;">เปิดแอปแล้วรู้ทันทีว่าต้องทำอะไรต่อ</span>
+    </div>
+    <div style="display:flex; gap:18px; align-items:flex-start; flex-wrap:wrap;">
+
+      <div data-screen-label="01 หน้าแรก PC" style="width:1000px; border-radius:14px; overflow:hidden; border:1px solid #d7dedb; box-shadow:0 18px 40px -24px rgba(11,43,36,.45); background:#eef2f0;">
+        <div style="display:flex; align-items:center; gap:24px; padding:0 22px; height:60px; background:#0b2b24;">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <div style="width:28px; height:28px; border-radius:9px; background:#c7f04a; color:#0b2b24; display:grid; place-items:center; font-weight:700; font-size:14px;">A</div>
+            <div style="font-weight:700; font-size:16px; color:#fff;">AssignCheck</div>
+          </div>
+          <div style="display:flex; gap:4px; flex:1;">
+            <div style="padding:7px 14px; font-size:14px; font-weight:600; color:#0b2b24; background:#c7f04a; border-radius:20px;">หน้าแรก</div>
+            <div style="padding:7px 14px; font-size:14px; color:#a9c6bd;">เช็คชื่อ</div>
+            <div style="padding:7px 14px; font-size:14px; color:#a9c6bd;">งาน/คะแนน</div>
+            <div style="padding:7px 14px; font-size:14px; color:#a9c6bd;">รายงาน</div>
+            <div style="padding:7px 14px; font-size:14px; color:#a9c6bd;">สรุป SGS</div>
+          </div>
+          <div style="display:flex; align-items:center; gap:9px;">
+            <div style="display:flex; align-items:center; gap:6px; font-size:12.5px; color:#a9c6bd; background:#12463a; padding:5px 10px; border-radius:20px;"><span style="width:7px; height:7px; border-radius:50%; background:#c7f04a;"></span>ซิงค์แล้ว 09:24</div>
+            <div style="width:32px; height:32px; border-radius:10px; background:#12463a; color:#c7f04a; display:grid; place-items:center; font-size:14px;">⚙</div>
+          </div>
+        </div>
+        <div style="padding:26px 22px 30px; display:flex; flex-direction:column; gap:16px; max-width:900px; margin:0 auto;">
+          <div style="background:#0d7d6e; border-radius:18px; padding:22px 24px; display:flex; align-items:center; gap:20px;">
+            <div style="flex:1;">
+              <div style="font-size:13px; color:#a9e5da;">คาบถัดไป · วันนี้ 10:40 น. · คาบ 2</div>
+              <div style="font-size:24px; font-weight:700; color:#fff; margin-top:2px;">ม.1/1 คณิตศาสตร์พื้นฐาน</div>
+              <div style="font-size:13.5px; color:#a9e5da; margin-top:4px;">38 คน · ยังไม่ได้เช็คชื่อ</div>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:8px; align-items:stretch;">
+              <div style="padding:14px 26px; border-radius:14px; background:#c7f04a; color:#0b2b24; font-size:16px; font-weight:700; text-align:center;">✓ เช็คชื่อ · ทุกคนมา</div>
+              <div style="padding:9px; border-radius:12px; border:1px solid #4ba394; color:#dff3ec; font-size:13.5px; text-align:center;">เช็คเองทีละคน</div>
+            </div>
+          </div>
+
+          <div style="display:grid; grid-template-columns:1.35fr 1fr; gap:14px;">
+            <div style="background:#fff; border-radius:16px; padding:18px;">
+              <div style="font-size:14px; font-weight:700; color:#0b2b24; margin-bottom:12px;">ค้างอยู่ · ม.1/1</div>
+              <div style="display:flex; flex-direction:column; gap:10px;">
+                <div style="display:flex; align-items:center; gap:10px; font-size:13.5px; color:#0b2b24;"><span style="width:7px; height:7px; border-radius:50%; background:#b45309;"></span>ใบงานที่ 4 ยังไม่ตรวจ 12 คน<span style="margin-left:auto; color:#0d7d6e; font-weight:600;">ตรวจ →</span></div>
+                <div style="display:flex; align-items:center; gap:10px; font-size:13.5px; color:#0b2b24;"><span style="width:7px; height:7px; border-radius:50%; background:#be123c;"></span>ยังไม่ตั้งวันสอบกลางภาค<span style="margin-left:auto; color:#0d7d6e; font-weight:600;">ตั้งค่า →</span></div>
+                <div style="display:flex; align-items:center; gap:10px; font-size:13.5px; color:#0b2b24;"><span style="width:7px; height:7px; border-radius:50%; background:#0d7d6e;"></span>ยังไม่ได้เขียนสรุปลงชีต 3 วัน<span style="margin-left:auto; color:#0d7d6e; font-weight:600;">บันทึก →</span></div>
+              </div>
+            </div>
+            <div style="background:#fff; border-radius:16px; padding:18px; display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+              <div><div style="font-size:26px; font-weight:700; color:#0b2b24; font-variant-numeric:tabular-nums;">38</div><div style="font-size:12.5px; color:#5b6b66;">นักเรียน</div></div>
+              <div><div style="font-size:26px; font-weight:700; color:#0d7d6e; font-variant-numeric:tabular-nums;">72.4</div><div style="font-size:12.5px; color:#5b6b66;">คะแนนเฉลี่ย</div></div>
+              <div><div style="font-size:26px; font-weight:700; color:#b45309; font-variant-numeric:tabular-nums;">4</div><div style="font-size:12.5px; color:#5b6b66;">เสี่ยง มส</div></div>
+              <div><div style="font-size:26px; font-weight:700; color:#be123c; font-variant-numeric:tabular-nums;">2</div><div style="font-size:12.5px; color:#5b6b66;">เสี่ยงติด 0</div></div>
+            </div>
+          </div>
+
+          <div style="display:flex; align-items:center; gap:12px; margin-top:4px;">
+            <div style="font-size:15px; font-weight:700; color:#0b2b24; flex:1;">ห้องเรียนของฉัน · 3 ห้อง-วิชา</div>
+            <div style="padding:8px 15px; border-radius:12px; background:#0b2b24; color:#fff; font-size:13.5px; font-weight:600;">+ เพิ่มห้อง</div>
+          </div>
+          <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:12px;">
+            <div style="background:#fff; border-radius:16px; padding:18px; display:flex; gap:12px; align-items:center; outline:2px solid #0d7d6e;">
+              <div style="width:46px; height:46px; border-radius:14px; background:#0d7d6e; color:#fff; display:grid; place-items:center; font-weight:700; font-size:14px;">ม.1/1</div>
+              <div style="flex:1;"><div style="font-size:15px; font-weight:600; color:#0b2b24;">คณิตศาสตร์พื้นฐาน</div><div style="font-size:12.5px; color:#5b6b66;">38 คน · ค21101</div></div>
+              <div style="color:#8b9a95;">⋯</div>
+            </div>
+            <div style="background:#fff; border-radius:16px; padding:18px; display:flex; gap:12px; align-items:center;">
+              <div style="width:46px; height:46px; border-radius:14px; background:#e3eae7; color:#5b6b66; display:grid; place-items:center; font-weight:700; font-size:14px;">ม.2/3</div>
+              <div style="flex:1;"><div style="font-size:15px; font-weight:600; color:#0b2b24;">คณิตศาสตร์เพิ่มเติม</div><div style="font-size:12.5px; color:#5b6b66;">35 คน · ค22201</div></div>
+              <div style="color:#8b9a95;">⋯</div>
+            </div>
+            <div style="background:#fff; border-radius:16px; padding:18px; display:flex; gap:12px; align-items:center;">
+              <div style="width:46px; height:46px; border-radius:14px; background:#e3eae7; color:#5b6b66; display:grid; place-items:center; font-weight:700; font-size:14px;">ม.3/2</div>
+              <div style="flex:1;"><div style="font-size:15px; font-weight:600; color:#0b2b24;">วิทยาการคำนวณ</div><div style="font-size:12.5px; color:#5b6b66;">40 คน · ว23103</div></div>
+              <div style="color:#8b9a95;">⋯</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div data-screen-label="01 หน้าแรก มือถือ" style="width:390px; height:760px; border-radius:26px; overflow:hidden; border:1px solid #d7dedb; background:#eef2f0; display:flex; flex-direction:column; box-shadow:0 18px 40px -24px rgba(11,43,36,.45);">
+        <div style="background:#0b2b24; padding:34px 16px 16px;">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <div style="width:26px; height:26px; border-radius:8px; background:#c7f04a; color:#0b2b24; display:grid; place-items:center; font-weight:700; font-size:13px;">A</div>
+            <div style="flex:1;"><div style="font-size:15px; font-weight:700; color:#fff;">AssignCheck</div><div style="font-size:11.5px; color:#a9c6bd;">2568 · เทอม 1</div></div>
+            <div style="font-size:11.5px; color:#a9c6bd; background:#12463a; padding:4px 9px; border-radius:20px;">ค้าง 2</div>
+            <div style="width:30px; height:30px; border-radius:10px; background:#12463a; color:#c7f04a; display:grid; place-items:center; font-size:13px;">⚙</div>
+          </div>
+        </div>
+        <div style="flex:1; padding:14px 14px 0; display:flex; flex-direction:column; gap:12px; overflow:hidden;">
+          <div style="background:#0d7d6e; border-radius:18px; padding:18px;">
+            <div style="font-size:12.5px; color:#a9e5da;">คาบถัดไป · 10:40 น. คาบ 2</div>
+            <div style="font-size:19px; font-weight:700; color:#fff; margin-top:2px;">ม.1/1 คณิตศาสตร์พื้นฐาน</div>
+            <div style="font-size:12.5px; color:#a9e5da; margin:4px 0 14px;">38 คน · ยังไม่ได้เช็คชื่อ</div>
+            <div style="padding:14px; border-radius:14px; background:#c7f04a; color:#0b2b24; font-size:15.5px; font-weight:700; text-align:center;">✓ เช็คชื่อ · ทุกคนมา</div>
+            <div style="padding:10px; margin-top:8px; border-radius:12px; border:1px solid #4ba394; color:#dff3ec; font-size:13.5px; text-align:center;">เช็คเองทีละคน</div>
+          </div>
+          <div style="background:#fff; border-radius:16px; padding:16px;">
+            <div style="font-size:13.5px; font-weight:700; color:#0b2b24; margin-bottom:10px;">ค้างอยู่</div>
+            <div style="display:flex; flex-direction:column; gap:9px;">
+              <div style="display:flex; align-items:center; gap:9px; font-size:13px; color:#0b2b24;"><span style="width:6px; height:6px; border-radius:50%; background:#b45309;"></span>ใบงานที่ 4 ยังไม่ตรวจ 12 คน<span style="margin-left:auto; color:#0d7d6e;">›</span></div>
+              <div style="display:flex; align-items:center; gap:9px; font-size:13px; color:#0b2b24;"><span style="width:6px; height:6px; border-radius:50%; background:#be123c;"></span>ยังไม่ตั้งวันสอบกลางภาค<span style="margin-left:auto; color:#0d7d6e;">›</span></div>
+            </div>
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+            <div style="background:#fff; border-radius:14px; padding:14px;"><div style="font-size:23px; font-weight:700; color:#0d7d6e; font-variant-numeric:tabular-nums;">72.4</div><div style="font-size:12px; color:#5b6b66;">คะแนนเฉลี่ย</div></div>
+            <div style="background:#fff; border-radius:14px; padding:14px;"><div style="font-size:23px; font-weight:700; color:#b45309; font-variant-numeric:tabular-nums;">4</div><div style="font-size:12px; color:#5b6b66;">เสี่ยง มส</div></div>
+          </div>
+          <div style="font-size:13.5px; font-weight:700; color:#0b2b24; margin-top:2px;">ห้องเรียนของฉัน</div>
+          <div style="background:#fff; border-radius:14px; padding:12px; display:flex; gap:11px; align-items:center; outline:2px solid #0d7d6e;">
+            <div style="width:40px; height:40px; border-radius:12px; background:#0d7d6e; color:#fff; display:grid; place-items:center; font-weight:700; font-size:13px;">ม.1/1</div>
+            <div style="flex:1;"><div style="font-size:14.5px; font-weight:600; color:#0b2b24;">คณิตศาสตร์พื้นฐาน</div><div style="font-size:12px; color:#5b6b66;">38 คน</div></div>
+          </div>
+          <div style="background:#fff; border-radius:14px; padding:12px; display:flex; gap:11px; align-items:center;">
+            <div style="width:40px; height:40px; border-radius:12px; background:#e3eae7; color:#5b6b66; display:grid; place-items:center; font-weight:700; font-size:13px;">ม.2/3</div>
+            <div style="flex:1;"><div style="font-size:14.5px; font-weight:600; color:#0b2b24;">คณิตศาสตร์เพิ่มเติม</div><div style="font-size:12px; color:#5b6b66;">35 คน</div></div>
+          </div>
+        </div>
+        <div style="display:flex; background:#fff; border-top:1px solid #dde5e2; padding:8px 6px 18px;">
+          <div style="flex:1; text-align:center; font-size:11px; color:#0d7d6e; font-weight:600;"><div style="font-size:17px;">⌂</div>หน้าแรก</div>
+          <div style="flex:1; text-align:center; font-size:11px; color:#8b9a95;"><div style="font-size:17px;">◷</div>เช็คชื่อ</div>
+          <div style="flex:1; text-align:center; font-size:11px; color:#8b9a95;"><div style="font-size:17px;">✎</div>งาน/คะแนน</div>
+          <div style="flex:1; text-align:center; font-size:11px; color:#8b9a95;"><div style="font-size:17px;">◫</div>รายงาน</div>
+          <div style="flex:1; text-align:center; font-size:11px; color:#8b9a95;"><div style="font-size:17px;">☰</div>สรุป SGS</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ 2 เช็คชื่อ ══════════ -->
+  <div id="s2" style="display:flex; flex-direction:column; gap:14px;">
+    <div style="display:flex; align-items:baseline; gap:12px;">
+      <span style="font-family:'IBM Plex Mono',monospace; font-size:12px; background:#0b2b24; color:#c7f04a; padding:4px 9px; border-radius:6px;">02</span>
+      <span style="font-size:20px; font-weight:700; color:#0b2b24;">เช็คชื่อ</span>
+      <span style="font-size:13px; color:#5b6b66;">PC วางได้ 2 คอลัมน์ เห็น 20 คนโดยไม่ต้องเลื่อน · มือถือปุ่ม 36px</span>
+    </div>
+    <div style="display:flex; gap:18px; align-items:flex-start; flex-wrap:wrap;">
+
+      <div data-screen-label="02 เช็คชื่อ PC" style="width:1000px; border-radius:14px; overflow:hidden; border:1px solid #d7dedb; box-shadow:0 18px 40px -24px rgba(11,43,36,.45); background:#eef2f0;">
+        <div style="display:flex; align-items:center; gap:24px; padding:0 22px; height:60px; background:#0b2b24;">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <div style="width:28px; height:28px; border-radius:9px; background:#c7f04a; color:#0b2b24; display:grid; place-items:center; font-weight:700; font-size:14px;">A</div>
+            <div style="font-weight:700; font-size:16px; color:#fff;">AssignCheck</div>
+          </div>
+          <div style="display:flex; gap:4px; flex:1;">
+            <div style="padding:7px 14px; font-size:14px; color:#a9c6bd;">หน้าแรก</div>
+            <div style="padding:7px 14px; font-size:14px; font-weight:600; color:#0b2b24; background:#c7f04a; border-radius:20px;">เช็คชื่อ</div>
+            <div style="padding:7px 14px; font-size:14px; color:#a9c6bd;">งาน/คะแนน</div>
+            <div style="padding:7px 14px; font-size:14px; color:#a9c6bd;">รายงาน</div>
+            <div style="padding:7px 14px; font-size:14px; color:#a9c6bd;">สรุป SGS</div>
+          </div>
+          <div style="display:flex; align-items:center; gap:9px;">
+            <div style="font-size:13px; color:#fff; background:#12463a; padding:6px 12px; border-radius:20px;">ม.1/1 คณิตศาสตร์พื้นฐาน ⌄</div>
+            <div style="width:32px; height:32px; border-radius:10px; background:#12463a; color:#c7f04a; display:grid; place-items:center; font-size:14px;">⚙</div>
+          </div>
+        </div>
+        <div style="padding:22px; max-width:900px; margin:0 auto; display:flex; flex-direction:column; gap:14px;">
+          <div style="background:#fff; border-radius:16px; padding:16px 18px; display:flex; align-items:center; gap:16px;">
+            <div style="display:flex; align-items:center; gap:10px;">
+              <div style="width:32px; height:32px; border-radius:10px; background:#eef2f0; color:#0b2b24; display:grid; place-items:center;">‹</div>
+              <div>
+                <div style="font-size:17px; font-weight:700; color:#0b2b24;">พฤหัสบดี 26 สิงหาคม 2569</div>
+                <div style="font-size:12.5px; color:#5b6b66;">ก่อนกลางภาค · แก้ช่วงได้ในเมนู ⋯</div>
+              </div>
+              <div style="width:32px; height:32px; border-radius:10px; background:#eef2f0; color:#0b2b24; display:grid; place-items:center;">›</div>
+            </div>
+            <div style="display:flex; gap:6px; margin-left:6px;">
+              <div style="padding:7px 14px; border-radius:20px; background:#0b2b24; color:#fff; font-size:13.5px; font-weight:600;">คาบ 2</div>
+              <div style="padding:7px 14px; border-radius:20px; background:#eef2f0; color:#5b6b66; font-size:13.5px;">คาบ 5</div>
+              <div style="padding:7px 12px; border-radius:20px; border:1px dashed #b9c7c2; color:#5b6b66; font-size:13.5px;">+ เพิ่มคาบ</div>
+            </div>
+            <div style="margin-left:auto; display:flex; align-items:center; gap:10px;">
+              <div style="font-size:13px; color:#5b6b66; font-variant-numeric:tabular-nums;">เช็คแล้ว 34/38</div>
+              <div style="padding:10px 18px; border-radius:12px; background:#c7f04a; color:#0b2b24; font-size:14px; font-weight:700;">✓ ทุกคนมา</div>
+            </div>
+          </div>
+
+          <div style="display:flex; gap:8px; align-items:center;">
+            <div style="padding:6px 13px; border-radius:20px; background:#0d7d6e; color:#fff; font-size:13px;">ทั้งหมด 38</div>
+            <div style="padding:6px 13px; border-radius:20px; background:#fff; color:#5b6b66; font-size:13px;">ยังว่าง 4</div>
+            <div style="padding:6px 13px; border-radius:20px; background:#fff; color:#5b6b66; font-size:13px;">ไม่ปกติ 3</div>
+            <div style="margin-left:auto; display:flex; gap:14px; font-size:12.5px; color:#5b6b66; font-variant-numeric:tabular-nums;">
+              <span><b style="color:#15803d;">มา 31</b></span><span><b style="color:#b45309;">สาย 1</b></span><span><b style="color:#1d4ed8;">ลา 1</b></span><span><b style="color:#be123c;">ขาด 1</b></span>
+            </div>
+          </div>
+
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+            <div style="background:#fff; border-radius:14px; padding:9px 12px; display:flex; align-items:center; gap:10px;">
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:12px; color:#8b9a95; width:20px;">01</div>
+              <div style="flex:1; font-size:14.5px; color:#0b2b24;">กฤตภาส คงพลอย</div>
+              <div style="display:flex; gap:4px;">
+                <div style="width:34px; height:34px; border-radius:10px; background:#15803d; color:#fff; display:grid; place-items:center; font-size:14px; font-weight:700;">ม</div>
+                <div style="width:34px; height:34px; border-radius:10px; background:#eef2f0; color:#8b9a95; display:grid; place-items:center; font-size:14px;">ส</div>
+                <div style="width:34px; height:34px; border-radius:10px; background:#eef2f0; color:#8b9a95; display:grid; place-items:center; font-size:14px;">ล</div>
+                <div style="width:34px; height:34px; border-radius:10px; background:#eef2f0; color:#8b9a95; display:grid; place-items:center; font-size:14px;">ข</div>
+              </div>
+            </div>
+            <div style="background:#fff; border-radius:14px; padding:9px 12px; display:flex; align-items:center; gap:10px;">
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:12px; color:#8b9a95; width:20px;">02</div>
+              <div style="flex:1; font-size:14.5px; color:#0b2b24;">คมกริช พิลา</div>
+              <div style="display:flex; gap:4px;">
+                <div style="width:34px; height:34px; border-radius:10px; background:#eef2f0; color:#8b9a95; display:grid; place-items:center; font-size:14px;">ม</div>
+                <div style="width:34px; height:34px; border-radius:10px; background:#b45309; color:#fff; display:grid; place-items:center; font-size:14px; font-weight:700;">ส</div>
+                <div style="width:34px; height:34px; border-radius:10px; background:#eef2f0; color:#8b9a95; display:grid; place-items:center; font-size:14px;">ล</div>
+                <div style="width:34px; height:34px; border-radius:10px; background:#eef2f0; color:#8b9a95; display:grid; place-items:center; font-size:14px;">ข</div>
+              </div>
+            </div>
+            <div style="background:#fff; border-radius:14px; padding:9px 12px; display:flex; align-items:center; gap:10px;">
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:12px; color:#8b9a95; width:20px;">03</div>
+              <div style="flex:1; font-size:14.5px; color:#0b2b24;">จิรภัทร แสงทอง</div>
+              <div style="display:flex; gap:4px;">
+                <div style="width:34px; height:34px; border-radius:10px; background:#15803d; color:#fff; display:grid; place-items:center; font-size:14px; font-weight:700;">ม</div>
+                <div style="width:34px; height:34px; border-radius:10px; background:#eef2f0; color:#8b9a95; display:grid; place-items:center; font-size:14px;">ส</div>
+                <div style="width:34px; height:34px; border-radius:10px; background:#eef2f0; color:#8b9a95; display:grid; place-items:center; font-size:14px;">ล</div>
+                <div style="width:34px; height:34px; border-radius:10px; background:#eef2f0; color:#8b9a95; display:grid; place-items:center; font-size:14px;">ข</div>
+              </div>
+            </div>
+            <div style="background:#fff; border-radius:14px; padding:9px 12px; display:flex; align-items:center; gap:10px; outline:2px solid #0d7d6e;">
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:12px; color:#8b9a95; width:20px;">04</div>
+              <div style="flex:1; font-size:14.5px; color:#0b2b24;">ชนากานต์ ใจดี</div>
+              <div style="display:flex; gap:4px;">
+                <div style="width:34px; height:34px; border-radius:10px; background:#eef2f0; color:#8b9a95; display:grid; place-items:center; font-size:14px;">ม</div>
+                <div style="width:34px; height:34px; border-radius:10px; background:#eef2f0; color:#8b9a95; display:grid; place-items:center; font-size:14px;">ส</div>
+                <div style="width:34px; height:34px; border-radius:10px; background:#1d4ed8; color:#fff; display:grid; place-items:center; font-size:14px; font-weight:700;">ล</div>
+                <div style="width:34px; height:34px; border-radius:10px; background:#eef2f0; color:#8b9a95; display:grid; place-items:center; font-size:14px;">ข</div>
+              </div>
+            </div>
+            <div style="background:#fff; border-radius:14px; padding:9px 12px; display:flex; align-items:center; gap:10px;">
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:12px; color:#8b9a95; width:20px;">05</div>
+              <div style="flex:1; font-size:14.5px; color:#0b2b24;">ณัฐวุฒิ บุญมี</div>
+              <div style="display:flex; gap:4px;">
+                <div style="width:34px; height:34px; border-radius:10px; background:#eef2f0; color:#8b9a95; display:grid; place-items:center; font-size:14px;">ม</div>
+                <div style="width:34px; height:34px; border-radius:10px; background:#eef2f0; color:#8b9a95; display:grid; place-items:center; font-size:14px;">ส</div>
+                <div style="width:34px; height:34px; border-radius:10px; background:#eef2f0; color:#8b9a95; display:grid; place-items:center; font-size:14px;">ล</div>
+                <div style="width:34px; height:34px; border-radius:10px; background:#be123c; color:#fff; display:grid; place-items:center; font-size:14px; font-weight:700;">ข</div>
+              </div>
+            </div>
+            <div style="background:#fff; border-radius:14px; padding:9px 12px; display:flex; align-items:center; gap:10px;">
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:12px; color:#8b9a95; width:20px;">06</div>
+              <div style="flex:1; font-size:14.5px; color:#0b2b24;">ธนกฤต วงศ์คำ</div>
+              <div style="display:flex; gap:4px;">
+                <div style="width:34px; height:34px; border-radius:10px; background:#15803d; color:#fff; display:grid; place-items:center; font-size:14px; font-weight:700;">ม</div>
+                <div style="width:34px; height:34px; border-radius:10px; background:#eef2f0; color:#8b9a95; display:grid; place-items:center; font-size:14px;">ส</div>
+                <div style="width:34px; height:34px; border-radius:10px; background:#eef2f0; color:#8b9a95; display:grid; place-items:center; font-size:14px;">ล</div>
+                <div style="width:34px; height:34px; border-radius:10px; background:#eef2f0; color:#8b9a95; display:grid; place-items:center; font-size:14px;">ข</div>
+              </div>
+            </div>
+            <div style="background:#fff; border-radius:14px; padding:9px 12px; display:flex; align-items:center; gap:10px;">
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:12px; color:#8b9a95; width:20px;">07</div>
+              <div style="flex:1; font-size:14.5px; color:#0b2b24;">นภสร ทองแท้</div>
+              <div style="display:flex; gap:4px;">
+                <div style="width:34px; height:34px; border-radius:10px; background:#15803d; color:#fff; display:grid; place-items:center; font-size:14px; font-weight:700;">ม</div>
+                <div style="width:34px; height:34px; border-radius:10px; background:#eef2f0; color:#8b9a95; display:grid; place-items:center; font-size:14px;">ส</div>
+                <div style="width:34px; height:34px; border-radius:10px; background:#eef2f0; color:#8b9a95; display:grid; place-items:center; font-size:14px;">ล</div>
+                <div style="width:34px; height:34px; border-radius:10px; background:#eef2f0; color:#8b9a95; display:grid; place-items:center; font-size:14px;">ข</div>
+              </div>
+            </div>
+            <div style="background:#fff; border-radius:14px; padding:9px 12px; display:flex; align-items:center; gap:10px;">
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:12px; color:#8b9a95; width:20px;">08</div>
+              <div style="flex:1; font-size:14.5px; color:#0b2b24;">ปาริชาต ศรีสุข</div>
+              <div style="display:flex; gap:4px;">
+                <div style="width:34px; height:34px; border-radius:10px; background:#15803d; color:#fff; display:grid; place-items:center; font-size:14px; font-weight:700;">ม</div>
+                <div style="width:34px; height:34px; border-radius:10px; background:#eef2f0; color:#8b9a95; display:grid; place-items:center; font-size:14px;">ส</div>
+                <div style="width:34px; height:34px; border-radius:10px; background:#eef2f0; color:#8b9a95; display:grid; place-items:center; font-size:14px;">ล</div>
+                <div style="width:34px; height:34px; border-radius:10px; background:#eef2f0; color:#8b9a95; display:grid; place-items:center; font-size:14px;">ข</div>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex; align-items:center; gap:12px; padding-top:2px;">
+            <div style="font-size:12.5px; color:#5b6b66;">บันทึกอัตโนมัติทุกครั้งที่แตะ · ออฟไลน์ก็เช็คได้ ระบบส่งให้เมื่อมีเน็ต</div>
+            <div style="margin-left:auto; padding:11px 22px; border-radius:12px; background:#0d7d6e; color:#fff; font-size:14px; font-weight:700;">เสร็จสิ้น</div>
+          </div>
+        </div>
+      </div>
+
+      <div data-screen-label="02 เช็คชื่อ มือถือ" style="width:390px; height:760px; border-radius:26px; overflow:hidden; border:1px solid #d7dedb; background:#eef2f0; display:flex; flex-direction:column; box-shadow:0 18px 40px -24px rgba(11,43,36,.45);">
+        <div style="background:#0b2b24; padding:34px 16px 16px;">
+          <div style="display:flex; align-items:center; gap:12px;">
+            <div style="font-size:20px; color:#a9c6bd;">‹</div>
+            <div style="flex:1;">
+              <div style="font-size:17px; font-weight:700; color:#fff;">พฤ. 26 ส.ค. · คาบ 2</div>
+              <div style="font-size:12.5px; color:#a9c6bd;">ม.1/1 คณิตศาสตร์พื้นฐาน</div>
+            </div>
+            <div style="font-size:13px; font-weight:700; color:#0b2b24; background:#c7f04a; padding:5px 11px; border-radius:20px; font-variant-numeric:tabular-nums;">34/38</div>
+          </div>
+          <div style="display:flex; gap:8px; margin-top:14px;">
+            <div style="flex:1; text-align:center; padding:10px; border-radius:12px; background:#c7f04a; color:#0b2b24; font-size:14px; font-weight:700;">✓ ทุกคนมา</div>
+            <div style="padding:10px 14px; border-radius:12px; background:#12463a; color:#dff3ec; font-size:14px;">ยังว่าง 4</div>
+          </div>
+        </div>
+        <div style="flex:1; overflow:hidden; padding:12px; display:flex; flex-direction:column; gap:8px;">
+          <div style="display:flex; align-items:center; gap:10px; background:#fff; border-radius:14px; padding:10px 12px;">
+            <div style="flex:1;"><div style="font-size:15px; color:#0b2b24;">กฤตภาส คงพลอย</div><div style="font-size:11.5px; color:#8b9a95; font-variant-numeric:tabular-nums;">เลขที่ 1 · 61475</div></div>
+            <div style="display:flex; gap:5px;">
+              <div style="width:36px; height:36px; border-radius:11px; background:#15803d; color:#fff; display:grid; place-items:center; font-size:14px; font-weight:700;">ม</div>
+              <div style="width:36px; height:36px; border-radius:11px; background:#eef2f0; color:#8b9a95; display:grid; place-items:center; font-size:14px;">ส</div>
+              <div style="width:36px; height:36px; border-radius:11px; background:#eef2f0; color:#8b9a95; display:grid; place-items:center; font-size:14px;">ล</div>
+              <div style="width:36px; height:36px; border-radius:11px; background:#eef2f0; color:#8b9a95; display:grid; place-items:center; font-size:14px;">ข</div>
+            </div>
+          </div>
+          <div style="display:flex; align-items:center; gap:10px; background:#fff; border-radius:14px; padding:10px 12px;">
+            <div style="flex:1;"><div style="font-size:15px; color:#0b2b24;">คมกริช พิลา</div><div style="font-size:11.5px; color:#8b9a95; font-variant-numeric:tabular-nums;">เลขที่ 2 · 61476</div></div>
+            <div style="display:flex; gap:5px;">
+              <div style="width:36px; height:36px; border-radius:11px; background:#eef2f0; color:#8b9a95; display:grid; place-items:center; font-size:14px;">ม</div>
+              <div style="width:36px; height:36px; border-radius:11px; background:#b45309; color:#fff; display:grid; place-items:center; font-size:14px; font-weight:700;">ส</div>
+              <div style="width:36px; height:36px; border-radius:11px; background:#eef2f0; color:#8b9a95; display:grid; place-items:center; font-size:14px;">ล</div>
+              <div style="width:36px; height:36px; border-radius:11px; background:#eef2f0; color:#8b9a95; display:grid; place-items:center; font-size:14px;">ข</div>
+            </div>
+          </div>
+          <div style="display:flex; align-items:center; gap:10px; background:#fff; border-radius:14px; padding:10px 12px;">
+            <div style="flex:1;"><div style="font-size:15px; color:#0b2b24;">จิรภัทร แสงทอง</div><div style="font-size:11.5px; color:#8b9a95; font-variant-numeric:tabular-nums;">เลขที่ 3 · 61477</div></div>
+            <div style="display:flex; gap:5px;">
+              <div style="width:36px; height:36px; border-radius:11px; background:#15803d; color:#fff; display:grid; place-items:center; font-size:14px; font-weight:700;">ม</div>
+              <div style="width:36px; height:36px; border-radius:11px; background:#eef2f0; color:#8b9a95; display:grid; place-items:center; font-size:14px;">ส</div>
+              <div style="width:36px; height:36px; border-radius:11px; background:#eef2f0; color:#8b9a95; display:grid; place-items:center; font-size:14px;">ล</div>
+              <div style="width:36px; height:36px; border-radius:11px; background:#eef2f0; color:#8b9a95; display:grid; place-items:center; font-size:14px;">ข</div>
+            </div>
+          </div>
+          <div style="display:flex; align-items:center; gap:10px; background:#fff; border-radius:14px; padding:10px 12px; outline:2px solid #0d7d6e;">
+            <div style="flex:1;"><div style="font-size:15px; color:#0b2b24;">ชนากานต์ ใจดี</div><div style="font-size:11.5px; color:#8b9a95; font-variant-numeric:tabular-nums;">เลขที่ 4 · 61478</div></div>
+            <div style="display:flex; gap:5px;">
+              <div style="width:36px; height:36px; border-radius:11px; background:#eef2f0; color:#8b9a95; display:grid; place-items:center; font-size:14px;">ม</div>
+              <div style="width:36px; height:36px; border-radius:11px; background:#eef2f0; color:#8b9a95; display:grid; place-items:center; font-size:14px;">ส</div>
+              <div style="width:36px; height:36px; border-radius:11px; background:#1d4ed8; color:#fff; display:grid; place-items:center; font-size:14px; font-weight:700;">ล</div>
+              <div style="width:36px; height:36px; border-radius:11px; background:#eef2f0; color:#8b9a95; display:grid; place-items:center; font-size:14px;">ข</div>
+            </div>
+          </div>
+          <div style="display:flex; align-items:center; gap:10px; background:#fff; border-radius:14px; padding:10px 12px;">
+            <div style="flex:1;"><div style="font-size:15px; color:#0b2b24;">ณัฐวุฒิ บุญมี</div><div style="font-size:11.5px; color:#8b9a95; font-variant-numeric:tabular-nums;">เลขที่ 5 · 61479</div></div>
+            <div style="display:flex; gap:5px;">
+              <div style="width:36px; height:36px; border-radius:11px; background:#eef2f0; color:#8b9a95; display:grid; place-items:center; font-size:14px;">ม</div>
+              <div style="width:36px; height:36px; border-radius:11px; background:#eef2f0; color:#8b9a95; display:grid; place-items:center; font-size:14px;">ส</div>
+              <div style="width:36px; height:36px; border-radius:11px; background:#eef2f0; color:#8b9a95; display:grid; place-items:center; font-size:14px;">ล</div>
+              <div style="width:36px; height:36px; border-radius:11px; background:#be123c; color:#fff; display:grid; place-items:center; font-size:14px; font-weight:700;">ข</div>
+            </div>
+          </div>
+          <div style="display:flex; align-items:center; gap:10px; background:#fff; border-radius:14px; padding:10px 12px;">
+            <div style="flex:1;"><div style="font-size:15px; color:#0b2b24;">ธนกฤต วงศ์คำ</div><div style="font-size:11.5px; color:#8b9a95; font-variant-numeric:tabular-nums;">เลขที่ 6 · 61480</div></div>
+            <div style="display:flex; gap:5px;">
+              <div style="width:36px; height:36px; border-radius:11px; background:#15803d; color:#fff; display:grid; place-items:center; font-size:14px; font-weight:700;">ม</div>
+              <div style="width:36px; height:36px; border-radius:11px; background:#eef2f0; color:#8b9a95; display:grid; place-items:center; font-size:14px;">ส</div>
+              <div style="width:36px; height:36px; border-radius:11px; background:#eef2f0; color:#8b9a95; display:grid; place-items:center; font-size:14px;">ล</div>
+              <div style="width:36px; height:36px; border-radius:11px; background:#eef2f0; color:#8b9a95; display:grid; place-items:center; font-size:14px;">ข</div>
+            </div>
+          </div>
+          <div style="display:flex; align-items:center; gap:10px; background:#fff; border-radius:14px; padding:10px 12px;">
+            <div style="flex:1;"><div style="font-size:15px; color:#0b2b24;">นภสร ทองแท้</div><div style="font-size:11.5px; color:#8b9a95; font-variant-numeric:tabular-nums;">เลขที่ 7 · 61481</div></div>
+            <div style="display:flex; gap:5px;">
+              <div style="width:36px; height:36px; border-radius:11px; background:#15803d; color:#fff; display:grid; place-items:center; font-size:14px; font-weight:700;">ม</div>
+              <div style="width:36px; height:36px; border-radius:11px; background:#eef2f0; color:#8b9a95; display:grid; place-items:center; font-size:14px;">ส</div>
+              <div style="width:36px; height:36px; border-radius:11px; background:#eef2f0; color:#8b9a95; display:grid; place-items:center; font-size:14px;">ล</div>
+              <div style="width:36px; height:36px; border-radius:11px; background:#eef2f0; color:#8b9a95; display:grid; place-items:center; font-size:14px;">ข</div>
+            </div>
+          </div>
+        </div>
+        <div style="padding:12px 14px 18px; background:#fff;">
+          <div style="text-align:center; padding:14px; border-radius:14px; background:#0d7d6e; color:#fff; font-size:15.5px; font-weight:700;">เสร็จสิ้น · บันทึกแล้ว</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ 3 งาน/คะแนน ══════════ -->
+  <div id="s3" style="display:flex; flex-direction:column; gap:14px;">
+    <div style="display:flex; align-items:baseline; gap:12px;">
+      <span style="font-family:'IBM Plex Mono',monospace; font-size:12px; background:#0b2b24; color:#c7f04a; padding:4px 9px; border-radius:6px;">03</span>
+      <span style="font-size:20px; font-weight:700; color:#0b2b24;">งาน / คะแนน</span>
+      <span style="font-size:13px; color:#5b6b66;">เลือกถัง → เลือกชิ้นงาน → กด ส่ง/ช้า/ไม่ส่ง หรือพิมพ์คะแนน · ใส่รายละเอียดงานให้นักเรียนอ่านได้</span>
+    </div>
+    <div style="display:flex; gap:18px; align-items:flex-start; flex-wrap:wrap;">
+
+      <div data-screen-label="03 งานคะแนน PC" style="width:1000px; border-radius:14px; overflow:hidden; border:1px solid #d7dedb; box-shadow:0 18px 40px -24px rgba(11,43,36,.45); background:#eef2f0;">
+        <div style="display:flex; align-items:center; gap:24px; padding:0 22px; height:60px; background:#0b2b24;">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <div style="width:28px; height:28px; border-radius:9px; background:#c7f04a; color:#0b2b24; display:grid; place-items:center; font-weight:700; font-size:14px;">A</div>
+            <div style="font-weight:700; font-size:16px; color:#fff;">AssignCheck</div>
+          </div>
+          <div style="display:flex; gap:4px; flex:1;">
+            <div style="padding:7px 14px; font-size:14px; color:#a9c6bd;">หน้าแรก</div>
+            <div style="padding:7px 14px; font-size:14px; color:#a9c6bd;">เช็คชื่อ</div>
+            <div style="padding:7px 14px; font-size:14px; font-weight:600; color:#0b2b24; background:#c7f04a; border-radius:20px;">งาน/คะแนน</div>
+            <div style="padding:7px 14px; font-size:14px; color:#a9c6bd;">รายงาน</div>
+            <div style="padding:7px 14px; font-size:14px; color:#a9c6bd;">สรุป SGS</div>
+          </div>
+          <div style="font-size:13px; color:#fff; background:#12463a; padding:6px 12px; border-radius:20px;">ม.1/1 คณิตศาสตร์พื้นฐาน ⌄</div>
+        </div>
+        <div style="padding:22px; max-width:900px; margin:0 auto; display:flex; flex-direction:column; gap:14px;">
+          <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
+            <div style="padding:9px 15px; border-radius:12px; background:#0b2b24; color:#fff; font-size:13.5px; font-weight:600; white-space:nowrap;">📝 ส่งงาน <span style="color:#a9c6bd; font-weight:400;">· 10</span></div>
+            <div style="padding:9px 15px; border-radius:12px; background:#fff; color:#5b6b66; font-size:13.5px; white-space:nowrap;">✍️ สอบเก็บ · 10</div>
+            <div style="padding:9px 15px; border-radius:12px; background:#fff; color:#5b6b66; font-size:13.5px; white-space:nowrap;">📄 กลางภาค · 20</div>
+            <div style="padding:9px 15px; border-radius:12px; background:#fff; color:#5b6b66; font-size:13.5px; white-space:nowrap;">📕 ปลายภาค · 30</div>
+            <div style="margin-left:auto; padding:9px 15px; border-radius:12px; background:#eef2f0; border:1px solid #cfd9d5; color:#0b2b24; font-size:13.5px; white-space:nowrap;">ช่วง: ก่อนกลางภาค ⌄</div>
+          </div>
+
+          <div style="background:#fff; border-radius:16px; padding:14px 16px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+            <div style="padding:8px 14px; border-radius:20px; background:#0d7d6e; color:#fff; font-size:13.5px; font-weight:600; white-space:nowrap;">ใบงานที่ 4 · เต็ม 10</div>
+            <div style="padding:8px 14px; border-radius:20px; background:#eef2f0; color:#5b6b66; font-size:13.5px; white-space:nowrap;">ใบงานที่ 3 · เต็ม 10</div>
+            <div style="padding:8px 14px; border-radius:20px; background:#eef2f0; color:#5b6b66; font-size:13.5px; white-space:nowrap;">แบบฝึกหัด 2.1 · เต็ม 5</div>
+            <div style="padding:8px 14px; border-radius:20px; border:1px dashed #b9c7c2; color:#0d7d6e; font-size:13.5px; font-weight:600; white-space:nowrap;">+ เพิ่มงาน</div>
+            <div style="margin-left:auto; display:flex; gap:8px;">
+              <div style="padding:8px 14px; border-radius:12px; background:#eef2f0; color:#0b2b24; font-size:13px; white-space:nowrap;">📋 วางจาก Excel</div>
+              <div style="padding:8px 14px; border-radius:12px; background:#eef2f0; color:#0b2b24; font-size:13px;">⋯</div>
+            </div>
+          </div>
+
+          <div style="background:#fff; border-radius:16px; padding:16px 18px; display:flex; align-items:center; gap:18px;">
+            <div style="flex:1; min-width:0;">
+              <div style="font-size:16px; font-weight:700; color:#0b2b24; white-space:nowrap;">ใบงานที่ 4 — ทศนิยมและเศษส่วน</div>
+              <div style="font-size:12.5px; color:#5b6b66; margin-top:3px;">กำหนดส่ง 22 ส.ค. 16:30 · เต็ม 10 · หักส่งช้า 10% · แนบไฟล์ 1 รายการ</div>
+              <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:8px;">
+                <div style="padding:5px 11px; border-radius:9px; background:#eef2f0; border:1px solid #cfd9d5; color:#0d7d6e; font-size:12.5px; font-weight:600; white-space:nowrap;">✎ รายละเอียดงาน</div>
+                <div style="padding:5px 10px; border-radius:9px; background:#eaf3f0; color:#0d7d6e; font-size:11.5px; font-weight:600; white-space:nowrap;">👁 นักเรียนเห็น</div>
+              </div>
+              <div style="font-size:12.5px; color:#3f524c; margin-top:5px; text-wrap:pretty;">ทำข้อ 1–12 ในเอกสาร เขียนวิธีทำทุกข้อ ส่งเป็นสมุดหรือรูปถ่ายในไดรฟ์</div>
+            </div>
+            <div style="display:flex; background:#eef2f0; border-radius:12px; padding:3px; flex:none;">
+              <div style="padding:7px 14px; border-radius:9px; background:#0b2b24; color:#fff; font-size:13px; font-weight:600; white-space:nowrap;">รายชิ้นงาน</div>
+              <div style="padding:7px 14px; border-radius:9px; color:#5b6b66; font-size:13px; white-space:nowrap;">รายคน</div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-size:12.5px; color:#5b6b66;">ตรวจแล้ว</div>
+              <div style="font-size:19px; font-weight:700; color:#0b2b24; font-variant-numeric:tabular-nums;">26 / 38</div>
+            </div>
+            <div style="width:180px;">
+              <div style="height:8px; border-radius:20px; background:#eef2f0; overflow:hidden; display:flex;">
+                <div style="width:58%; background:#15803d;"></div><div style="width:11%; background:#b45309;"></div><div style="width:8%; background:#be123c;"></div>
+              </div>
+              <div style="font-size:11.5px; color:#5b6b66; margin-top:6px; font-variant-numeric:tabular-nums;">ส่ง 22 · ช้า 4 · ไม่ส่ง 3 · ยังไม่ตรวจ 9</div>
+            </div>
+          </div>
+
+          <div style="background:#fff; border-radius:16px; overflow:hidden;">
+            <div style="display:grid; grid-template-columns:44px 1fr 260px 90px; gap:12px; padding:10px 16px; background:#f4f7f6; font-size:12px; color:#5b6b66; font-weight:600;">
+              <div>เลขที่</div><div>ชื่อ-นามสกุล</div><div>สถานะการส่ง</div><div style="text-align:right;">คะแนน</div>
+            </div>
+            <div style="display:grid; grid-template-columns:44px 1fr 260px 90px; gap:12px; padding:9px 16px; align-items:center; border-top:1px solid #f0f4f2;">
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:12.5px; color:#8b9a95;">01</div>
+              <div style="font-size:14.5px; color:#0b2b24;">กฤตภาส คงพลอย</div>
+              <div style="display:flex; gap:6px;">
+                <div style="padding:7px 16px; border-radius:10px; background:#15803d; color:#fff; font-size:13px; font-weight:600;">ส่ง</div>
+                <div style="padding:7px 16px; border-radius:10px; background:#eef2f0; color:#5b6b66; font-size:13px;">ช้า</div>
+                <div style="padding:7px 16px; border-radius:10px; background:#eef2f0; color:#5b6b66; font-size:13px;">ไม่ส่ง</div>
+              </div>
+              <div style="text-align:right;"><span style="display:inline-block; min-width:56px; padding:6px 10px; border-radius:9px; border:1px solid #dde5e2; font-size:14px; color:#0b2b24; font-variant-numeric:tabular-nums;">10</span></div>
+            </div>
+            <div style="display:grid; grid-template-columns:44px 1fr 260px 90px; gap:12px; padding:9px 16px; align-items:center; border-top:1px solid #f0f4f2;">
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:12.5px; color:#8b9a95;">02</div>
+              <div style="font-size:14.5px; color:#0b2b24;">คมกริช พิลา</div>
+              <div style="display:flex; gap:6px;">
+                <div style="padding:7px 16px; border-radius:10px; background:#eef2f0; color:#5b6b66; font-size:13px;">ส่ง</div>
+                <div style="padding:7px 16px; border-radius:10px; background:#b45309; color:#fff; font-size:13px; font-weight:600;">ช้า</div>
+                <div style="padding:7px 16px; border-radius:10px; background:#eef2f0; color:#5b6b66; font-size:13px;">ไม่ส่ง</div>
+              </div>
+              <div style="text-align:right;"><span style="display:inline-block; min-width:56px; padding:6px 10px; border-radius:9px; border:1px solid #dde5e2; font-size:14px; color:#0b2b24; font-variant-numeric:tabular-nums;">9</span></div>
+            </div>
+            <div style="display:grid; grid-template-columns:44px 1fr 260px 90px; gap:12px; padding:9px 16px; align-items:center; border-top:1px solid #f0f4f2;">
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:12.5px; color:#8b9a95;">03</div>
+              <div style="font-size:14.5px; color:#0b2b24;">จิรภัทร แสงทอง</div>
+              <div style="display:flex; gap:6px;">
+                <div style="padding:7px 16px; border-radius:10px; background:#eef2f0; color:#5b6b66; font-size:13px;">ส่ง</div>
+                <div style="padding:7px 16px; border-radius:10px; background:#eef2f0; color:#5b6b66; font-size:13px;">ช้า</div>
+                <div style="padding:7px 16px; border-radius:10px; background:#be123c; color:#fff; font-size:13px; font-weight:600;">ไม่ส่ง</div>
+              </div>
+              <div style="text-align:right;"><span style="display:inline-block; min-width:56px; padding:6px 10px; border-radius:9px; background:#f4f7f6; font-size:14px; color:#8b9a95; font-variant-numeric:tabular-nums;">0</span></div>
+            </div>
+            <div style="display:grid; grid-template-columns:44px 1fr 260px 90px; gap:12px; padding:9px 16px; align-items:center; border-top:1px solid #f0f4f2; background:#fbfdfc;">
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:12.5px; color:#8b9a95;">04</div>
+              <div style="font-size:14.5px; color:#0b2b24;">ชนากานต์ ใจดี</div>
+              <div style="display:flex; gap:6px;">
+                <div style="padding:7px 16px; border-radius:10px; background:#eef2f0; color:#5b6b66; font-size:13px;">ส่ง</div>
+                <div style="padding:7px 16px; border-radius:10px; background:#eef2f0; color:#5b6b66; font-size:13px;">ช้า</div>
+                <div style="padding:7px 16px; border-radius:10px; background:#eef2f0; color:#5b6b66; font-size:13px;">ไม่ส่ง</div>
+              </div>
+              <div style="text-align:right;"><span style="display:inline-block; min-width:56px; padding:6px 10px; border-radius:9px; border:1px dashed #b9c7c2; font-size:13px; color:#8b9a95;">ว่าง</span></div>
+            </div>
+            <div style="display:grid; grid-template-columns:44px 1fr 260px 90px; gap:12px; padding:9px 16px; align-items:center; border-top:1px solid #f0f4f2;">
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:12.5px; color:#8b9a95;">05</div>
+              <div style="font-size:14.5px; color:#0b2b24;">ณัฐวุฒิ บุญมี</div>
+              <div style="display:flex; gap:6px;">
+                <div style="padding:7px 16px; border-radius:10px; background:#15803d; color:#fff; font-size:13px; font-weight:600;">ส่ง</div>
+                <div style="padding:7px 16px; border-radius:10px; background:#eef2f0; color:#5b6b66; font-size:13px;">ช้า</div>
+                <div style="padding:7px 16px; border-radius:10px; background:#eef2f0; color:#5b6b66; font-size:13px;">ไม่ส่ง</div>
+              </div>
+              <div style="text-align:right;"><span style="display:inline-block; min-width:56px; padding:6px 10px; border-radius:9px; border:1px solid #dde5e2; font-size:14px; color:#0b2b24; font-variant-numeric:tabular-nums;">7</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div data-screen-label="03 งานคะแนน มือถือ" style="width:390px; height:760px; border-radius:26px; overflow:hidden; border:1px solid #d7dedb; background:#eef2f0; display:flex; flex-direction:column; box-shadow:0 18px 40px -24px rgba(11,43,36,.45);">
+        <div style="background:#0b2b24; padding:34px 16px 14px;">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <div style="flex:1;"><div style="font-size:16px; font-weight:700; color:#fff;">ใบงานที่ 4</div><div style="font-size:12px; color:#a9c6bd;">ส่งงาน · ก่อนกลางภาค · เต็ม 10</div></div>
+            <div style="font-size:12.5px; color:#0b2b24; background:#c7f04a; padding:5px 10px; border-radius:20px; font-weight:700; font-variant-numeric:tabular-nums;">26/38</div>
+          </div>
+          <div style="display:flex; align-items:center; gap:10px; margin-top:12px; padding:11px 14px; border-radius:12px; background:#12463a;">
+            <div style="flex:1; font-size:14px; color:#fff; font-weight:600;">ใบงานที่ 4</div>
+            <div style="font-size:12px; color:#a9c6bd;">3 ชิ้นในถังนี้</div>
+            <div style="font-size:13px; color:#c7f04a;">⌄</div>
+          </div>
+        </div>
+        <div style="flex:1; padding:12px; display:flex; flex-direction:column; gap:8px; overflow:hidden;">
+          <div style="background:#fff; border-radius:14px; padding:11px 12px;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:9px;">
+              <div style="flex:1; font-size:15px; color:#0b2b24;">กฤตภาส คงพลอย</div>
+              <div style="font-size:15px; font-weight:700; color:#0b2b24; font-variant-numeric:tabular-nums;">10</div>
+            </div>
+            <div style="display:flex; gap:6px;">
+              <div style="flex:1; text-align:center; padding:9px; border-radius:11px; background:#15803d; color:#fff; font-size:13.5px; font-weight:600;">ส่ง</div>
+              <div style="flex:1; text-align:center; padding:9px; border-radius:11px; background:#eef2f0; color:#5b6b66; font-size:13.5px;">ช้า</div>
+              <div style="flex:1; text-align:center; padding:9px; border-radius:11px; background:#eef2f0; color:#5b6b66; font-size:13.5px;">ไม่ส่ง</div>
+              <div style="width:48px; text-align:center; padding:9px; border-radius:11px; border:1px solid #dde5e2; color:#5b6b66; font-size:13.5px;">⌨</div>
+            </div>
+          </div>
+          <div style="background:#fff; border-radius:14px; padding:11px 12px;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:9px;">
+              <div style="flex:1; font-size:15px; color:#0b2b24;">คมกริช พิลา</div>
+              <div style="font-size:15px; font-weight:700; color:#b45309; font-variant-numeric:tabular-nums;">9</div>
+            </div>
+            <div style="display:flex; gap:6px;">
+              <div style="flex:1; text-align:center; padding:9px; border-radius:11px; background:#eef2f0; color:#5b6b66; font-size:13.5px;">ส่ง</div>
+              <div style="flex:1; text-align:center; padding:9px; border-radius:11px; background:#b45309; color:#fff; font-size:13.5px; font-weight:600;">ช้า</div>
+              <div style="flex:1; text-align:center; padding:9px; border-radius:11px; background:#eef2f0; color:#5b6b66; font-size:13.5px;">ไม่ส่ง</div>
+              <div style="width:48px; text-align:center; padding:9px; border-radius:11px; border:1px solid #dde5e2; color:#5b6b66; font-size:13.5px;">⌨</div>
+            </div>
+          </div>
+          <div style="background:#fff; border-radius:14px; padding:11px 12px;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:9px;">
+              <div style="flex:1; font-size:15px; color:#0b2b24;">จิรภัทร แสงทอง</div>
+              <div style="font-size:15px; font-weight:700; color:#8b9a95; font-variant-numeric:tabular-nums;">0</div>
+            </div>
+            <div style="display:flex; gap:6px;">
+              <div style="flex:1; text-align:center; padding:9px; border-radius:11px; background:#eef2f0; color:#5b6b66; font-size:13.5px;">ส่ง</div>
+              <div style="flex:1; text-align:center; padding:9px; border-radius:11px; background:#eef2f0; color:#5b6b66; font-size:13.5px;">ช้า</div>
+              <div style="flex:1; text-align:center; padding:9px; border-radius:11px; background:#be123c; color:#fff; font-size:13.5px; font-weight:600;">ไม่ส่ง</div>
+              <div style="width:48px; text-align:center; padding:9px; border-radius:11px; border:1px solid #dde5e2; color:#5b6b66; font-size:13.5px;">⌨</div>
+            </div>
+          </div>
+          <div style="background:#fff; border-radius:14px; padding:11px 12px; outline:2px solid #0d7d6e;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:9px;">
+              <div style="flex:1; font-size:15px; color:#0b2b24;">ชนากานต์ ใจดี</div>
+              <div style="font-size:13px; color:#8b9a95;">ยังไม่ตรวจ</div>
+            </div>
+            <div style="display:flex; gap:6px;">
+              <div style="flex:1; text-align:center; padding:9px; border-radius:11px; background:#eef2f0; color:#5b6b66; font-size:13.5px;">ส่ง</div>
+              <div style="flex:1; text-align:center; padding:9px; border-radius:11px; background:#eef2f0; color:#5b6b66; font-size:13.5px;">ช้า</div>
+              <div style="flex:1; text-align:center; padding:9px; border-radius:11px; background:#eef2f0; color:#5b6b66; font-size:13.5px;">ไม่ส่ง</div>
+              <div style="width:48px; text-align:center; padding:9px; border-radius:11px; border:1px solid #dde5e2; color:#5b6b66; font-size:13.5px;">⌨</div>
+            </div>
+          </div>
+          <div style="background:#fff; border-radius:14px; padding:11px 12px;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:9px;">
+              <div style="flex:1; font-size:15px; color:#0b2b24;">ณัฐวุฒิ บุญมี</div>
+              <div style="font-size:15px; font-weight:700; color:#0b2b24; font-variant-numeric:tabular-nums;">7</div>
+            </div>
+            <div style="display:flex; gap:6px;">
+              <div style="flex:1; text-align:center; padding:9px; border-radius:11px; background:#15803d; color:#fff; font-size:13.5px; font-weight:600;">ส่ง</div>
+              <div style="flex:1; text-align:center; padding:9px; border-radius:11px; background:#eef2f0; color:#5b6b66; font-size:13.5px;">ช้า</div>
+              <div style="flex:1; text-align:center; padding:9px; border-radius:11px; background:#eef2f0; color:#5b6b66; font-size:13.5px;">ไม่ส่ง</div>
+              <div style="width:48px; text-align:center; padding:9px; border-radius:11px; border:1px solid #dde5e2; color:#5b6b66; font-size:13.5px;">⌨</div>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex; background:#fff; border-top:1px solid #dde5e2; padding:8px 6px 18px;">
+          <div style="flex:1; text-align:center; font-size:11px; color:#8b9a95;"><div style="font-size:17px;">⌂</div>หน้าแรก</div>
+          <div style="flex:1; text-align:center; font-size:11px; color:#8b9a95;"><div style="font-size:17px;">◷</div>เช็คชื่อ</div>
+          <div style="flex:1; text-align:center; font-size:11px; color:#0d7d6e; font-weight:600;"><div style="font-size:17px;">✎</div>งาน/คะแนน</div>
+          <div style="flex:1; text-align:center; font-size:11px; color:#8b9a95;"><div style="font-size:17px;">◫</div>รายงาน</div>
+          <div style="flex:1; text-align:center; font-size:11px; color:#8b9a95;"><div style="font-size:17px;">☰</div>สรุป SGS</div>
+        </div>
+      </div>
+
+      <!-- 03b โหมดรายคน -->
+      <div data-screen-label="03b เช็ครายคน มือถือ" style="width:390px; height:760px; border-radius:26px; overflow:hidden; border:1px solid #d7dedb; background:#eef2f0; display:flex; flex-direction:column; box-shadow:0 18px 40px -24px rgba(11,43,36,.45);">
+        <div style="background:#0b2b24; padding:34px 16px 14px;">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <div style="font-size:20px; color:#a9c6bd;">‹</div>
+            <div style="flex:1;"><div style="font-size:16px; font-weight:700; color:#fff;">กฤตภาส คงพลอย</div><div style="font-size:12px; color:#a9c6bd;">เลขที่ 1 · 61475 · ม.1/1</div></div>
+            <div style="font-size:12.5px; color:#0b2b24; background:#c7f04a; padding:5px 10px; border-radius:20px; font-weight:700;">1/38</div>
+          </div>
+          <div style="display:flex; gap:6px; margin-top:12px; background:#12463a; border-radius:11px; padding:3px;">
+            <div style="flex:1; text-align:center; padding:7px; border-radius:9px; color:#a9c6bd; font-size:13px;">รายชิ้นงาน</div>
+            <div style="flex:1; text-align:center; padding:7px; border-radius:9px; background:#c7f04a; color:#0b2b24; font-size:13px; font-weight:600;">รายคน</div>
+          </div>
+        </div>
+        <div style="flex:1; padding:12px; display:flex; flex-direction:column; gap:9px; overflow:hidden;">
+          <div style="display:flex; align-items:center; gap:10px; padding:11px 13px; background:#fff; border-radius:13px;">
+            <div style="font-size:14px; color:#8b9a95;">🔍</div>
+            <div style="flex:1; font-size:13.5px; color:#8b9a95;">ค้นหาชื่อ หรือเลขที่</div>
+            <div style="font-size:12.5px; color:#0d7d6e; font-weight:600;">เปลี่ยนคน ⌄</div>
+          </div>
+
+          <div style="background:#fff; border-radius:14px; padding:13px 14px; display:flex; align-items:center; gap:10px;">
+            <div style="flex:1;"><div style="font-size:13px; color:#5b6b66;">ส่งงาน · ก่อนกลางภาค</div><div style="font-size:12px; color:#8b9a95; margin-top:1px;">ตรวจแล้ว 2 จาก 3 ชิ้น</div></div>
+            <div style="text-align:right;"><div style="font-size:19px; font-weight:700; color:#0b2b24; font-variant-numeric:tabular-nums;">9.2</div><div style="font-size:11.5px; color:#5b6b66;">/10</div></div>
+          </div>
+
+          <div style="background:#fff; border-radius:14px; padding:12px 13px;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:9px;">
+              <div style="flex:1;"><div style="font-size:14.5px; color:#0b2b24;">ใบงานที่ 4</div><div style="font-size:11.5px; color:#8b9a95;">กำหนดส่ง 22 ส.ค. · เต็ม 10</div></div>
+              <div style="font-size:15px; font-weight:700; color:#0b2b24; font-variant-numeric:tabular-nums;">10</div>
+            </div>
+            <div style="display:flex; gap:6px;">
+              <div style="flex:1; text-align:center; padding:9px; border-radius:11px; background:#15803d; color:#fff; font-size:13.5px; font-weight:600;">ส่ง</div>
+              <div style="flex:1; text-align:center; padding:9px; border-radius:11px; background:#eef2f0; color:#5b6b66; font-size:13.5px;">ช้า</div>
+              <div style="flex:1; text-align:center; padding:9px; border-radius:11px; background:#eef2f0; color:#5b6b66; font-size:13.5px;">ไม่ส่ง</div>
+              <div style="width:48px; text-align:center; padding:9px; border-radius:11px; border:1px solid #dde5e2; color:#5b6b66; font-size:13.5px;">⌨</div>
+            </div>
+          </div>
+
+          <div style="background:#fff; border-radius:14px; padding:12px 13px;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:9px;">
+              <div style="flex:1;"><div style="font-size:14.5px; color:#0b2b24;">ใบงานที่ 3</div><div style="font-size:11.5px; color:#8b9a95;">กำหนดส่ง 15 ส.ค. · เต็ม 10</div></div>
+              <div style="font-size:15px; font-weight:700; color:#0b2b24; font-variant-numeric:tabular-nums;">8</div>
+            </div>
+            <div style="display:flex; gap:6px;">
+              <div style="flex:1; text-align:center; padding:9px; border-radius:11px; background:#15803d; color:#fff; font-size:13.5px; font-weight:600;">ส่ง</div>
+              <div style="flex:1; text-align:center; padding:9px; border-radius:11px; background:#eef2f0; color:#5b6b66; font-size:13.5px;">ช้า</div>
+              <div style="flex:1; text-align:center; padding:9px; border-radius:11px; background:#eef2f0; color:#5b6b66; font-size:13.5px;">ไม่ส่ง</div>
+              <div style="width:48px; text-align:center; padding:9px; border-radius:11px; border:1px solid #dde5e2; color:#5b6b66; font-size:13.5px;">⌨</div>
+            </div>
+          </div>
+
+          <div style="background:#fff; border-radius:14px; padding:12px 13px; outline:2px solid #0d7d6e;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:9px;">
+              <div style="flex:1;"><div style="font-size:14.5px; color:#0b2b24;">แบบฝึกหัด 2.1</div><div style="font-size:11.5px; color:#8b9a95;">กำหนดส่ง 8 ส.ค. · เต็ม 5</div></div>
+              <div style="font-size:13px; color:#8b9a95;">ยังไม่ตรวจ</div>
+            </div>
+            <div style="display:flex; gap:6px;">
+              <div style="flex:1; text-align:center; padding:9px; border-radius:11px; background:#eef2f0; color:#5b6b66; font-size:13.5px;">ส่ง</div>
+              <div style="flex:1; text-align:center; padding:9px; border-radius:11px; background:#eef2f0; color:#5b6b66; font-size:13.5px;">ช้า</div>
+              <div style="flex:1; text-align:center; padding:9px; border-radius:11px; background:#eef2f0; color:#5b6b66; font-size:13.5px;">ไม่ส่ง</div>
+              <div style="width:48px; text-align:center; padding:9px; border-radius:11px; border:1px solid #dde5e2; color:#5b6b66; font-size:13.5px;">⌨</div>
+            </div>
+          </div>
+
+          <div style="background:#fff; border-radius:14px; padding:12px 13px; display:flex; align-items:center; gap:10px;">
+            <div style="flex:1;"><div style="font-size:14px; color:#0b2b24;">สอบเก็บคะแนน · ก่อนกลางภาค</div><div style="font-size:11.5px; color:#8b9a95;">2 ชิ้น · ตรวจครบแล้ว</div></div>
+            <div style="font-size:15px; font-weight:700; color:#0b2b24; font-variant-numeric:tabular-nums;">8.5</div>
+            <div style="color:#8b9a95;">›</div>
+          </div>
+        </div>
+        <div style="padding:12px 14px 18px; background:#fff; display:flex; gap:8px;">
+          <div style="width:64px; text-align:center; padding:14px; border-radius:14px; background:#eef2f0; color:#0b2b24; font-size:15px;">‹</div>
+          <div style="flex:1; text-align:center; padding:14px; border-radius:14px; background:#c7f04a; color:#0b2b24; font-size:15px; font-weight:700;">คนถัดไป · คมกริช ›</div>
+        </div>
+      </div>
+
+      <!-- 03c แก้ไขรายละเอียดงาน (PC modal) -->
+      <div data-screen-label="03c รายละเอียดงาน PC" style="width:620px; border-radius:14px; overflow:hidden; border:1px solid #d7dedb; box-shadow:0 18px 40px -24px rgba(11,43,36,.45); background:#fff;">
+        <div style="background:#0b2b24; padding:16px 20px; display:flex; align-items:center; gap:12px;">
+          <div style="flex:1;">
+            <div style="font-size:11.5px; color:#a9c6bd;">ส่งงาน · ก่อนกลางภาค · ม.1/1 คณิตศาสตร์พื้นฐาน</div>
+            <div style="font-size:16px; font-weight:700; color:#fff; margin-top:2px;">รายละเอียดงาน</div>
+          </div>
+          <div style="font-size:17px; color:#a9c6bd;">✕</div>
+        </div>
+        <div style="padding:18px 20px; display:flex; flex-direction:column; gap:14px;">
+          <div>
+            <div style="font-size:12px; color:#5b6b66; margin-bottom:5px;">ชื่องาน</div>
+            <div style="padding:11px 13px; border:1px solid #dde5e2; border-radius:11px; font-size:14.5px; color:#0b2b24;">ใบงานที่ 4 — ทศนิยมและเศษส่วน</div>
+          </div>
+          <div>
+            <div style="display:flex; align-items:baseline; gap:8px; margin-bottom:5px;">
+              <div style="font-size:12px; color:#5b6b66;">คำสั่ง / รายละเอียด</div>
+              <div style="font-size:11px; color:#8b9a95;">นักเรียนจะเห็นข้อความนี้ในหน้าของตัวเอง</div>
+            </div>
+            <div style="padding:11px 13px; border:1px solid #dde5e2; border-radius:11px; font-size:13.5px; color:#0b2b24; line-height:1.7; min-height:64px; text-wrap:pretty;">ทำข้อ 1–12 ในเอกสาร เขียนวิธีทำทุกข้อ ส่งเป็นสมุดหรือรูปถ่ายในไดรฟ์ · ห้ามลอกกัน</div>
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px;">
+            <div>
+              <div style="font-size:12px; color:#5b6b66; margin-bottom:5px;">กำหนดส่ง</div>
+              <div style="padding:10px 12px; border:1px solid #dde5e2; border-radius:11px; font-size:13.5px; color:#0b2b24;">22 ส.ค. 16:30</div>
+            </div>
+            <div>
+              <div style="font-size:12px; color:#5b6b66; margin-bottom:5px;">คะแนนเต็ม</div>
+              <div style="padding:10px 12px; border:1px solid #dde5e2; border-radius:11px; font-size:13.5px; color:#0b2b24; font-variant-numeric:tabular-nums;">10</div>
+            </div>
+            <div>
+              <div style="font-size:12px; color:#5b6b66; margin-bottom:5px;">หักส่งช้า</div>
+              <div style="padding:10px 12px; border:1px solid #dde5e2; border-radius:11px; font-size:13.5px; color:#0b2b24;">10% ⌄</div>
+            </div>
+          </div>
+          <div>
+            <div style="font-size:12px; color:#5b6b66; margin-bottom:5px;">ไฟล์แนบ / ลิงก์</div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+              <div style="display:flex; align-items:center; gap:8px; padding:9px 12px; background:#f4f7f6; border-radius:11px; font-size:13px; color:#0b2b24;">📄 ใบงาน-4.pdf <span style="color:#8b9a95;">✕</span></div>
+              <div style="padding:9px 12px; border:1px dashed #b9c7c2; border-radius:11px; font-size:13px; color:#0d7d6e; font-weight:600;">+ แนบไฟล์จากไดรฟ์</div>
+            </div>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:9px; background:#f4f7f6; border-radius:12px; padding:12px 14px;">
+            <div style="display:flex; align-items:center; gap:10px;">
+              <div style="flex:1; font-size:13.5px; color:#0b2b24;">ให้นักเรียนเห็นงานนี้<div style="font-size:11.5px; color:#8b9a95;">ปิดไว้ได้ถ้ายังเตรียมไม่เสร็จ</div></div>
+              <div style="width:42px; height:24px; border-radius:20px; background:#0d7d6e; display:flex; align-items:center; justify-content:flex-end; padding:3px;"><div style="width:18px; height:18px; border-radius:50%; background:#fff;"></div></div>
+            </div>
+            <div style="height:1px; background:#e4eae7;"></div>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <div style="flex:1; font-size:13.5px; color:#0b2b24;">ให้นักเรียนเห็นคะแนนของตัวเอง<div style="font-size:11.5px; color:#8b9a95;">ถ้าปิด จะเห็นแค่สถานะส่ง/ไม่ส่ง</div></div>
+              <div style="width:42px; height:24px; border-radius:20px; background:#0d7d6e; display:flex; align-items:center; justify-content:flex-end; padding:3px;"><div style="width:18px; height:18px; border-radius:50%; background:#fff;"></div></div>
+            </div>
+            <div style="height:1px; background:#e4eae7;"></div>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <div style="flex:1; font-size:13.5px; color:#0b2b24;">เตือนก่อนถึงกำหนด 1 วัน<div style="font-size:11.5px; color:#8b9a95;">ขึ้นแถบเตือนในหน้านักเรียน</div></div>
+              <div style="width:42px; height:24px; border-radius:20px; background:#dde5e2; display:flex; align-items:center; padding:3px;"><div style="width:18px; height:18px; border-radius:50%; background:#fff;"></div></div>
+            </div>
+          </div>
+          <div style="display:flex; gap:10px; align-items:center; padding-top:2px;">
+            <div style="font-size:13px; color:#be123c;">🗑 ลบงานนี้</div>
+            <div style="margin-left:auto; padding:11px 18px; border-radius:12px; background:#eef2f0; color:#0b2b24; font-size:14px;">ยกเลิก</div>
+            <div style="padding:11px 22px; border-radius:12px; background:#c7f04a; color:#0b2b24; font-size:14px; font-weight:700;">บันทึก</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 03c แก้ไขรายละเอียดงาน (มือถือ) -->
+      <div data-screen-label="03c รายละเอียดงาน มือถือ" style="width:390px; height:760px; border-radius:26px; overflow:hidden; border:1px solid #d7dedb; background:#eef2f0; display:flex; flex-direction:column; box-shadow:0 18px 40px -24px rgba(11,43,36,.45);">
+        <div style="background:#0b2b24; padding:34px 16px 14px; display:flex; align-items:center; gap:10px;">
+          <div style="font-size:20px; color:#a9c6bd;">‹</div>
+          <div style="flex:1;"><div style="font-size:16px; font-weight:700; color:#fff;">รายละเอียดงาน</div><div style="font-size:12px; color:#a9c6bd;">ส่งงาน · ก่อนกลางภาค</div></div>
+          <div style="font-size:12.5px; color:#c7f04a; font-weight:700;">บันทึก</div>
+        </div>
+        <div style="flex:1; padding:12px; display:flex; flex-direction:column; gap:10px; overflow:hidden;">
+          <div style="background:#fff; border-radius:14px; padding:12px 13px; display:flex; flex-direction:column; gap:11px;">
+            <div>
+              <div style="font-size:11.5px; color:#5b6b66; margin-bottom:4px;">ชื่องาน</div>
+              <div style="padding:10px 12px; border:1px solid #dde5e2; border-radius:11px; font-size:14.5px; color:#0b2b24;">ใบงานที่ 4</div>
+            </div>
+            <div>
+              <div style="font-size:11.5px; color:#5b6b66; margin-bottom:4px;">คำสั่ง / รายละเอียด</div>
+              <div style="padding:10px 12px; border:1px solid #dde5e2; border-radius:11px; font-size:13px; color:#0b2b24; line-height:1.65; text-wrap:pretty;">ทำข้อ 1–12 ในเอกสาร เขียนวิธีทำทุกข้อ ส่งเป็นสมุดหรือรูปถ่ายในไดรฟ์</div>
+            </div>
+            <div style="display:flex; gap:8px;">
+              <div style="flex:1.4;"><div style="font-size:11.5px; color:#5b6b66; margin-bottom:4px;">กำหนดส่ง</div><div style="padding:10px 12px; border:1px solid #dde5e2; border-radius:11px; font-size:13px; color:#0b2b24;">22 ส.ค. 16:30</div></div>
+              <div style="flex:1;"><div style="font-size:11.5px; color:#5b6b66; margin-bottom:4px;">เต็ม</div><div style="padding:10px 12px; border:1px solid #dde5e2; border-radius:11px; font-size:13px; color:#0b2b24; font-variant-numeric:tabular-nums;">10</div></div>
+              <div style="flex:1;"><div style="font-size:11.5px; color:#5b6b66; margin-bottom:4px;">หักช้า</div><div style="padding:10px 12px; border:1px solid #dde5e2; border-radius:11px; font-size:13px; color:#0b2b24;">10% ⌄</div></div>
+            </div>
+          </div>
+          <div style="background:#fff; border-radius:14px; padding:12px 13px;">
+            <div style="font-size:11.5px; color:#5b6b66; margin-bottom:7px;">ไฟล์แนบ / ลิงก์</div>
+            <div style="display:flex; align-items:center; gap:8px; padding:9px 11px; background:#f4f7f6; border-radius:11px; font-size:13px; color:#0b2b24;">📄 ใบงาน-4.pdf<div style="flex:1;"></div><div style="color:#8b9a95;">✕</div></div>
+            <div style="margin-top:7px; text-align:center; padding:10px; border:1px dashed #b9c7c2; border-radius:11px; font-size:13px; color:#0d7d6e; font-weight:600;">+ แนบไฟล์จากไดรฟ์</div>
+          </div>
+          <div style="background:#fff; border-radius:14px; padding:4px 13px;">
+            <div style="display:flex; align-items:center; gap:10px; padding:11px 0;">
+              <div style="flex:1; font-size:13.5px; color:#0b2b24;">ให้นักเรียนเห็นงานนี้</div>
+              <div style="width:42px; height:24px; border-radius:20px; background:#0d7d6e; display:flex; align-items:center; justify-content:flex-end; padding:3px;"><div style="width:18px; height:18px; border-radius:50%; background:#fff;"></div></div>
+            </div>
+            <div style="height:1px; background:#f0f4f2;"></div>
+            <div style="display:flex; align-items:center; gap:10px; padding:11px 0;">
+              <div style="flex:1; font-size:13.5px; color:#0b2b24;">เห็นคะแนนของตัวเอง</div>
+              <div style="width:42px; height:24px; border-radius:20px; background:#0d7d6e; display:flex; align-items:center; justify-content:flex-end; padding:3px;"><div style="width:18px; height:18px; border-radius:50%; background:#fff;"></div></div>
+            </div>
+            <div style="height:1px; background:#f0f4f2;"></div>
+            <div style="display:flex; align-items:center; gap:10px; padding:11px 0;">
+              <div style="flex:1; font-size:13.5px; color:#0b2b24;">เตือนก่อนถึงกำหนด 1 วัน</div>
+              <div style="width:42px; height:24px; border-radius:20px; background:#dde5e2; display:flex; align-items:center; padding:3px;"><div style="width:18px; height:18px; border-radius:50%; background:#fff;"></div></div>
+            </div>
+          </div>
+          <div style="text-align:center; font-size:13px; color:#be123c; padding:6px;">🗑 ลบงานนี้</div>
+        </div>
+      </div>
+
+      <div style="width:250px; font-size:13px; color:#3f524c; line-height:1.75; padding-top:6px; text-wrap:pretty;">
+        <b style="color:#0b2b24;">03c รายละเอียดงาน</b><br>กด ✎ ที่หัวการ์ดชิ้นงาน → กรอกคำสั่ง กำหนดส่ง คะแนนเต็ม ไฟล์แนบ และสวิตช์ว่าจะให้นักเรียนเห็นงาน/เห็นคะแนนหรือยัง · ข้อความในช่อง “คำสั่ง” คือสิ่งที่นักเรียนอ่านในหน้า 08b ตรง ๆ ไม่ต้องพิมพ์ซ้ำ<br><br>
+        <b style="color:#0b2b24;">03b โหมดรายคน</b><br>สลับได้จากหัวจอ (รายชิ้นงาน ⇄ รายคน) — เลือกนักเรียน 1 คน แล้วเห็นงานทุกชิ้นของถังนั้นเรียงกัน กดให้คะแนนรวดเดียวจบ เหมาะกับตอนนักเรียนเดินมาส่งงานย้อนหลังทีละคน<br><br>บน PC โหมดเดียวกันเปิดเป็นแผงด้านขวาของตาราง (คลิกชื่อในตาราง → แผงเลื่อนเข้ามา) ตารางยังอยู่ ไม่ต้องเปลี่ยนหน้า
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ 4 รายงาน ══════════ -->
+  <div id="s4" style="display:flex; flex-direction:column; gap:14px;">
+    <div style="display:flex; align-items:baseline; gap:12px;">
+      <span style="font-family:'IBM Plex Mono',monospace; font-size:12px; background:#0b2b24; color:#c7f04a; padding:4px 9px; border-radius:6px;">04</span>
+      <span style="font-size:20px; font-weight:700; color:#0b2b24;">รายงาน · สถิติ</span>
+      <span style="font-size:13px; color:#5b6b66;">ทุกกราฟมีตัวเลขกำกับ อ่านได้แม้ตาบอดสี</span>
+    </div>
+    <div style="display:flex; gap:18px; align-items:flex-start; flex-wrap:wrap;">
+
+      <div data-screen-label="04 รายงาน PC" style="width:1000px; border-radius:14px; overflow:hidden; border:1px solid #d7dedb; box-shadow:0 18px 40px -24px rgba(11,43,36,.45); background:#eef2f0;">
+        <div style="display:flex; align-items:center; gap:24px; padding:0 22px; height:60px; background:#0b2b24;">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <div style="width:28px; height:28px; border-radius:9px; background:#c7f04a; color:#0b2b24; display:grid; place-items:center; font-weight:700; font-size:14px;">A</div>
+            <div style="font-weight:700; font-size:16px; color:#fff;">AssignCheck</div>
+          </div>
+          <div style="display:flex; gap:4px; flex:1;">
+            <div style="padding:7px 14px; font-size:14px; color:#a9c6bd;">หน้าแรก</div>
+            <div style="padding:7px 14px; font-size:14px; color:#a9c6bd;">เช็คชื่อ</div>
+            <div style="padding:7px 14px; font-size:14px; color:#a9c6bd;">งาน/คะแนน</div>
+            <div style="padding:7px 14px; font-size:14px; font-weight:600; color:#0b2b24; background:#c7f04a; border-radius:20px;">รายงาน</div>
+            <div style="padding:7px 14px; font-size:14px; color:#a9c6bd;">สรุป SGS</div>
+          </div>
+          <div style="font-size:13px; color:#fff; background:#12463a; padding:6px 12px; border-radius:20px;">ม.1/1 คณิตศาสตร์พื้นฐาน ⌄</div>
+        </div>
+        <div style="padding:22px; max-width:900px; margin:0 auto; display:flex; flex-direction:column; gap:14px;">
+          <div style="display:flex; gap:8px; align-items:center;">
+            <div style="padding:8px 18px; border-radius:12px; background:#0b2b24; color:#fff; font-size:13.5px; font-weight:600;">ทั้งห้อง</div>
+            <div style="padding:8px 18px; border-radius:12px; background:#fff; color:#5b6b66; font-size:13.5px;">รายคน</div>
+            <div style="margin-left:auto; padding:8px 14px; border-radius:12px; background:#fff; color:#5b6b66; font-size:13px;">⤓ ออกไฟล์ CSV</div>
+          </div>
+
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+            <div style="background:#fff; border-radius:16px; padding:18px;">
+              <div style="font-size:14px; font-weight:700; color:#0b2b24; margin-bottom:14px;">สัดส่วนการมาเรียน · 24 คาบ</div>
+              <div style="display:flex; height:26px; border-radius:8px; overflow:hidden; font-size:11.5px; font-weight:600;">
+                <div style="width:84%; background:#15803d; color:#fff; display:grid; place-items:center;">มา 84%</div>
+                <div style="width:7%; background:#b45309; color:#fff; display:grid; place-items:center;">7%</div>
+                <div style="width:4%; background:#1d4ed8;"></div>
+                <div style="width:5%; background:#be123c;"></div>
+              </div>
+              <div style="display:flex; gap:16px; margin-top:12px; font-size:12.5px; color:#5b6b66; font-variant-numeric:tabular-nums;">
+                <span><b style="color:#15803d;">■</b> มา 766</span><span><b style="color:#b45309;">■</b> สาย 64</span><span><b style="color:#1d4ed8;">■</b> ลา 36</span><span><b style="color:#be123c;">■</b> ขาด 46</span>
+              </div>
+            </div>
+            <div style="background:#fff; border-radius:16px; padding:18px;">
+              <div style="font-size:14px; font-weight:700; color:#0b2b24; margin-bottom:14px;">การกระจายเกรด</div>
+              <div style="display:flex; align-items:flex-end; gap:8px; height:76px;">
+                <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:5px;"><div style="font-size:12px; color:#5b6b66; font-variant-numeric:tabular-nums;">6</div><div style="width:100%; height:46px; background:#0d7d6e; border-radius:5px;"></div></div>
+                <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:5px;"><div style="font-size:12px; color:#5b6b66;">5</div><div style="width:100%; height:38px; background:#0d7d6e; border-radius:5px;"></div></div>
+                <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:5px;"><div style="font-size:12px; color:#5b6b66;">9</div><div style="width:100%; height:64px; background:#0d7d6e; border-radius:5px;"></div></div>
+                <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:5px;"><div style="font-size:12px; color:#5b6b66;">8</div><div style="width:100%; height:58px; background:#0d7d6e; border-radius:5px;"></div></div>
+                <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:5px;"><div style="font-size:12px; color:#5b6b66;">6</div><div style="width:100%; height:46px; background:#0d7d6e; border-radius:5px;"></div></div>
+                <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:5px;"><div style="font-size:12px; color:#5b6b66;">2</div><div style="width:100%; height:20px; background:#b45309; border-radius:5px;"></div></div>
+                <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:5px;"><div style="font-size:12px; color:#5b6b66;">2</div><div style="width:100%; height:20px; background:#be123c; border-radius:5px;"></div></div>
+              </div>
+              <div style="display:flex; gap:8px; margin-top:8px; font-size:11.5px; color:#8b9a95;">
+                <div style="flex:1; text-align:center;">4</div><div style="flex:1; text-align:center;">3.5</div><div style="flex:1; text-align:center;">3</div><div style="flex:1; text-align:center;">2.5</div><div style="flex:1; text-align:center;">2</div><div style="flex:1; text-align:center;">1</div><div style="flex:1; text-align:center;">0</div>
+              </div>
+            </div>
+          </div>
+
+          <div style="background:#fff; border-radius:16px; padding:18px;">
+            <div style="font-size:14px; font-weight:700; color:#0b2b24; margin-bottom:14px;">การส่งงานรายชิ้น</div>
+            <div style="display:flex; flex-direction:column; gap:10px;">
+              <div style="display:flex; align-items:center; gap:12px;">
+                <div style="width:150px; font-size:13.5px; color:#0b2b24;">ใบงานที่ 4</div>
+                <div style="flex:1; height:16px; border-radius:6px; background:#eef2f0; overflow:hidden; display:flex;">
+                  <div style="width:58%; background:#15803d;"></div><div style="width:11%; background:#b45309;"></div><div style="width:8%; background:#be123c;"></div>
+                </div>
+                <div style="width:130px; text-align:right; font-size:12.5px; color:#5b6b66; font-variant-numeric:tabular-nums;">22 · 4 · 3 · ว่าง 9</div>
+              </div>
+              <div style="display:flex; align-items:center; gap:12px;">
+                <div style="width:150px; font-size:13.5px; color:#0b2b24;">ใบงานที่ 3</div>
+                <div style="flex:1; height:16px; border-radius:6px; background:#eef2f0; overflow:hidden; display:flex;">
+                  <div style="width:82%; background:#15803d;"></div><div style="width:10%; background:#b45309;"></div><div style="width:8%; background:#be123c;"></div>
+                </div>
+                <div style="width:130px; text-align:right; font-size:12.5px; color:#5b6b66; font-variant-numeric:tabular-nums;">31 · 4 · 3 · ว่าง 0</div>
+              </div>
+              <div style="display:flex; align-items:center; gap:12px;">
+                <div style="width:150px; font-size:13.5px; color:#0b2b24;">แบบฝึกหัด 2.1</div>
+                <div style="flex:1; height:16px; border-radius:6px; background:#eef2f0; overflow:hidden; display:flex;">
+                  <div style="width:92%; background:#15803d;"></div><div style="width:3%; background:#b45309;"></div><div style="width:5%; background:#be123c;"></div>
+                </div>
+                <div style="width:130px; text-align:right; font-size:12.5px; color:#5b6b66; font-variant-numeric:tabular-nums;">35 · 1 · 2 · ว่าง 0</div>
+              </div>
+            </div>
+          </div>
+
+          <div style="background:#fff; border-radius:16px; padding:18px;">
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
+              <div style="font-size:14px; font-weight:700; color:#0b2b24;">ต้องติดตาม · 6 คน</div>
+              <div style="font-size:12.5px; color:#5b6b66;">เรียงตามความเร่งด่วน</div>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:8px;">
+              <div style="display:flex; align-items:center; gap:12px; padding:10px 12px; background:#fdf2f2; border-radius:12px;">
+                <div style="flex:1; font-size:14px; color:#0b2b24;">ณัฐวุฒิ บุญมี <span style="color:#8b9a95; font-size:12.5px;">เลขที่ 5</span></div>
+                <div style="font-size:12.5px; color:#be123c; font-weight:600;">มส · เวลาเรียน 68%</div>
+                <div style="font-size:12.5px; color:#be123c; font-weight:600;">เสี่ยงติด 0 · รวม 41.5</div>
+                <div style="color:#8b9a95;">›</div>
+              </div>
+              <div style="display:flex; align-items:center; gap:12px; padding:10px 12px; background:#fdf7ec; border-radius:12px;">
+                <div style="flex:1; font-size:14px; color:#0b2b24;">จิรภัทร แสงทอง <span style="color:#8b9a95; font-size:12.5px;">เลขที่ 3</span></div>
+                <div style="font-size:12.5px; color:#b45309; font-weight:600;">เวลาเรียน 79%</div>
+                <div style="font-size:12.5px; color:#5b6b66;">ไม่ส่งงาน 3 ชิ้น</div>
+                <div style="color:#8b9a95;">›</div>
+              </div>
+              <div style="display:flex; align-items:center; gap:12px; padding:10px 12px; background:#f4f7f6; border-radius:12px;">
+                <div style="flex:1; font-size:14px; color:#0b2b24;">ชนากานต์ ใจดี <span style="color:#8b9a95; font-size:12.5px;">เลขที่ 4</span></div>
+                <div style="font-size:12.5px; color:#5b6b66;">ยังไม่ตรวจ 4 รายการ</div>
+                <div style="color:#8b9a95;">›</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div data-screen-label="04 รายงานรายคน มือถือ" style="width:390px; height:760px; border-radius:26px; overflow:hidden; border:1px solid #d7dedb; background:#eef2f0; display:flex; flex-direction:column; box-shadow:0 18px 40px -24px rgba(11,43,36,.45);">
+        <div style="background:#0b2b24; padding:34px 16px 14px;">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <div style="font-size:20px; color:#a9c6bd;">‹</div>
+            <div style="flex:1;"><div style="font-size:16px; font-weight:700; color:#fff;">ณัฐวุฒิ บุญมี</div><div style="font-size:12px; color:#a9c6bd;">เลขที่ 5 · 61479 · ม.1/1</div></div>
+          </div>
+          <div style="display:flex; gap:6px; margin-top:12px;">
+            <div style="padding:6px 12px; border-radius:20px; background:#12463a; color:#a9c6bd; font-size:12.5px;">ทั้งห้อง</div>
+            <div style="padding:6px 12px; border-radius:20px; background:#c7f04a; color:#0b2b24; font-size:12.5px; font-weight:600;">รายคน</div>
+          </div>
+        </div>
+        <div style="flex:1; padding:12px; display:flex; flex-direction:column; gap:10px; overflow:hidden;">
+          <div style="background:#fdf2f2; border-radius:14px; padding:12px 14px; display:flex; gap:10px; align-items:center;">
+            <div style="font-size:13px; color:#be123c; font-weight:700;">มส</div>
+            <div style="font-size:12.5px; color:#7a1b28; flex:1;">เวลาเรียน 68% ต่ำกว่าเกณฑ์ 80% · ขาด 6 คาบ</div>
+          </div>
+          <div style="background:#fff; border-radius:14px; padding:14px;">
+            <div style="display:flex; align-items:baseline; gap:8px; margin-bottom:12px;">
+              <div style="font-size:13.5px; font-weight:700; color:#0b2b24; flex:1;">คะแนน 8 ช่อง</div>
+              <div style="font-size:20px; font-weight:700; color:#be123c; font-variant-numeric:tabular-nums;">41.5</div>
+              <div style="font-size:12.5px; color:#5b6b66;">/100 · เกรด 1</div>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; font-size:12.5px;">
+              <div style="display:flex; justify-content:space-between; padding:7px 10px; background:#f4f7f6; border-radius:9px;"><span style="color:#5b6b66;">ส่งงาน 1</span><b style="color:#0b2b24; font-variant-numeric:tabular-nums;">6.5/10</b></div>
+              <div style="display:flex; justify-content:space-between; padding:7px 10px; background:#f4f7f6; border-radius:9px;"><span style="color:#5b6b66;">สอบเก็บ 1</span><b style="color:#0b2b24; font-variant-numeric:tabular-nums;">7/10</b></div>
+              <div style="display:flex; justify-content:space-between; padding:7px 10px; background:#f4f7f6; border-radius:9px;"><span style="color:#5b6b66;">เข้าเรียน 1</span><b style="color:#0b2b24; font-variant-numeric:tabular-nums;">3.4/5</b></div>
+              <div style="display:flex; justify-content:space-between; padding:7px 10px; background:#f4f7f6; border-radius:9px;"><span style="color:#5b6b66;">กลางภาค</span><b style="color:#0b2b24; font-variant-numeric:tabular-nums;">11/20</b></div>
+              <div style="display:flex; justify-content:space-between; padding:7px 10px; background:#f4f7f6; border-radius:9px;"><span style="color:#5b6b66;">ส่งงาน 2</span><b style="color:#0b2b24; font-variant-numeric:tabular-nums;">4/10</b></div>
+              <div style="display:flex; justify-content:space-between; padding:7px 10px; background:#f4f7f6; border-radius:9px;"><span style="color:#5b6b66;">สอบเก็บ 2</span><b style="color:#0b2b24; font-variant-numeric:tabular-nums;">5/10</b></div>
+              <div style="display:flex; justify-content:space-between; padding:7px 10px; background:#f4f7f6; border-radius:9px;"><span style="color:#5b6b66;">เข้าเรียน 2</span><b style="color:#0b2b24; font-variant-numeric:tabular-nums;">2.6/5</b></div>
+              <div style="display:flex; justify-content:space-between; padding:7px 10px; background:#f4f7f6; border-radius:9px;"><span style="color:#5b6b66;">ปลายภาค</span><b style="color:#8b9a95;">ยังไม่สอบ</b></div>
+            </div>
+          </div>
+          <div style="background:#fff; border-radius:14px; padding:14px;">
+            <div style="font-size:13.5px; font-weight:700; color:#0b2b24; margin-bottom:10px;">วันที่ขาด/สาย</div>
+            <div style="display:flex; flex-wrap:wrap; gap:6px; font-size:12px;">
+              <span style="padding:5px 10px; border-radius:8px; background:#fdecec; color:#be123c;">5 ส.ค. ค.2</span>
+              <span style="padding:5px 10px; border-radius:8px; background:#fdecec; color:#be123c;">12 ส.ค. ค.5</span>
+              <span style="padding:5px 10px; border-radius:8px; background:#fdf3e5; color:#b45309;">14 ส.ค. ค.2 สาย</span>
+              <span style="padding:5px 10px; border-radius:8px; background:#fdecec; color:#be123c;">19 ส.ค. ค.2</span>
+            </div>
+          </div>
+          <div style="background:#fff; border-radius:14px; padding:14px;">
+            <div style="font-size:13.5px; font-weight:700; color:#0b2b24; margin-bottom:10px;">งานที่ยังไม่ส่ง · 3 ชิ้น</div>
+            <div style="display:flex; flex-direction:column; gap:7px; font-size:13px; color:#0b2b24;">
+              <div style="display:flex;"><span style="flex:1;">ใบงานที่ 2</span><span style="color:#be123c;">ไม่ส่ง</span></div>
+              <div style="display:flex;"><span style="flex:1;">แบบฝึกหัด 3.2</span><span style="color:#be123c;">ไม่ส่ง</span></div>
+              <div style="display:flex;"><span style="flex:1;">ใบงานที่ 4</span><span style="color:#8b9a95;">ยังไม่ตรวจ</span></div>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex; background:#fff; border-top:1px solid #dde5e2; padding:8px 6px 18px;">
+          <div style="flex:1; text-align:center; font-size:11px; color:#8b9a95;"><div style="font-size:17px;">⌂</div>หน้าแรก</div>
+          <div style="flex:1; text-align:center; font-size:11px; color:#8b9a95;"><div style="font-size:17px;">◷</div>เช็คชื่อ</div>
+          <div style="flex:1; text-align:center; font-size:11px; color:#8b9a95;"><div style="font-size:17px;">✎</div>งาน/คะแนน</div>
+          <div style="flex:1; text-align:center; font-size:11px; color:#0d7d6e; font-weight:600;"><div style="font-size:17px;">◫</div>รายงาน</div>
+          <div style="flex:1; text-align:center; font-size:11px; color:#8b9a95;"><div style="font-size:17px;">☰</div>สรุป SGS</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ 5 สรุป SGS ══════════ -->
+  <div id="s5" style="display:flex; flex-direction:column; gap:14px;">
+    <div style="display:flex; align-items:baseline; gap:12px;">
+      <span style="font-family:'IBM Plex Mono',monospace; font-size:12px; background:#0b2b24; color:#c7f04a; padding:4px 9px; border-radius:6px;">05</span>
+      <span style="font-size:20px; font-weight:700; color:#0b2b24;">สรุป SGS</span>
+      <span style="font-size:13px; color:#5b6b66;">แตะหัวคอลัมน์ = คัดลอกทั้งช่อง · มือถือมีโหมดกรอกทีละคน</span>
+    </div>
+    <div style="display:flex; gap:18px; align-items:flex-start; flex-wrap:wrap;">
+
+      <div data-screen-label="05 สรุป SGS PC" style="width:1000px; border-radius:14px; overflow:hidden; border:1px solid #d7dedb; box-shadow:0 18px 40px -24px rgba(11,43,36,.45); background:#eef2f0;">
+        <div style="display:flex; align-items:center; gap:24px; padding:0 22px; height:60px; background:#0b2b24;">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <div style="width:28px; height:28px; border-radius:9px; background:#c7f04a; color:#0b2b24; display:grid; place-items:center; font-weight:700; font-size:14px;">A</div>
+            <div style="font-weight:700; font-size:16px; color:#fff;">AssignCheck</div>
+          </div>
+          <div style="display:flex; gap:4px; flex:1;">
+            <div style="padding:7px 14px; font-size:14px; color:#a9c6bd;">หน้าแรก</div>
+            <div style="padding:7px 14px; font-size:14px; color:#a9c6bd;">เช็คชื่อ</div>
+            <div style="padding:7px 14px; font-size:14px; color:#a9c6bd;">งาน/คะแนน</div>
+            <div style="padding:7px 14px; font-size:14px; color:#a9c6bd;">รายงาน</div>
+            <div style="padding:7px 14px; font-size:14px; font-weight:600; color:#0b2b24; background:#c7f04a; border-radius:20px;">สรุป SGS</div>
+          </div>
+          <div style="font-size:13px; color:#fff; background:#12463a; padding:6px 12px; border-radius:20px;">ม.1/1 คณิตศาสตร์พื้นฐาน ⌄</div>
+        </div>
+        <div style="padding:22px; max-width:900px; margin:0 auto; display:flex; flex-direction:column; gap:14px;">
+          <div style="background:#fff; border-radius:16px; padding:14px 18px; display:flex; align-items:center; gap:14px;">
+            <div style="flex:1;">
+              <div style="font-size:15px; font-weight:700; color:#0b2b24;">พร้อมกรอกลง SGS · 38 คน</div>
+              <div style="font-size:12.5px; color:#5b6b66; margin-top:2px;">ยังไม่ตรวจ 9 รายการ — ช่องที่กระทบจะมีจุดส้มกำกับ</div>
+            </div>
+            <div style="padding:9px 15px; border-radius:12px; background:#eef2f0; color:#0b2b24; font-size:13.5px;">⌨️ โหมดกรอกทีละคน</div>
+            <div style="padding:9px 15px; border-radius:12px; background:#c7f04a; color:#0b2b24; font-size:13.5px; font-weight:700;">💾 บันทึกลงชีต</div>
+          </div>
+
+          <div style="background:#fff; border-radius:16px; overflow:hidden;">
+            <div style="display:grid; grid-template-columns:36px 150px repeat(8, 1fr) 56px 46px; gap:0; background:#0b2b24; color:#fff; font-size:11.5px; text-align:center;">
+              <div style="padding:10px 4px;">#</div>
+              <div style="padding:10px 8px; text-align:left;">ชื่อ-นามสกุล</div>
+              <div style="padding:10px 4px; background:#12463a; border-left:1px solid #234f45;">1<div style="font-size:10px; color:#a9c6bd;">งาน1</div></div>
+              <div style="padding:10px 4px; background:#12463a; border-left:1px solid #234f45;">2<div style="font-size:10px; color:#a9c6bd;">สอบ1</div></div>
+              <div style="padding:10px 4px; background:#12463a; border-left:1px solid #234f45;">3<div style="font-size:10px; color:#a9c6bd;">เรียน1</div></div>
+              <div style="padding:10px 4px; border-left:1px solid #234f45;">กลาง<div style="font-size:10px; color:#a9c6bd;">20</div></div>
+              <div style="padding:10px 4px; background:#12463a; border-left:1px solid #234f45;">10<div style="font-size:10px; color:#a9c6bd;">งาน2</div></div>
+              <div style="padding:10px 4px; background:#12463a; border-left:1px solid #234f45;">11<div style="font-size:10px; color:#a9c6bd;">สอบ2</div></div>
+              <div style="padding:10px 4px; background:#12463a; border-left:1px solid #234f45;">12<div style="font-size:10px; color:#a9c6bd;">เรียน2</div></div>
+              <div style="padding:10px 4px; border-left:1px solid #234f45;">ปลาย<div style="font-size:10px; color:#a9c6bd;">30</div></div>
+              <div style="padding:10px 4px; border-left:1px solid #234f45; background:#c7f04a; color:#0b2b24; font-weight:700;">รวม</div>
+              <div style="padding:10px 4px; border-left:1px solid #234f45;">เกรด</div>
+            </div>
+            <div style="display:grid; grid-template-columns:36px 150px repeat(8, 1fr) 56px 46px; font-size:13.5px; text-align:center; align-items:center; border-bottom:1px solid #f0f4f2; font-variant-numeric:tabular-nums; color:#0b2b24;">
+              <div style="padding:9px 4px; color:#8b9a95; font-size:12px;">1</div>
+              <div style="padding:9px 8px; text-align:left;">กฤตภาส คงพลอย</div>
+              <div style="padding:9px 4px;">9.2</div><div style="padding:9px 4px;">8.5</div><div style="padding:9px 4px;">5.0</div><div style="padding:9px 4px;">17</div><div style="padding:9px 4px;">8.8</div><div style="padding:9px 4px;">9.0</div><div style="padding:9px 4px;">4.8</div><div style="padding:9px 4px; color:#8b9a95;">—</div>
+              <div style="padding:9px 4px; font-weight:700; background:#f7fbe9;">62.3</div><div style="padding:9px 4px; font-weight:600;">3</div>
+            </div>
+            <div style="display:grid; grid-template-columns:36px 150px repeat(8, 1fr) 56px 46px; font-size:13.5px; text-align:center; align-items:center; border-bottom:1px solid #f0f4f2; font-variant-numeric:tabular-nums; color:#0b2b24; background:#fbfdfc;">
+              <div style="padding:9px 4px; color:#8b9a95; font-size:12px;">2</div>
+              <div style="padding:9px 8px; text-align:left;">คมกริช พิลา</div>
+              <div style="padding:9px 4px;">8.0</div><div style="padding:9px 4px;">7.5</div><div style="padding:9px 4px;">4.6</div><div style="padding:9px 4px;">15</div><div style="padding:9px 4px;">7.4</div><div style="padding:9px 4px;">8.0</div><div style="padding:9px 4px;">4.5</div><div style="padding:9px 4px; color:#8b9a95;">—</div>
+              <div style="padding:9px 4px; font-weight:700; background:#f7fbe9;">55.0</div><div style="padding:9px 4px; font-weight:600;">2.5</div>
+            </div>
+            <div style="display:grid; grid-template-columns:36px 150px repeat(8, 1fr) 56px 46px; font-size:13.5px; text-align:center; align-items:center; border-bottom:1px solid #f0f4f2; font-variant-numeric:tabular-nums; color:#0b2b24;">
+              <div style="padding:9px 4px; color:#8b9a95; font-size:12px;">3</div>
+              <div style="padding:9px 8px; text-align:left;">จิรภัทร แสงทอง</div>
+              <div style="padding:9px 4px;">5.5<span style="color:#b45309;">•</span></div><div style="padding:9px 4px;">7.0</div><div style="padding:9px 4px;">4.0</div><div style="padding:9px 4px;">13</div><div style="padding:9px 4px;">6.0</div><div style="padding:9px 4px;">6.5</div><div style="padding:9px 4px;">3.9</div><div style="padding:9px 4px; color:#8b9a95;">—</div>
+              <div style="padding:9px 4px; font-weight:700; background:#f7fbe9;">45.9</div><div style="padding:9px 4px; font-weight:600;">1.5</div>
+            </div>
+            <div style="display:grid; grid-template-columns:36px 150px repeat(8, 1fr) 56px 46px; font-size:13.5px; text-align:center; align-items:center; border-bottom:1px solid #f0f4f2; font-variant-numeric:tabular-nums; color:#0b2b24; background:#fbfdfc;">
+              <div style="padding:9px 4px; color:#8b9a95; font-size:12px;">4</div>
+              <div style="padding:9px 8px; text-align:left;">ชนากานต์ ใจดี</div>
+              <div style="padding:9px 4px;">9.5</div><div style="padding:9px 4px;">9.0</div><div style="padding:9px 4px;">4.9</div><div style="padding:9px 4px;">18</div><div style="padding:9px 4px;">9.2</div><div style="padding:9px 4px;">9.5</div><div style="padding:9px 4px;">5.0</div><div style="padding:9px 4px; color:#8b9a95;">—</div>
+              <div style="padding:9px 4px; font-weight:700; background:#f7fbe9;">65.1</div><div style="padding:9px 4px; font-weight:600;">3.5</div>
+            </div>
+            <div style="display:grid; grid-template-columns:36px 150px repeat(8, 1fr) 56px 46px; font-size:13.5px; text-align:center; align-items:center; font-variant-numeric:tabular-nums; color:#0b2b24;">
+              <div style="padding:9px 4px; color:#8b9a95; font-size:12px;">5</div>
+              <div style="padding:9px 8px; text-align:left; display:flex; align-items:center; gap:6px;">ณัฐวุฒิ บุญมี <span style="font-size:10.5px; background:#fdecec; color:#be123c; padding:2px 6px; border-radius:6px;">มส</span></div>
+              <div style="padding:9px 4px;">6.5</div><div style="padding:9px 4px;">7.0</div><div style="padding:9px 4px;">3.4</div><div style="padding:9px 4px;">11</div><div style="padding:9px 4px;">4.0</div><div style="padding:9px 4px;">5.0</div><div style="padding:9px 4px;">2.6</div><div style="padding:9px 4px; color:#8b9a95;">—</div>
+              <div style="padding:9px 4px; font-weight:700; background:#f7fbe9; color:#be123c;">39.5</div><div style="padding:9px 4px; font-weight:600; color:#be123c;">1</div>
+            </div>
+          </div>
+          <div style="display:flex; align-items:center; gap:10px; font-size:12.5px; color:#5b6b66;">
+            <span style="color:#b45309;">•</span> = ช่องนี้ยังมีงานค้างตรวจ ตัวเลขอาจเปลี่ยน · แตะหัวคอลัมน์เพื่อคัดลอกทั้งช่องไปวางใน SGS
+          </div>
+        </div>
+      </div>
+
+      <div data-screen-label="05 สรุป SGS มือถือ" style="width:390px; height:760px; border-radius:26px; overflow:hidden; border:1px solid #d7dedb; background:#eef2f0; display:flex; flex-direction:column; box-shadow:0 18px 40px -24px rgba(11,43,36,.45);">
+        <div style="background:#0b2b24; padding:34px 16px 14px;">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <div style="flex:1;"><div style="font-size:16px; font-weight:700; color:#fff;">โหมดกรอก SGS</div><div style="font-size:12px; color:#a9c6bd;">ม.1/1 · คนที่ 5 จาก 38</div></div>
+            <div style="font-size:12.5px; color:#0b2b24; background:#c7f04a; padding:5px 10px; border-radius:20px; font-weight:700;">ออก</div>
+          </div>
+        </div>
+        <div style="flex:1; padding:14px; display:flex; flex-direction:column; gap:12px; overflow:hidden;">
+          <div style="background:#fff; border-radius:16px; padding:16px;">
+            <div style="font-size:12.5px; color:#5b6b66;">เลขประจำตัว 61479</div>
+            <div style="font-size:21px; font-weight:700; color:#0b2b24; margin:2px 0 12px;">ณัฐวุฒิ บุญมี</div>
+            <div style="display:flex; flex-direction:column; gap:7px;">
+              <div style="display:flex; align-items:center; gap:10px; padding:10px 12px; background:#f4f7f6; border-radius:11px;">
+                <span style="width:22px; height:22px; border-radius:7px; background:#0b2b24; color:#fff; font-size:11.5px; display:grid; place-items:center;">1</span>
+                <span style="flex:1; font-size:13.5px; color:#5b6b66;">ส่งงาน ก่อนกลางภาค</span>
+                <b style="font-size:17px; color:#0b2b24; font-variant-numeric:tabular-nums;">6.5</b>
+              </div>
+              <div style="display:flex; align-items:center; gap:10px; padding:10px 12px; background:#f4f7f6; border-radius:11px;">
+                <span style="width:22px; height:22px; border-radius:7px; background:#0b2b24; color:#fff; font-size:11.5px; display:grid; place-items:center;">2</span>
+                <span style="flex:1; font-size:13.5px; color:#5b6b66;">สอบเก็บ ก่อนกลางภาค</span>
+                <b style="font-size:17px; color:#0b2b24; font-variant-numeric:tabular-nums;">7.0</b>
+              </div>
+              <div style="display:flex; align-items:center; gap:10px; padding:10px 12px; background:#f4f7f6; border-radius:11px;">
+                <span style="width:22px; height:22px; border-radius:7px; background:#0b2b24; color:#fff; font-size:11.5px; display:grid; place-items:center;">3</span>
+                <span style="flex:1; font-size:13.5px; color:#5b6b66;">เข้าเรียน ก่อนกลางภาค</span>
+                <b style="font-size:17px; color:#0b2b24; font-variant-numeric:tabular-nums;">3.4</b>
+              </div>
+              <div style="display:flex; align-items:center; gap:10px; padding:10px 12px; background:#eaf3f0; border-radius:11px;">
+                <span style="width:22px; height:22px; border-radius:7px; background:#0d7d6e; color:#fff; font-size:10px; display:grid; place-items:center;">กล</span>
+                <span style="flex:1; font-size:13.5px; color:#5b6b66;">สอบกลางภาค</span>
+                <b style="font-size:17px; color:#0b2b24; font-variant-numeric:tabular-nums;">11</b>
+              </div>
+              <div style="display:flex; align-items:center; gap:10px; padding:10px 12px; background:#f4f7f6; border-radius:11px;">
+                <span style="width:22px; height:22px; border-radius:7px; background:#0b2b24; color:#fff; font-size:11.5px; display:grid; place-items:center;">10</span>
+                <span style="flex:1; font-size:13.5px; color:#5b6b66;">ส่งงาน หลังกลางภาค</span>
+                <b style="font-size:17px; color:#0b2b24; font-variant-numeric:tabular-nums;">4.0</b>
+              </div>
+              <div style="display:flex; align-items:center; gap:10px; padding:10px 12px; background:#f4f7f6; border-radius:11px;">
+                <span style="width:22px; height:22px; border-radius:7px; background:#0b2b24; color:#fff; font-size:11.5px; display:grid; place-items:center;">11</span>
+                <span style="flex:1; font-size:13.5px; color:#5b6b66;">สอบเก็บ หลังกลางภาค</span>
+                <b style="font-size:17px; color:#0b2b24; font-variant-numeric:tabular-nums;">5.0</b>
+              </div>
+              <div style="display:flex; align-items:center; gap:10px; padding:10px 12px; background:#f4f7f6; border-radius:11px;">
+                <span style="width:22px; height:22px; border-radius:7px; background:#0b2b24; color:#fff; font-size:11.5px; display:grid; place-items:center;">12</span>
+                <span style="flex:1; font-size:13.5px; color:#5b6b66;">เข้าเรียน หลังกลางภาค</span>
+                <b style="font-size:17px; color:#0b2b24; font-variant-numeric:tabular-nums;">2.6</b>
+              </div>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px; margin-top:12px; padding-top:12px; border-top:1px solid #eef2f0;">
+              <span style="flex:1; font-size:13.5px; color:#5b6b66;">รวม · เกรด</span>
+              <b style="font-size:22px; color:#be123c; font-variant-numeric:tabular-nums;">39.5</b>
+              <span style="font-size:13px; color:#be123c; background:#fdecec; padding:4px 10px; border-radius:8px; font-weight:700;">เกรด 1 · มส</span>
+            </div>
+          </div>
+        </div>
+        <div style="padding:12px 14px 18px; background:#fff; display:flex; gap:8px;">
+          <div style="width:64px; text-align:center; padding:14px; border-radius:14px; background:#eef2f0; color:#0b2b24; font-size:15px;">‹</div>
+          <div style="flex:1; text-align:center; padding:14px; border-radius:14px; background:#c7f04a; color:#0b2b24; font-size:15px; font-weight:700;">คนถัดไป ›</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ 6 ตั้งค่า ══════════ -->
+  <div id="s6" style="display:flex; flex-direction:column; gap:14px;">
+    <div style="display:flex; align-items:baseline; gap:12px;">
+      <span style="font-family:'IBM Plex Mono',monospace; font-size:12px; background:#0b2b24; color:#c7f04a; padding:4px 9px; border-radius:6px;">06</span>
+      <span style="font-size:20px; font-weight:700; color:#0b2b24;">ตั้งค่า</span>
+      <span style="font-size:13px; color:#5b6b66;">หน้าที่บอกว่า "ดูยังไม่เสร็จ" — จัดใหม่เป็น 5 กลุ่ม ทุกช่องมีคำอธิบาย + สถานะบันทึกชัด</span>
+    </div>
+    <div style="display:flex; gap:18px; align-items:flex-start; flex-wrap:wrap;">
+
+      <div data-screen-label="06 ตั้งค่า PC" style="width:1000px; border-radius:14px; overflow:hidden; border:1px solid #d7dedb; box-shadow:0 18px 40px -24px rgba(11,43,36,.45); background:#eef2f0;">
+        <div style="display:flex; align-items:center; gap:24px; padding:0 22px; height:60px; background:#0b2b24;">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <div style="width:28px; height:28px; border-radius:9px; background:#c7f04a; color:#0b2b24; display:grid; place-items:center; font-weight:700; font-size:14px;">A</div>
+            <div style="font-weight:700; font-size:16px; color:#fff;">AssignCheck</div>
+          </div>
+          <div style="display:flex; gap:4px; flex:1;">
+            <div style="padding:7px 14px; font-size:14px; color:#a9c6bd;">หน้าแรก</div>
+            <div style="padding:7px 14px; font-size:14px; color:#a9c6bd;">เช็คชื่อ</div>
+            <div style="padding:7px 14px; font-size:14px; color:#a9c6bd;">งาน/คะแนน</div>
+            <div style="padding:7px 14px; font-size:14px; color:#a9c6bd;">รายงาน</div>
+            <div style="padding:7px 14px; font-size:14px; color:#a9c6bd;">สรุป SGS</div>
+          </div>
+          <div style="width:32px; height:32px; border-radius:10px; background:#c7f04a; color:#0b2b24; display:grid; place-items:center; font-size:14px;">⚙</div>
+        </div>
+        <div style="padding:22px; max-width:900px; margin:0 auto; display:grid; grid-template-columns:190px 1fr; gap:18px; align-items:start;">
+          <div style="display:flex; flex-direction:column; gap:4px; position:sticky; top:0;">
+            <div style="padding:10px 14px; border-radius:11px; background:#0b2b24; color:#fff; font-size:13.5px; font-weight:600;">การคิดคะแนน</div>
+            <div style="padding:10px 14px; border-radius:11px; color:#3f524c; font-size:13.5px;">การเช็คชื่อ</div>
+            <div style="padding:10px 14px; border-radius:11px; color:#3f524c; font-size:13.5px;">บัญชีและการเชื่อมต่อ</div>
+            <div style="padding:10px 14px; border-radius:11px; color:#3f524c; font-size:13.5px;">ข้อมูลและการสำรอง</div>
+            <div style="padding:10px 14px; border-radius:11px; color:#3f524c; font-size:13.5px;">เกี่ยวกับระบบ</div>
+            <div style="margin-top:10px; padding:12px 14px; border-radius:12px; background:#eaf3f0; font-size:12.5px; color:#0b2b24; line-height:1.6;">แก้แล้วบันทึกอัตโนมัติ<br><span style="color:#5b6b66;">ล่าสุด 09:26 น.</span></div>
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:14px;">
+            <div style="background:#fff; border-radius:16px; padding:20px;">
+              <div style="display:flex; align-items:baseline; gap:10px; margin-bottom:4px;">
+                <div style="font-size:17px; font-weight:700; color:#0b2b24; flex:1;">น้ำหนักคะแนน 8 ช่อง</div>
+                <div style="font-size:13px; color:#15803d; font-weight:700;">รวม 100 ✓</div>
+              </div>
+              <div style="font-size:12.5px; color:#5b6b66; margin-bottom:14px;">ต้องรวมได้ 100 พอดี ระบบเตือนทันทีถ้าเกินหรือขาด</div>
+              <div style="display:flex; height:12px; border-radius:20px; overflow:hidden; margin-bottom:14px;">
+                <div style="width:10%; background:#0d7d6e;"></div><div style="width:10%; background:#149584;"></div><div style="width:5%; background:#37b3a1;"></div><div style="width:20%; background:#0b2b24;"></div>
+                <div style="width:10%; background:#0d7d6e;"></div><div style="width:10%; background:#149584;"></div><div style="width:5%; background:#37b3a1;"></div><div style="width:30%; background:#0b2b24;"></div>
+              </div>
+              <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:10px;">
+                <div style="border:1px solid #e4ebe8; border-radius:12px; padding:11px 12px;"><div style="font-size:12px; color:#5b6b66;">1 · ส่งงาน (ก่อน)</div><div style="font-size:19px; font-weight:700; color:#0b2b24; font-variant-numeric:tabular-nums;">10</div></div>
+                <div style="border:1px solid #e4ebe8; border-radius:12px; padding:11px 12px;"><div style="font-size:12px; color:#5b6b66;">2 · สอบเก็บ (ก่อน)</div><div style="font-size:19px; font-weight:700; color:#0b2b24; font-variant-numeric:tabular-nums;">10</div></div>
+                <div style="border:1px solid #e4ebe8; border-radius:12px; padding:11px 12px;"><div style="font-size:12px; color:#5b6b66;">3 · เข้าเรียน (ก่อน)</div><div style="font-size:19px; font-weight:700; color:#0b2b24; font-variant-numeric:tabular-nums;">5</div></div>
+                <div style="border:1px solid #e4ebe8; border-radius:12px; padding:11px 12px;"><div style="font-size:12px; color:#5b6b66;">กลางภาค</div><div style="font-size:19px; font-weight:700; color:#0b2b24; font-variant-numeric:tabular-nums;">20</div></div>
+                <div style="border:1px solid #e4ebe8; border-radius:12px; padding:11px 12px;"><div style="font-size:12px; color:#5b6b66;">10 · ส่งงาน (หลัง)</div><div style="font-size:19px; font-weight:700; color:#0b2b24; font-variant-numeric:tabular-nums;">10</div></div>
+                <div style="border:1px solid #e4ebe8; border-radius:12px; padding:11px 12px;"><div style="font-size:12px; color:#5b6b66;">11 · สอบเก็บ (หลัง)</div><div style="font-size:19px; font-weight:700; color:#0b2b24; font-variant-numeric:tabular-nums;">10</div></div>
+                <div style="border:1px solid #e4ebe8; border-radius:12px; padding:11px 12px;"><div style="font-size:12px; color:#5b6b66;">12 · เข้าเรียน (หลัง)</div><div style="font-size:19px; font-weight:700; color:#0b2b24; font-variant-numeric:tabular-nums;">5</div></div>
+                <div style="border:1px solid #e4ebe8; border-radius:12px; padding:11px 12px;"><div style="font-size:12px; color:#5b6b66;">ปลายภาค</div><div style="font-size:19px; font-weight:700; color:#0b2b24; font-variant-numeric:tabular-nums;">30</div></div>
+              </div>
+            </div>
+
+            <div style="background:#fff; border-radius:16px; padding:20px; display:flex; flex-direction:column; gap:16px;">
+              <div style="font-size:17px; font-weight:700; color:#0b2b24;">กติกาการคิดคะแนน</div>
+              <div style="display:flex; gap:16px; align-items:flex-start;">
+                <div style="flex:1;">
+                  <div style="font-size:14px; font-weight:600; color:#0b2b24;">งานที่ยังไม่ตรวจ</div>
+                  <div style="font-size:12.5px; color:#5b6b66; margin-top:2px;">ช่องว่างในบล็อกส่งงาน/สอบ จะถูกนับยังไง</div>
+                </div>
+                <div style="display:flex; background:#eef2f0; border-radius:11px; padding:3px;">
+                  <div style="padding:8px 16px; border-radius:9px; background:#0b2b24; color:#fff; font-size:13px; font-weight:600;">ไม่นับ</div>
+                  <div style="padding:8px 16px; border-radius:9px; color:#5b6b66; font-size:13px;">นับเป็น 0</div>
+                </div>
+              </div>
+              <div style="height:1px; background:#f0f4f2;"></div>
+              <div style="display:flex; gap:16px; align-items:flex-start;">
+                <div style="flex:1;">
+                  <div style="font-size:14px; font-weight:600; color:#0b2b24;">หักคะแนนงานส่งช้า</div>
+                  <div style="font-size:12.5px; color:#5b6b66; margin-top:2px;">หักจากคะแนนเต็มของงานชิ้นนั้น ตอนกดปุ่ม "ช้า"</div>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <div style="padding:8px 14px; border:1px solid #dde5e2; border-radius:10px; font-size:14px; color:#0b2b24; font-variant-numeric:tabular-nums;">10</div>
+                  <span style="font-size:13.5px; color:#5b6b66;">%</span>
+                </div>
+              </div>
+              <div style="height:1px; background:#f0f4f2;"></div>
+              <div style="display:flex; gap:16px; align-items:flex-start;">
+                <div style="flex:1;">
+                  <div style="font-size:14px; font-weight:600; color:#0b2b24;">การปัดเศษ</div>
+                  <div style="font-size:12.5px; color:#5b6b66; margin-top:2px;">ใช้กับคะแนนทุกช่องก่อนแสดงและก่อนเขียนลงชีต</div>
+                </div>
+                <div style="display:flex; gap:8px;">
+                  <div style="padding:8px 14px; border:1px solid #dde5e2; border-radius:10px; font-size:13.5px; color:#0b2b24;">ทศนิยม 2 ตำแหน่ง ⌄</div>
+                  <div style="padding:8px 14px; border:1px solid #dde5e2; border-radius:10px; font-size:13.5px; color:#0b2b24;">ปัดครึ่งขึ้น ⌄</div>
+                </div>
+              </div>
+              <div style="height:1px; background:#f0f4f2;"></div>
+              <div style="display:flex; gap:16px; align-items:center;">
+                <div style="flex:1;">
+                  <div style="font-size:14px; font-weight:600; color:#0b2b24;">วันสอบกลางภาค</div>
+                  <div style="font-size:12.5px; color:#be123c; margin-top:2px;">ยังไม่ได้ตั้ง — ระบบยังแยกช่วงก่อน/หลังกลางภาคไม่ได้</div>
+                </div>
+                <div style="padding:9px 14px; border:1px solid #be123c; border-radius:10px; font-size:13.5px; color:#be123c; background:#fdf6f6;">เลือกวันที่</div>
+              </div>
+            </div>
+
+            <div style="background:#fff; border-radius:16px; padding:20px; display:flex; flex-direction:column; gap:16px;">
+              <div style="font-size:17px; font-weight:700; color:#0b2b24;">การเช็คชื่อ</div>
+              <div style="display:flex; gap:16px; align-items:flex-start;">
+                <div style="flex:1;">
+                  <div style="font-size:14px; font-weight:600; color:#0b2b24;">วิธีคิดคะแนนเข้าเรียน</div>
+                  <div style="font-size:12.5px; color:#5b6b66; margin-top:2px; line-height:1.6;"><b>ตามสัดส่วน</b> 5 × (มา 1 · สาย 0.5 · ลา 1 · ขาด 0) ÷ คาบที่เช็ค<br><b>หักรายครั้ง</b> 5 − (สาย×0.25 + ขาด×0.5)</div>
+                </div>
+                <div style="display:flex; background:#eef2f0; border-radius:11px; padding:3px; flex:none;">
+                  <div style="padding:8px 16px; border-radius:9px; background:#0b2b24; color:#fff; font-size:13px; font-weight:600;">ตามสัดส่วน</div>
+                  <div style="padding:8px 16px; border-radius:9px; color:#5b6b66; font-size:13px;">หักรายครั้ง</div>
+                </div>
+              </div>
+              <div style="height:1px; background:#f0f4f2;"></div>
+              <div style="display:flex; gap:16px; align-items:center;">
+                <div style="flex:1;">
+                  <div style="font-size:14px; font-weight:600; color:#0b2b24;">เกณฑ์เวลาเรียนขั้นต่ำ (มส)</div>
+                  <div style="font-size:12.5px; color:#5b6b66; margin-top:2px;">ต่ำกว่านี้ระบบติดธง "มส" ให้อัตโนมัติ</div>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <div style="padding:8px 14px; border:1px solid #dde5e2; border-radius:10px; font-size:14px; color:#0b2b24; font-variant-numeric:tabular-nums;">80</div>
+                  <span style="font-size:13.5px; color:#5b6b66;">%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div data-screen-label="06 ตั้งค่า มือถือ" style="width:390px; height:760px; border-radius:26px; overflow:hidden; border:1px solid #d7dedb; background:#eef2f0; display:flex; flex-direction:column; box-shadow:0 18px 40px -24px rgba(11,43,36,.45);">
+        <div style="background:#0b2b24; padding:34px 16px 14px;">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <div style="font-size:20px; color:#a9c6bd;">‹</div>
+            <div style="flex:1;"><div style="font-size:17px; font-weight:700; color:#fff;">ตั้งค่า</div><div style="font-size:12px; color:#a9c6bd;">บันทึกอัตโนมัติ · ล่าสุด 09:26</div></div>
+          </div>
+        </div>
+        <div style="flex:1; padding:12px; display:flex; flex-direction:column; gap:10px; overflow:hidden;">
+          <div style="background:#fff; border-radius:16px; padding:14px 16px;">
+            <div style="display:flex; align-items:baseline; gap:8px;">
+              <div style="flex:1; font-size:14.5px; font-weight:700; color:#0b2b24;">น้ำหนักคะแนน</div>
+              <div style="font-size:12.5px; color:#15803d; font-weight:700;">รวม 100 ✓</div>
+            </div>
+            <div style="display:flex; height:10px; border-radius:20px; overflow:hidden; margin:10px 0;">
+              <div style="width:10%; background:#0d7d6e;"></div><div style="width:10%; background:#149584;"></div><div style="width:5%; background:#37b3a1;"></div><div style="width:20%; background:#0b2b24;"></div>
+              <div style="width:10%; background:#0d7d6e;"></div><div style="width:10%; background:#149584;"></div><div style="width:5%; background:#37b3a1;"></div><div style="width:30%; background:#0b2b24;"></div>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px; font-size:13px; color:#5b6b66;">ส่งงาน 20 · สอบเก็บ 20 · เข้าเรียน 10 · สอบ 50<span style="margin-left:auto; color:#0d7d6e; font-weight:600;">แก้ ›</span></div>
+          </div>
+          <div style="background:#fdf2f2; border-radius:16px; padding:14px 16px; display:flex; align-items:center; gap:10px;">
+            <div style="flex:1;"><div style="font-size:14px; font-weight:600; color:#0b2b24;">ยังไม่ได้ตั้งวันสอบกลางภาค</div><div style="font-size:12.5px; color:#7a1b28; margin-top:2px;">คะแนนอาจลงผิดช่วง</div></div>
+            <div style="padding:9px 14px; border-radius:11px; background:#be123c; color:#fff; font-size:13px; font-weight:600;">ตั้งเลย</div>
+          </div>
+          <div style="background:#fff; border-radius:16px; overflow:hidden;">
+            <div style="padding:13px 16px; display:flex; align-items:center; gap:10px; border-bottom:1px solid #f0f4f2;">
+              <div style="flex:1;"><div style="font-size:14.5px; color:#0b2b24;">การคิดคะแนน</div><div style="font-size:12px; color:#5b6b66;">งานค้างตรวจ · หักส่งช้า 10% · ปัดเศษ</div></div><div style="color:#8b9a95;">›</div>
+            </div>
+            <div style="padding:13px 16px; display:flex; align-items:center; gap:10px; border-bottom:1px solid #f0f4f2;">
+              <div style="flex:1;"><div style="font-size:14.5px; color:#0b2b24;">การเช็คชื่อ</div><div style="font-size:12px; color:#5b6b66;">ตามสัดส่วน · เกณฑ์ มส 80%</div></div><div style="color:#8b9a95;">›</div>
+            </div>
+            <div style="padding:13px 16px; display:flex; align-items:center; gap:10px; border-bottom:1px solid #f0f4f2;">
+              <div style="flex:1;"><div style="font-size:14.5px; color:#0b2b24;">บัญชีและการเชื่อมต่อ</div><div style="font-size:12px; color:#15803d;">เชื่อมแล้ว · teacher@school.ac.th</div></div><div style="color:#8b9a95;">›</div>
+            </div>
+            <div style="padding:13px 16px; display:flex; align-items:center; gap:10px; border-bottom:1px solid #f0f4f2;">
+              <div style="flex:1;"><div style="font-size:14.5px; color:#0b2b24;">ข้อมูลและการสำรอง</div><div style="font-size:12px; color:#b45309;">ค้างส่ง 2 รายการ</div></div><div style="color:#8b9a95;">›</div>
+            </div>
+            <div style="padding:13px 16px; display:flex; align-items:center; gap:10px;">
+              <div style="flex:1;"><div style="font-size:14.5px; color:#0b2b24;">เกี่ยวกับระบบ</div><div style="font-size:12px; color:#5b6b66;">แอป v2.4.0 · โค้ดในชีต v2.4.0 ✓</div></div><div style="color:#8b9a95;">›</div>
+            </div>
+          </div>
+          <div style="background:#fff; border-radius:16px; padding:14px 16px; display:flex; align-items:center; gap:10px;">
+            <div style="flex:1;"><div style="font-size:14.5px; color:#0b2b24;">ธีม</div><div style="font-size:12px; color:#5b6b66;">ตามระบบ</div></div>
+            <div style="display:flex; background:#eef2f0; border-radius:10px; padding:3px;">
+              <div style="padding:6px 12px; border-radius:8px; background:#0b2b24; color:#fff; font-size:12.5px;">ระบบ</div>
+              <div style="padding:6px 12px; border-radius:8px; color:#5b6b66; font-size:12.5px;">สว่าง</div>
+              <div style="padding:6px 12px; border-radius:8px; color:#5b6b66; font-size:12.5px;">มืด</div>
+            </div>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <div style="flex:1; text-align:center; padding:12px; border-radius:13px; background:#fff; color:#0b2b24; font-size:13.5px;">⬇️ ติดตั้งเป็นแอป</div>
+            <div style="flex:1; text-align:center; padding:12px; border-radius:13px; background:#fff; color:#0b2b24; font-size:13.5px;">📱 ย้ายไปเครื่องอื่น</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ 7 ติดตั้งครั้งแรก ══════════ -->
+  <div id="s7" style="display:flex; flex-direction:column; gap:14px;">
+    <div style="display:flex; align-items:baseline; gap:12px;">
+      <span style="font-family:'IBM Plex Mono',monospace; font-size:12px; background:#0b2b24; color:#c7f04a; padding:4px 9px; border-radius:6px;">07</span>
+      <span style="font-size:20px; font-weight:700; color:#0b2b24;">ติดตั้งครั้งแรก</span>
+      <span style="font-size:13px; color:#5b6b66;">3 ขั้น เห็นความคืบหน้าตลอด · เชื่อมด้วยบัญชี Google หรือรหัสลับ</span>
+    </div>
+    <div style="display:flex; gap:18px; align-items:flex-start; flex-wrap:wrap;">
+
+      <div data-screen-label="07 ติดตั้ง PC" style="width:1000px; border-radius:14px; overflow:hidden; border:1px solid #d7dedb; box-shadow:0 18px 40px -24px rgba(11,43,36,.45); background:#0b2b24;">
+        <div style="padding:44px 22px 54px; display:flex; flex-direction:column; align-items:center; gap:22px;">
+          <div style="display:flex; align-items:center; gap:11px;">
+            <div style="width:34px; height:34px; border-radius:11px; background:#c7f04a; color:#0b2b24; display:grid; place-items:center; font-weight:700; font-size:17px;">A</div>
+            <div style="font-size:20px; font-weight:700; color:#fff;">AssignCheck</div>
+          </div>
+          <div style="font-size:14px; color:#a9c6bd; text-align:center; max-width:520px; line-height:1.7;">เชื่อมแอปเข้ากับ Google Sheet ของคุณ · ทำครั้งเดียว ใช้ได้ทุกเครื่อง</div>
+
+          <div style="width:620px; background:#fff; border-radius:20px; padding:26px;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:22px;">
+              <div style="display:flex; align-items:center; gap:8px;"><div style="width:26px; height:26px; border-radius:50%; background:#15803d; color:#fff; display:grid; place-items:center; font-size:13px;">✓</div><span style="font-size:13px; color:#0b2b24; font-weight:600;">วางโค้ดในชีต</span></div>
+              <div style="flex:1; height:2px; background:#15803d;"></div>
+              <div style="display:flex; align-items:center; gap:8px;"><div style="width:26px; height:26px; border-radius:50%; background:#0b2b24; color:#fff; display:grid; place-items:center; font-size:13px;">2</div><span style="font-size:13px; color:#0b2b24; font-weight:600;">เชื่อมต่อ</span></div>
+              <div style="flex:1; height:2px; background:#e4ebe8;"></div>
+              <div style="display:flex; align-items:center; gap:8px;"><div style="width:26px; height:26px; border-radius:50%; background:#e4ebe8; color:#8b9a95; display:grid; place-items:center; font-size:13px;">3</div><span style="font-size:13px; color:#8b9a95;">สร้างห้องแรก</span></div>
+            </div>
+
+            <div style="font-size:19px; font-weight:700; color:#0b2b24;">เชื่อมต่อกับ Web App ของคุณ</div>
+            <div style="font-size:13px; color:#5b6b66; margin:4px 0 18px; line-height:1.65;">คัดลอก Web app URL จาก Apps Script (Deploy → New deployment → Web app · Anyone) และรหัสลับจากแท็บ 📖 วิธีใช้ ในชีต</div>
+
+            <div style="display:flex; flex-direction:column; gap:14px;">
+              <div>
+                <div style="font-size:13px; font-weight:600; color:#0b2b24; margin-bottom:6px;">Web app URL</div>
+                <div style="padding:12px 14px; border:1px solid #dde5e2; border-radius:11px; font-family:'IBM Plex Mono',monospace; font-size:12.5px; color:#0b2b24; background:#fbfdfc;">https://script.google.com/macros/s/AKfy…/exec</div>
+                <div style="font-size:12px; color:#15803d; margin-top:5px;">✓ ตรวจแล้ว เชื่อมต่อได้ · โค้ดในชีต v2.4.0</div>
+              </div>
+              <div>
+                <div style="font-size:13px; font-weight:600; color:#0b2b24; margin-bottom:6px;">วิธียืนยันตัวตน</div>
+                <div style="display:flex; gap:10px;">
+                  <div style="flex:1; border:2px solid #0d7d6e; border-radius:12px; padding:13px 14px; background:#f4faf8;">
+                    <div style="font-size:14px; font-weight:600; color:#0b2b24;">บัญชี Google</div>
+                    <div style="font-size:12px; color:#5b6b66; margin-top:2px;">แนะนำ · ใช้ได้หลายเครื่อง ไม่ต้องจำรหัส</div>
+                  </div>
+                  <div style="flex:1; border:1px solid #dde5e2; border-radius:12px; padding:13px 14px;">
+                    <div style="font-size:14px; font-weight:600; color:#0b2b24;">รหัสลับ</div>
+                    <div style="font-size:12px; color:#5b6b66; margin-top:2px;">เริ่มเร็วสุด เหมาะกับเครื่องเดียว</div>
+                  </div>
+                </div>
+              </div>
+              <div style="padding:14px; border-radius:13px; background:#c7f04a; color:#0b2b24; font-size:15.5px; font-weight:700; text-align:center;">เข้าสู่ระบบด้วย Google แล้วเชื่อมต่อ</div>
+              <div style="font-size:12px; color:#8b9a95; text-align:center; line-height:1.6;">ติดขัดตรงไหน? เปิด <a href="#s7">คู่มือติดตั้งทีละขั้น</a> · ระบบตรวจให้อัตโนมัติว่าตั้ง "Anyone" ถูกหรือยัง</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div data-screen-label="07 ติดตั้ง มือถือ" style="width:390px; height:760px; border-radius:26px; overflow:hidden; border:1px solid #d7dedb; background:#0b2b24; display:flex; flex-direction:column; box-shadow:0 18px 40px -24px rgba(11,43,36,.45);">
+        <div style="padding:54px 20px 24px; display:flex; flex-direction:column; align-items:center; gap:10px;">
+          <div style="width:44px; height:44px; border-radius:14px; background:#c7f04a; color:#0b2b24; display:grid; place-items:center; font-weight:700; font-size:20px;">A</div>
+          <div style="font-size:19px; font-weight:700; color:#fff;">AssignCheck</div>
+          <div style="font-size:13px; color:#a9c6bd; text-align:center; line-height:1.65;">เช็คชื่อ · เช็คงาน · สรุปคะแนน SGS<br>เชื่อมกับ Google Sheet ของคุณครั้งเดียว</div>
+        </div>
+        <div style="flex:1; background:#fff; border-radius:24px 24px 0 0; padding:22px 18px; display:flex; flex-direction:column; gap:16px;">
+          <div style="display:flex; align-items:center; gap:6px;">
+            <div style="width:24px; height:24px; border-radius:50%; background:#15803d; color:#fff; display:grid; place-items:center; font-size:12px;">✓</div>
+            <div style="flex:1; height:2px; background:#15803d;"></div>
+            <div style="width:24px; height:24px; border-radius:50%; background:#0b2b24; color:#fff; display:grid; place-items:center; font-size:12px;">2</div>
+            <div style="flex:1; height:2px; background:#e4ebe8;"></div>
+            <div style="width:24px; height:24px; border-radius:50%; background:#e4ebe8; color:#8b9a95; display:grid; place-items:center; font-size:12px;">3</div>
+          </div>
+          <div>
+            <div style="font-size:18px; font-weight:700; color:#0b2b24;">เชื่อมต่อกับชีตของคุณ</div>
+            <div style="font-size:12.5px; color:#5b6b66; margin-top:4px; line-height:1.65;">ถ้าเปิดจากลิงก์ "ย้ายไปเครื่องอื่น" ระบบจะกรอกให้เองทั้งหมด</div>
+          </div>
+          <div>
+            <div style="font-size:13px; font-weight:600; color:#0b2b24; margin-bottom:6px;">Web app URL</div>
+            <div style="padding:13px 14px; border:1px solid #dde5e2; border-radius:12px; font-family:'IBM Plex Mono',monospace; font-size:12px; color:#8b9a95;">วางลิงก์ที่ลงท้ายด้วย /exec</div>
+          </div>
+          <div>
+            <div style="font-size:13px; font-weight:600; color:#0b2b24; margin-bottom:6px;">รหัสลับ</div>
+            <div style="padding:13px 14px; border:1px solid #dde5e2; border-radius:12px; font-family:'IBM Plex Mono',monospace; font-size:12px; color:#8b9a95;">จากแท็บ 📖 วิธีใช้ ในชีต</div>
+          </div>
+          <div style="padding:14px; border-radius:14px; background:#c7f04a; color:#0b2b24; font-size:15.5px; font-weight:700; text-align:center;">เชื่อมต่อ</div>
+          <div style="display:flex; align-items:center; gap:10px;"><div style="flex:1; height:1px; background:#eef2f0;"></div><span style="font-size:12px; color:#8b9a95;">หรือ</span><div style="flex:1; height:1px; background:#eef2f0;"></div></div>
+          <div style="padding:13px; border-radius:14px; border:1px solid #dde5e2; color:#0b2b24; font-size:14.5px; font-weight:600; text-align:center;">เข้าสู่ระบบด้วยบัญชี Google</div>
+          <div style="font-size:12px; color:#8b9a95; text-align:center; line-height:1.7; margin-top:auto;">ยังไม่ได้วางโค้ดในชีต?<br><a href="#s7">ดูวิธีติดตั้ง 5 ขั้นตอน</a></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ 8 หน้านักเรียน ══════════ -->
+  <div id="s8" style="display:flex; flex-direction:column; gap:14px;">
+    <div style="display:flex; align-items:baseline; gap:12px;">
+      <span style="font-family:'IBM Plex Mono',monospace; font-size:12px; background:#0b2b24; color:#c7f04a; padding:4px 9px; border-radius:6px;">08</span>
+      <span style="font-size:20px; font-weight:700; color:#0b2b24;">หน้านักเรียน</span>
+      <span style="font-size:13px; color:#5b6b66;">อ่านอย่างเดียว · กดที่งานเพื่ออ่านรายละเอียดที่ครูเขียนไว้ ไม่แสดงข้อมูลการเข้าเรียน</span>
+    </div>
+    <div style="display:flex; gap:18px; align-items:flex-start; flex-wrap:wrap;">
+
+      <div data-screen-label="08 นักเรียน มือถือ" style="width:390px; height:850px; border-radius:26px; overflow:hidden; border:1px solid #d7dedb; background:#eef2f0; display:flex; flex-direction:column; box-shadow:0 18px 40px -24px rgba(11,43,36,.45);">
+        <div style="background:#0b2b24; padding:38px 18px 20px;">
+          <div style="font-size:12.5px; color:#a9c6bd;">ม.1/1 · คณิตศาสตร์พื้นฐาน</div>
+          <div style="font-size:21px; font-weight:700; color:#fff; margin-top:2px;">กฤตภาส คงพลอย</div>
+          <div style="display:flex; align-items:flex-end; gap:10px; margin-top:16px;">
+            <div style="font-size:40px; font-weight:700; color:#c7f04a; line-height:1; font-variant-numeric:tabular-nums;">62.3</div>
+            <div style="font-size:13px; color:#a9c6bd; padding-bottom:4px;">คะแนนสะสม · เต็ม 70 ที่ตรวจแล้ว</div>
+          </div>
+          <div style="display:flex; gap:8px; margin-top:12px;">
+            <div style="flex:1; background:#12463a; border-radius:11px; padding:9px 11px;"><div style="font-size:11.5px; color:#a9c6bd;">ส่งงาน</div><div style="font-size:15px; font-weight:700; color:#fff; font-variant-numeric:tabular-nums;">18/20</div></div>
+            <div style="flex:1; background:#12463a; border-radius:11px; padding:9px 11px;"><div style="font-size:11.5px; color:#a9c6bd;">สอบเก็บ</div><div style="font-size:15px; font-weight:700; color:#fff; font-variant-numeric:tabular-nums;">17.5/20</div></div>
+            <div style="flex:1; background:#12463a; border-radius:11px; padding:9px 11px;"><div style="font-size:11.5px; color:#a9c6bd;">สอบใหญ่</div><div style="font-size:15px; font-weight:700; color:#fff; font-variant-numeric:tabular-nums;">17/50</div></div>
+          </div>
+        </div>
+        <div style="flex:1; padding:14px; display:flex; flex-direction:column; gap:10px; overflow:hidden;">
+          <div style="background:#fff; border-radius:16px; padding:16px;">
+            <div style="display:flex; align-items:baseline; gap:8px; margin-bottom:12px;">
+              <div style="font-size:13.5px; font-weight:700; color:#0b2b24;">รายการงาน</div>
+              <div style="font-size:11px; color:#8b9a95;">กดที่ชื่องานเพื่อดูคำสั่งและไฟล์แนบ</div>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:9px;">
+              <div style="display:flex; align-items:center; gap:10px; padding:10px 12px; background:#fdf2f2; border-radius:11px;">
+                <div style="flex:1;"><div style="font-size:14px; color:#0b2b24;">ใบงานที่ 2</div><div style="font-size:11.5px; color:#7a1b28;">เลยกำหนด 8 ส.ค. · 📄 1 ไฟล์</div></div>
+                <div style="font-size:12.5px; color:#be123c; font-weight:700;">ยังไม่ส่ง</div>
+                <div style="font-size:14px; color:#be123c;">›</div>
+              </div>
+              <div style="display:flex; align-items:center; gap:10px; padding:10px 12px; background:#fdf7ec; border-radius:11px;">
+                <div style="flex:1;"><div style="font-size:14px; color:#0b2b24;">ใบงานที่ 4</div><div style="font-size:11.5px; color:#8a5a12;">ส่งแล้ว รอครูตรวจ · 📄 1 ไฟล์</div></div>
+                <div style="font-size:12.5px; color:#b45309; font-weight:700;">รอตรวจ</div>
+                <div style="font-size:14px; color:#b45309;">›</div>
+              </div>
+              <div style="display:flex; align-items:center; gap:10px; padding:10px 12px; background:#f4f7f6; border-radius:11px;">
+                <div style="flex:1;"><div style="font-size:14px; color:#0b2b24;">แบบฝึกหัด 2.1</div><div style="font-size:11.5px; color:#5b6b66;">ส่งตรงเวลา · มีคอมเมนต์จากครู</div></div>
+                <div style="font-size:12.5px; color:#15803d; font-weight:700;">5/5</div>
+                <div style="font-size:14px; color:#8b9a95;">›</div>
+              </div>
+            </div>
+          </div>
+          <div style="background:#fff; border-radius:16px; padding:16px;">
+            <div style="font-size:13.5px; font-weight:700; color:#0b2b24; margin-bottom:12px;">คะแนนสอบ</div>
+            <div style="display:flex; flex-direction:column; gap:9px;">
+              <div style="display:flex; align-items:center; gap:10px; padding:10px 12px; background:#f4f7f6; border-radius:11px;">
+                <div style="flex:1;"><div style="font-size:14px; color:#0b2b24;">สอบเก็บคะแนน ครั้งที่ 1</div><div style="font-size:11.5px; color:#8b9a95;">12 ก.ค. · บทที่ 1-2</div></div>
+                <div style="font-size:15px; font-weight:700; color:#0b2b24; font-variant-numeric:tabular-nums;">9/10</div>
+              </div>
+              <div style="display:flex; align-items:center; gap:10px; padding:10px 12px; background:#f4f7f6; border-radius:11px;">
+                <div style="flex:1;"><div style="font-size:14px; color:#0b2b24;">สอบเก็บคะแนน ครั้งที่ 2</div><div style="font-size:11.5px; color:#8b9a95;">2 ส.ค. · บทที่ 3</div></div>
+                <div style="font-size:15px; font-weight:700; color:#0b2b24; font-variant-numeric:tabular-nums;">8.5/10</div>
+              </div>
+              <div style="display:flex; align-items:center; gap:10px; padding:10px 12px; background:#eaf3f0; border-radius:11px;">
+                <div style="flex:1;"><div style="font-size:14px; color:#0b2b24; font-weight:600;">สอบกลางภาค</div><div style="font-size:11.5px; color:#5b6b66;">16 ส.ค. · เฉลี่ยห้อง 14.2</div></div>
+                <div style="font-size:16px; font-weight:700; color:#0d7d6e; font-variant-numeric:tabular-nums;">17/20</div>
+              </div>
+              <div style="display:flex; align-items:center; gap:10px; padding:10px 12px; background:#f4f7f6; border-radius:11px; opacity:.6;">
+                <div style="flex:1;"><div style="font-size:14px; color:#0b2b24; font-weight:600;">สอบปลายภาค</div><div style="font-size:11.5px; color:#8b9a95;">ยังไม่ถึงกำหนดสอบ</div></div>
+                <div style="font-size:14px; color:#8b9a95;">—/30</div>
+              </div>
+            </div>
+          </div>
+          <div style="font-size:11.5px; color:#8b9a95; text-align:center; line-height:1.6;">ข้อมูล ณ 26 ส.ค. 09:24 · ถ้าคะแนนไม่ตรง แจ้งครูประจำวิชา</div>
+        </div>
+      </div>
+
+      <!-- 08b รายละเอียดงาน (นักเรียน) -->
+      <div data-screen-label="08b รายละเอียดงาน นักเรียน" style="width:390px; height:850px; border-radius:26px; overflow:hidden; border:1px solid #d7dedb; background:#eef2f0; display:flex; flex-direction:column; box-shadow:0 18px 40px -24px rgba(11,43,36,.45);">
+        <div style="background:#0b2b24; padding:38px 18px 18px;">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <div style="font-size:20px; color:#a9c6bd;">‹</div>
+            <div style="flex:1; font-size:12.5px; color:#a9c6bd;">ส่งงาน · ก่อนกลางบท</div>
+          </div>
+          <div style="font-size:21px; font-weight:700; color:#fff; margin-top:10px;">ใบงานที่ 4</div>
+          <div style="font-size:13px; color:#a9c6bd; margin-top:2px;">ทศนิยมและเศษส่วน</div>
+          <div style="display:flex; gap:8px; margin-top:14px;">
+            <div style="flex:1; background:#12463a; border-radius:11px; padding:9px 11px;"><div style="font-size:11.5px; color:#a9c6bd;">กำหนดส่ง</div><div style="font-size:14px; font-weight:700; color:#fff;">22 ส.ค. 16:30</div></div>
+            <div style="width:88px; background:#12463a; border-radius:11px; padding:9px 11px;"><div style="font-size:11.5px; color:#a9c6bd;">เต็ม</div><div style="font-size:14px; font-weight:700; color:#fff; font-variant-numeric:tabular-nums;">10</div></div>
+          </div>
+        </div>
+        <div style="flex:1; padding:14px; display:flex; flex-direction:column; gap:10px; overflow:hidden;">
+          <div style="display:flex; align-items:center; gap:10px; padding:12px 14px; background:#fdf7ec; border-radius:14px;">
+            <div style="flex:1;"><div style="font-size:13.5px; font-weight:700; color:#8a5a12;">ส่งแล้ว รอครูตรวจ</div><div style="font-size:11.5px; color:#8a5a12; margin-top:1px;">ครูรับงานเมื่อ 21 ส.ค. 14:05</div></div>
+            <div style="font-size:19px; color:#b45309;">◷</div>
+          </div>
+          <div style="background:#fff; border-radius:16px; padding:16px;">
+            <div style="font-size:13.5px; font-weight:700; color:#0b2b24; margin-bottom:8px;">คำสั่งจากครู</div>
+            <div style="font-size:13.5px; color:#3f524c; line-height:1.8; text-wrap:pretty;">ทำข้อ 1–12 ในเอกสาร เขียนวิธีทำทุกข้อ ส่งเป็นสมุดหรือรูปถ่ายในไดรฟ์ · ห้ามลอกกัน</div>
+          </div>
+          <div style="background:#fff; border-radius:16px; padding:16px;">
+            <div style="font-size:13.5px; font-weight:700; color:#0b2b24; margin-bottom:10px;">เอกสารประกอบ</div>
+            <div style="display:flex; align-items:center; gap:11px; padding:11px 12px; background:#f4f7f6; border-radius:12px;">
+              <div style="font-size:18px;">📄</div>
+              <div style="flex:1;"><div style="font-size:13.5px; color:#0b2b24;">ใบงาน-4.pdf</div><div style="font-size:11.5px; color:#8b9a95;">PDF · 420 KB</div></div>
+              <div style="padding:7px 13px; border-radius:10px; background:#0b2b24; color:#fff; font-size:12.5px; font-weight:600;">เปิด</div>
+            </div>
+          </div>
+          <div style="background:#fff; border-radius:16px; padding:16px;">
+            <div style="font-size:13.5px; font-weight:700; color:#0b2b24; margin-bottom:10px;">เกณท์การให้คะแนน</div>
+            <div style="display:flex; flex-direction:column; gap:7px;">
+              <div style="display:flex; gap:10px; font-size:13px; color:#3f524c;"><div style="flex:1;">ส่งตรงเวลา</div><div style="color:#0b2b24; font-variant-numeric:tabular-nums;">เต็ม 10</div></div>
+              <div style="display:flex; gap:10px; font-size:13px; color:#3f524c;"><div style="flex:1;">ส่งช้า</div><div style="color:#b45309;">หัก 10% ของคะแนนที่ได้</div></div>
+              <div style="display:flex; gap:10px; font-size:13px; color:#3f524c;"><div style="flex:1;">ไม่ส่ง</div><div style="color:#8b9a95;">0 คะแนน</div></div>
+            </div>
+          </div>
+          <div style="font-size:11.5px; color:#8b9a95; text-align:center; line-height:1.6;">ส่งงานที่ครูด้วยตนเหมือนเดิม · หน้านี้อ่านอย่างเดียว</div>
+        </div>
+      </div>
+
+      <div data-screen-label="08 นักเรียน PC" style="width:590px; border-radius:14px; overflow:hidden; border:1px solid #d7dedb; box-shadow:0 18px 40px -24px rgba(11,43,36,.45); background:#eef2f0;">
+        <div style="background:#0b2b24; padding:22px 24px; display:flex; align-items:center; gap:16px;">
+          <div style="flex:1;">
+            <div style="font-size:12.5px; color:#a9c6bd;">ม.1/1 · คณิตศาสตร์พื้นฐาน · ปีการศึกษา 2568 เทอม 1</div>
+            <div style="font-size:20px; font-weight:700; color:#fff; margin-top:2px;">กฤตภาส คงพลอย</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:34px; font-weight:700; color:#c7f04a; line-height:1; font-variant-numeric:tabular-nums;">62.3</div>
+            <div style="font-size:12px; color:#a9c6bd; margin-top:4px;">คะแนนสะสม</div>
+          </div>
+        </div>
+        <div style="padding:20px; display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+          <div style="background:#fff; border-radius:16px; padding:16px;">
+            <div style="font-size:13.5px; font-weight:700; color:#0b2b24; margin-bottom:12px;">ต้องส่งงานอะไรบ้าง</div>
+            <div style="display:flex; flex-direction:column; gap:8px;">
+              <div style="display:flex; align-items:center; gap:10px; padding:9px 11px; background:#fdf2f2; border-radius:10px;"><div style="flex:1; font-size:13.5px; color:#0b2b24;">ใบงานที่ 2 <span style="font-size:11.5px; color:#8b9a95;">· 📄</span></div><div style="font-size:12px; color:#be123c; font-weight:700;">ยังไม่ส่ง</div><div style="font-size:13px; color:#be123c;">›</div></div>
+              <div style="display:flex; align-items:center; gap:10px; padding:9px 11px; background:#fdf7ec; border-radius:10px;"><div style="flex:1; font-size:13.5px; color:#0b2b24;">ใบงานที่ 4 <span style="font-size:11.5px; color:#8b9a95;">· 📄</span></div><div style="font-size:12px; color:#b45309; font-weight:700;">รอตรวจ</div><div style="font-size:13px; color:#b45309;">›</div></div>
+              <div style="display:flex; align-items:center; gap:10px; padding:9px 11px; background:#f4f7f6; border-radius:10px;"><div style="flex:1; font-size:13.5px; color:#0b2b24;">แบบฝึกหัด 2.1</div><div style="font-size:12px; color:#15803d; font-weight:700;">5/5</div><div style="font-size:13px; color:#8b9a95;">›</div></div>
+              <div style="display:flex; align-items:center; gap:10px; padding:9px 11px; background:#f4f7f6; border-radius:10px;"><div style="flex:1; font-size:13.5px; color:#0b2b24;">ใบงานที่ 3</div><div style="font-size:12px; color:#15803d; font-weight:700;">8/10</div><div style="font-size:13px; color:#8b9a95;">›</div></div>
+            </div>
+          </div>
+          <div style="background:#fff; border-radius:16px; padding:16px;">
+            <div style="font-size:13.5px; font-weight:700; color:#0b2b24; margin-bottom:12px;">คะแนนแต่ละส่วน</div>
+            <div style="display:flex; flex-direction:column; gap:10px;">
+              <div style="display:flex; align-items:center; gap:10px;">
+                <div style="width:92px; font-size:13px; color:#5b6b66;">ส่งงาน</div>
+                <div style="flex:1; height:10px; border-radius:6px; background:#eef2f0; overflow:hidden;"><div style="width:90%; height:100%; background:#0d7d6e;"></div></div>
+                <div style="width:56px; text-align:right; font-size:13px; color:#0b2b24; font-variant-numeric:tabular-nums;">18/20</div>
+              </div>
+              <div style="display:flex; align-items:center; gap:10px;">
+                <div style="width:92px; font-size:13px; color:#5b6b66;">สอบเก็บคะแนน</div>
+                <div style="flex:1; height:10px; border-radius:6px; background:#eef2f0; overflow:hidden;"><div style="width:87%; height:100%; background:#0d7d6e;"></div></div>
+                <div style="width:56px; text-align:right; font-size:13px; color:#0b2b24; font-variant-numeric:tabular-nums;">17.5/20</div>
+              </div>
+              <div style="display:flex; align-items:center; gap:10px;">
+                <div style="width:92px; font-size:13px; color:#5b6b66;">สอบกลางภาค</div>
+                <div style="flex:1; height:10px; border-radius:6px; background:#eef2f0; overflow:hidden;"><div style="width:85%; height:100%; background:#0d7d6e;"></div></div>
+                <div style="width:56px; text-align:right; font-size:13px; color:#0b2b24; font-variant-numeric:tabular-nums;">17/20</div>
+              </div>
+              <div style="display:flex; align-items:center; gap:10px; opacity:.55;">
+                <div style="width:92px; font-size:13px; color:#5b6b66;">สอบปลายภาค</div>
+                <div style="flex:1; height:10px; border-radius:6px; background:#eef2f0;"></div>
+                <div style="width:56px; text-align:right; font-size:13px; color:#8b9a95;">—/30</div>
+              </div>
+            </div>
+          </div>
+          <div style="grid-column:1 / -1; background:#fff; border-radius:16px; padding:16px;">
+            <div style="font-size:13.5px; font-weight:700; color:#0b2b24; margin-bottom:12px;">คะแนนสอบ</div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+              <div style="display:flex; align-items:center; gap:10px; padding:10px 12px; background:#f4f7f6; border-radius:11px;">
+                <div style="flex:1;"><div style="font-size:13.5px; color:#0b2b24;">สอบเก็บคะแนน ครั้งที่ 1</div><div style="font-size:11.5px; color:#8b9a95;">12 ก.ค. · บทที่ 1-2</div></div>
+                <div style="font-size:14.5px; font-weight:700; color:#0b2b24; font-variant-numeric:tabular-nums;">9/10</div>
+              </div>
+              <div style="display:flex; align-items:center; gap:10px; padding:10px 12px; background:#f4f7f6; border-radius:11px;">
+                <div style="flex:1;"><div style="font-size:13.5px; color:#0b2b24;">สอบเก็บคะแนน ครั้งที่ 2</div><div style="font-size:11.5px; color:#8b9a95;">2 ส.ค. · บทที่ 3</div></div>
+                <div style="font-size:14.5px; font-weight:700; color:#0b2b24; font-variant-numeric:tabular-nums;">8.5/10</div>
+              </div>
+              <div style="display:flex; align-items:center; gap:10px; padding:10px 12px; background:#eaf3f0; border-radius:11px;">
+                <div style="flex:1;"><div style="font-size:13.5px; color:#0b2b24; font-weight:600;">สอบกลางภาค</div><div style="font-size:11.5px; color:#5b6b66;">16 ส.ค. · เฉลี่ยห้อง 14.2</div></div>
+                <div style="font-size:15px; font-weight:700; color:#0d7d6e; font-variant-numeric:tabular-nums;">17/20</div>
+              </div>
+              <div style="display:flex; align-items:center; gap:10px; padding:10px 12px; background:#f4f7f6; border-radius:11px; opacity:.6;">
+                <div style="flex:1;"><div style="font-size:13.5px; color:#0b2b24; font-weight:600;">สอบปลายภาค</div><div style="font-size:11.5px; color:#8b9a95;">ยังไม่ถึงกำหนดสอบ</div></div>
+                <div style="font-size:13.5px; color:#8b9a95;">—/30</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- notes -->
+  <div style="max-width:860px; border-top:1px solid #cfd6d3; padding-top:22px; display:flex; flex-direction:column; gap:10px;">
+    <div style="font-size:16px; font-weight:700; color:#0b2b24;">หมายเหตุการนำไปใช้</div>
+    <div style="font-size:14px; color:#3f524c; line-height:1.85; text-wrap:pretty;">
+      • <b>CSS ชุดเดียว ใช้ได้ทั้ง GitHub Pages และ Apps Script</b> — เปลี่ยนเฉพาะค่าตัวแปรใน <code style="font-family:'IBM Plex Mono',monospace; font-size:12.5px; background:#fff; padding:1px 5px; border-radius:4px;">:root</code> ของ styles.css (พื้น/หมึก/แอคเซนต์/ไลม์) กับเพิ่ม breakpoint <code style="font-family:'IBM Plex Mono',monospace; font-size:12.5px; background:#fff; padding:1px 5px; border-radius:4px;">@media (min-width:900px)</code> ที่สลับ bottom nav → top nav และจำกัดเนื้อหา 900px · ตัว build ที่มีอยู่ (tools/build-webapp.mjs) รวมไฟล์เป็น Index.html ให้เองอยู่แล้ว<br>
+      • <b>โหมดมืด</b> ใช้โครงเดิม: หมึกเขียวเข้มกลายเป็นพื้น ไลม์เดิมยังใช้ได้ทั้งคู่ (คอนทราสต์ผ่านทั้งสองโหมด)<br>
+      • <b>ฟอนต์ Anuphan</b> จาก Google Fonts — ถ้าต้องการให้ทำงานออฟไลน์เต็มที่ ควรฝังไฟล์ฟอนต์ไว้ใน repo แล้วให้ service worker แคช (แบบเดิมโหลดจาก CDN จะไม่ขึ้นเมื่อไม่มีเน็ตครั้งแรก)<br>
+      • ยังไม่ได้ทำ: โมดัลต่าง ๆ (เพิ่มห้อง/รายชื่อ/เพิ่มงาน), หน้า health, โหมดมืด — บอกได้ว่าจะให้ทำต่อหน้าไหน
+    </div>
+  </div>
+
+</section>
+</x-dc>
+</body>
+</html>
