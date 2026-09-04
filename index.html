@@ -3,13 +3,47 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#ffffff">
+<!-- สีแถบบนของเบราว์เซอร์/มือถือ — ต้องเท่ากับ --bar ใน styles.css
+     ของเดิมเป็น #ffffff แถบสถานะบนมือถือจึงเป็นแถบขาวคาดอยู่เหนือ
+     แถบหัวแอปสีเขียวเข้มพอดี ดูเหมือนวางองค์ประกอบผิด
+     js/theme.js เขียนทับสองบรรทัดนี้ตอนครูบังคับโหมดสว่าง/มืดเอง
+     (media query ตามเครื่องอย่างเดียวไม่พอ เพราะครูเลือกสวนกับเครื่องได้) -->
+<meta name="theme-color" content="#0b2b24" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#061210" media="(prefers-color-scheme: dark)">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="AssignCheck">
+<meta name="application-name" content="AssignCheck">
 <title>AssignCheck — เช็คชื่อ เช็คงาน สรุปคะแนน SGS</title>
+<meta name="description" content="ระบบเช็คชื่อ เช็คการส่งงาน และกรอกคะแนนสำหรับครู สรุปออกมาเป็น 8 ช่องพร้อมกรอกลง SGS ข้อมูลทั้งหมดอยู่ใน Google Sheet ของคุณเอง และใช้งานต่อได้แม้เน็ตหลุด">
+
+<!-- ไอคอน — ทุกไฟล์สร้างจาก icons/icon.svg ด้วย tools/make-icons.ps1
+     .ico ไว้ให้เบราว์เซอร์รุ่นเก่า · .svg ให้รุ่นใหม่ (คมทุกความละเอียด)
+     apple-touch-icon ขาดไม่ได้ ไม่งั้น iPhone ที่กด "เพิ่มลงหน้าจอโฮม"
+     จะได้ภาพสกรีนช็อตของหน้าเว็บมาเป็นไอคอนแทน -->
+<link rel="icon" href="icons/favicon.ico">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+
+<!-- แชร์ลิงก์ในไลน์/เฟซบุ๊กแล้วขึ้นเป็นการ์ดมีรูป ไม่ใช่ลิงก์เปล่า
+     ⚠️ ตามสเปก og:image ควรเป็น URL เต็ม แต่แต่ละคน deploy คนละที่
+        จึงใส่เป็นที่อยู่แบบสัมพัทธ์ไว้ (ตัวอ่านลิงก์ส่วนใหญ่ต่อ URL ให้เอง)
+        อยากให้ขึ้นรูปชัวร์ทุกแอป ให้แก้เป็นที่อยู่เต็มของคุณ เช่น
+        https://ชื่อคุณ.github.io/assigncheck/icons/og-image.png -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="AssignCheck">
+<meta property="og:locale" content="th_TH">
+<meta property="og:title" content="AssignCheck — เช็คชื่อ เช็คงาน สรุปคะแนน SGS">
+<meta property="og:description" content="ระบบเช็คชื่อ เช็คการส่งงาน และกรอกคะแนนสำหรับครู สรุปออกมาเป็น 8 ช่องพร้อมกรอกลง SGS">
+<meta property="og:image" content="icons/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="AssignCheck — เช็คชื่อ เช็คงาน สรุปคะแนน SGS">
+<meta name="twitter:card" content="summary_large_image">
 
 <!-- ตั้งธีมก่อนวาดหน้า กันจอกะพริบขาวตอนเปิดในโหมดมืด -->
-<script>try{var t=localStorage.getItem('ac.theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+<script>try{var t=localStorage.getItem('ac.theme');if(t==='light'||t==='dark'){document.documentElement.setAttribute('data-theme',t);var c=t==='dark'?'#061210':'#0b2b24',m=document.querySelectorAll('meta[name="theme-color"]');for(var i=0;i<m.length;i++)m[i].content=c;}}catch(e){}</script>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

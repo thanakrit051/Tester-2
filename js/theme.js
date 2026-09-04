@@ -7,7 +7,10 @@
 import { store } from './storage.js';
 
 const KEY = 'ac.theme';
-const BAR = { light: '#ffffff', dark: '#101211' };
+/* สีแถบบนของเบราว์เซอร์/มือถือ — ต้องเท่ากับ --bar ใน styles.css เสมอ
+ * ของเดิมเป็น #ffffff กับ #101211 ซึ่งไม่ตรงกับดีไซน์ทั้งคู่
+ * ผลคือบนมือถือมีแถบสีคนละสีคาดอยู่เหนือแถบหัวแอปพอดี */
+const BAR = { light: '#0b2b24', dark: '#061210' };
 
 /* store สลับไปเก็บในหน่วยความจำให้เองเมื่อเบราว์เซอร์บล็อก localStorage
  * (Chrome ที่ปิดคุกกี้ของบุคคลที่สาม ใน iframe ของ Google)
@@ -45,6 +48,34 @@ export function resolvedTheme() {
   return q && q.matches ? 'dark' : 'light';
 }
 
+/**
+ * ทาสีแถบบนของเบราว์เซอร์
+ *
+ * ในหน้า HTML มี meta theme-color สองอัน แยกด้วย media query
+ * เพื่อให้ได้สีถูกตั้งแต่ก่อน JS ทำงาน (กันแถบกะพริบตอนเปิดแอป)
+ *
+ *   โหมด auto  → ปล่อยให้ media query ตัดสิน แค่ย้ำค่าให้ตรงกับ BAR
+ *   บังคับโหมด → media query ช่วยไม่ได้ เพราะครูเลือกสวนกับเครื่องได้
+ *                จึงตั้งทุกอันเป็นสีเดียวกัน อันไหนถูกเลือกก็ได้สีที่ถูก
+ *
+ * ของเดิมเขียนทับอันแรกที่เจอเสมอ พอมี media query สองอันจะกลายเป็น
+ * ทับอันของโหมดสว่างด้วยสีของโหมดมืด แล้วสีเพี้ยนทั้งคู่
+ */
+function paintBar(auto, resolved) {
+  const metas = document.querySelectorAll('meta[name="theme-color"]');
+  if (!metas.length) {
+    const m = document.createElement('meta');
+    m.name = 'theme-color';
+    m.content = BAR[resolved];
+    document.head.append(m);
+    return;
+  }
+  metas.forEach((m) => {
+    const q = m.getAttribute('media') || '';
+    m.content = (auto && q) ? (q.includes('dark') ? BAR.dark : BAR.light) : BAR[resolved];
+  });
+}
+
 export function applyTheme() {
   try {
     const t = getTheme();
@@ -52,13 +83,7 @@ export function applyTheme() {
     if (t === 'auto') root.removeAttribute('data-theme');
     else root.setAttribute('data-theme', t);
 
-    let meta = document.querySelector('meta[name="theme-color"]');
-    if (!meta) {
-      meta = document.createElement('meta');
-      meta.name = 'theme-color';
-      document.head.append(meta);
-    }
-    meta.content = BAR[resolvedTheme()];
+    paintBar(t === 'auto', resolvedTheme());
   } catch (e) {
     // ธีมเป็นเรื่องความสวยงาม ห้ามทำให้ทั้งแอปเปิดไม่ขึ้น
   }

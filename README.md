@@ -162,6 +162,9 @@ A     B          C              │ 🕐เช็คชื่อ ช1 │ 📝�
 - **Android/Chrome**: เมนู ⋮ → *เพิ่มลงในหน้าจอหลัก* (หรือกดปุ่ม ⬇️ ติดตั้งเป็นแอป ในหน้าตั้งค่า)
 - **iPhone/Safari**: ปุ่มแชร์ → *เพิ่มไปยังหน้าจอโฮม*
 
+ไอคอนบนหน้าจอโฮมมาจาก `icons/apple-touch-icon.png` — iOS ไม่อ่านไอคอนใน `manifest.webmanifest`
+และไม่รองรับไอคอนแบบ SVG จึงต้องมีไฟล์ PNG นี้แยกไว้ ไม่งั้นจะได้ภาพสกรีนช็อตของหน้าเว็บมาเป็นไอคอนแทน
+
 Service worker เก็บไฟล์แอปไว้ในเครื่อง → เปิดได้แม้ไม่มีเน็ต การเช็คชื่อ/กรอกคะแนนต่อคิวไว้แล้วส่งเมื่อมีสัญญาณ
 
 ## 4. การใช้งานประจำวัน
@@ -204,6 +207,7 @@ AssignCheck-V2/
 ├── index.html            หน้าเว็บหลัก
 ├── styles.css
 ├── manifest.webmanifest  ติดตั้งเป็นแอปบนมือถือได้
+├── icons/                ไอคอนทุกขนาด — สร้างจาก icons/icon.svg (ดู icons/README.md)
 ├── js/
 │   ├── app.js            เปลือกหน้าจอ + เราเตอร์
 │   ├── api.js            เรียก Apps Script + แคช + คิวออฟไลน์
@@ -217,14 +221,17 @@ AssignCheck-V2/
     ├── 01_Setup.gs       เมนู + สร้างแท็บระบบ
     ├── 02_ClassSheet.gs  โครงแท็บห้องเรียน (คอลัมน์/นักเรียน/อ่าน-เขียน)
     ├── 03_Score.gs       สูตรคะแนน (ฝั่งชีต)
-    └── 04_Api.gs         Web API
+    ├── 04_Api.gs         Web API
+    ├── 05_Student.gs     หน้าให้นักเรียนดูผล (เปิดสาธารณะ อ่านอย่างเดียว)
+    └── 06_Backup.gs      สำรองไฟล์อัตโนมัติรายสัปดาห์
 
 tools/
 ├── preflight.mjs      ตรวจก่อน build (build เรียกให้เอง)
 ├── check-sw.mjs       sw.js เก็บไฟล์ครบ + เวอร์ชันตรงไหม
 ├── bundle.mjs         รวม .gs → ALL-IN-ONE.gs
 ├── build-webapp.mjs   → dist/app.bundle.js
-└── build-pages.mjs    → docs/ (GitHub Pages)
+├── build-pages.mjs    → docs/ (GitHub Pages)
+└── make-icons.ps1     สร้างไอคอนใหม่จาก icons/icon.svg (รันเมื่อเปลี่ยนโลโก้/สี)
 ```
 
 > ⚠️ **สูตรคะแนนมี 2 ที่**: `js/score.js` (แสดงผลทันที/ออฟไลน์) และ `apps-script/03_Score.gs`
@@ -266,6 +273,29 @@ node tools/build-pages.mjs   # → docs/ (GitHub Pages)
 > และ `VERSION` (`sw.js`) ให้ตรงกัน — ถ้าไม่บวก `app.bundle.js?v=...` จะเหมือนเดิม
 > เบราว์เซอร์กับ service worker จะหยิบของเก่ามาใช้ **โค้ดที่แก้จะไม่ถึงเครื่องครู**
 > (`check-sw.mjs` กันไว้ให้แล้ว แต่กันได้แค่ 2 เลขนี้ไม่ตรงกัน ไม่ได้กันตอนลืมบวกทั้งคู่)
+
+### ไอคอนและภาพตอนแชร์ลิงก์
+
+ไอคอนทุกไฟล์อยู่ใน `icons/` และสร้างจาก **`icons/icon.svg` ไฟล์เดียว** ตัว A วาดด้วยเส้นล้วน
+ไม่ใช้ฟอนต์ จึงออกมาเหมือนกันทุกเครื่อง
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tools/make-icons.ps1
+```
+
+รันใหม่เฉพาะตอนเปลี่ยนโลโก้หรือสีแบรนด์ — ไฟล์ไหนใครใช้ ดูที่ [`icons/README.md`](icons/README.md)
+
+`build-pages.mjs` คัดลอกโฟลเดอร์นี้ไป `docs/icons/` ให้เอง เพราะทั้งหน้านักเรียน
+และฝั่ง Apps Script (`setFaviconUrl` ใน `04_Api.gs`) ดึงไฟล์จาก `docs/`
+
+> **อยากให้แชร์ลิงก์ในไลน์แล้วขึ้นการ์ดมีรูปชัวร์ทุกแอป**
+> ตามสเปก `og:image` ควรเป็น URL เต็ม แต่แต่ละคน deploy คนละที่ ในไฟล์จึงใส่ที่อยู่แบบสัมพัทธ์ไว้
+> ซึ่งตัวอ่านลิงก์ส่วนใหญ่ต่อ URL ให้เอง ถ้าอยากให้ชัวร์ 100% แก้บรรทัดนี้ใน `index.html`
+> เป็นที่อยู่จริงของคุณ
+>
+> ```html
+> <meta property="og:image" content="https://ชื่อคุณ.github.io/assigncheck/icons/og-image.png">
+> ```
 
 ---
 

@@ -1,18 +1,43 @@
 {
   "name": "AssignCheck — เช็คชื่อ เช็คงาน สรุปคะแนน SGS",
   "short_name": "AssignCheck",
+  "description": "ระบบเช็คชื่อ เช็คการส่งงาน และกรอกคะแนนสำหรับครู สรุปออกมาเป็น 8 ช่องพร้อมกรอกลง SGS",
+  "lang": "th",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#f4f6f5",
-  "theme_color": "#1b5e20",
-  "lang": "th",
+  "background_color": "#eef2f0",
+  "theme_color": "#0b2b24",
   "icons": [
     {
-      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='38' fill='%231b5e20'/%3E%3Ctext x='96' y='128' font-size='104' font-family='sans-serif' font-weight='700' fill='%23fff' text-anchor='middle'%3EA%3C/text%3E%3C/svg%3E",
+      "src": "icons/icon-192.png",
       "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-192-maskable.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icons/icon-512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icons/icon.svg",
+      "sizes": "any",
       "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "purpose": "any"
     }
   ]
 }

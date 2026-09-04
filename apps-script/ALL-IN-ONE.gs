@@ -1158,6 +1158,9 @@ function doGet(e) {
   t.assets = assets;
   return t.evaluate()
     .setTitle('AssignCheck')
+    // หน้านี้อยู่ใน iframe ของ Google แท็บจึงไม่อ่าน <link rel="icon"> ในไฟล์
+    // ต้องบอกทางนี้ทางเดียว ไม่งั้นครูเห็นไอคอน Google Drive บนแท็บ
+    .setFaviconUrl(assets + 'icons/favicon-32.png')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }

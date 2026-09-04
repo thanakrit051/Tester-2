@@ -28,10 +28,17 @@ const html = `<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#ffffff">
+<meta name="theme-color" content="#0b2b24" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#061210" media="(prefers-color-scheme: dark)">
 <meta name="robots" content="noindex">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="ผลการเรียน">
 <title>ผลการเรียนของฉัน</title>
-<script>try{var t=localStorage.getItem('ac.theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+<link rel="icon" href="./icons/favicon.ico">
+<link rel="icon" href="./icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
+<script>try{var t=localStorage.getItem('ac.theme');if(t==='light'||t==='dark'){document.documentElement.setAttribute('data-theme',t);var c=t==='dark'?'#061210':'#0b2b24',m=document.querySelectorAll('meta[name="theme-color"]');for(var i=0;i<m.length;i++)m[i].content=c;}}catch(e){}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- โหลดฟอนต์แบบไม่บล็อกการวาดหน้า
@@ -96,7 +103,17 @@ fs.writeFileSync(path.join(docs, '.nojekyll'), '', 'utf8');
 fs.copyFileSync(path.join(root, 'styles.css'), path.join(docs, 'styles.css'));
 fs.copyFileSync(path.join(root, 'dist/app.bundle.js'), path.join(docs, 'app.bundle.js'));
 
+// ไอคอนต้องมาอยู่ใต้ docs/ ด้วย 2 เหตุผล
+//   1. หน้านักเรียนอยู่โฟลเดอร์นี้ จึงอ้าง ./icons/ ได้ตรง ๆ
+//   2. ฝั่ง Apps Script ดึงไฟล์จาก assets_url ซึ่งชี้มาที่โฟลเดอร์นี้
+//      (04_Api.gs เรียก setFaviconUrl(assets + 'icons/favicon-32.png'))
+fs.cpSync(path.join(root, 'icons'), path.join(docs, 'icons'), {
+  recursive: true,
+  filter: (src) => !src.endsWith('.md')   // README ของโฟลเดอร์ไอคอนไม่ต้องขึ้นเว็บ
+});
+
 console.log(`✅ docs/index.html      ${(html.length / 1024).toFixed(1)} KB   หน้านักเรียน`);
 console.log(`   docs/styles.css      ${(fs.statSync(path.join(docs, 'styles.css')).size / 1024).toFixed(1)} KB   หน้าตา (ครูใช้ด้วย)`);
 console.log(`   docs/app.bundle.js   ${(fs.statSync(path.join(docs, 'app.bundle.js')).size / 1024).toFixed(1)} KB   โค้ดแอปครู`);
 console.log(`   docs/config.js       ${fs.existsSync(cfgPath) ? 'มีอยู่แล้ว (ไม่ทับ)' : 'สร้างใหม่'}`);
+console.log(`   docs/icons/          ${fs.readdirSync(path.join(docs, 'icons')).length} ไฟล์   ไอคอน (Apps Script ใช้ด้วย)`);
