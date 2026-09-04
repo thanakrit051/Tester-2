@@ -216,7 +216,7 @@ Service worker เก็บไฟล์แอปไว้ในเครื่�
 ## 5. โครงไฟล์
 
 ```
-AssignCheck-V2/
+AssignCheck/
 ├── index.html            หน้าเว็บหลัก
 ├── styles.css
 ├── manifest.webmanifest  ติดตั้งเป็นแอปบนมือถือได้
