@@ -51,8 +51,9 @@ function setupNeededPage_() {
     'เปิด Google Sheet → แท็บ <b>⚙️ ตั้งค่า</b> → หาแถว <code>assets_url</code><br>' +
     'ใส่ที่อยู่ GitHub Pages ของคุณ เช่น<br>' +
     '<code style="background:#eef1ef;padding:3px 7px;border-radius:6px;display:inline-block;margin-top:6px">' +
-    'https://ชื่อคุณ.github.io/assigncheck/docs/</code><br>' +
-    '<span style="font-size:12.5px">ต้องลงท้ายด้วย <b>/docs/</b> — ไฟล์ที่หน้านี้ต้องใช้อยู่ในนั้น</span><br><br>' +
+    'https://ชื่อคุณ.github.io/ชื่อ-repo/</code><br>' +
+    '<span style="font-size:12.5px">ต้องเป็นโฟลเดอร์ที่มี <b>styles.css</b> กับ <b>app.bundle.js</b> อยู่จริง<br>' +
+    'ถ้า push ทั้งโปรเจกต์ขึ้น GitHub ให้ลงท้ายด้วย <b>/docs/</b></span><br><br>' +
     'แล้วรีเฟรชหน้านี้ (ไม่ต้อง Deploy ใหม่)</div></div>')
     .setTitle('AssignCheck — ตั้งค่า');
 }
