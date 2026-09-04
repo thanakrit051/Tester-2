@@ -60,6 +60,17 @@ function backupNowMenu() {
 }
 
 /** ติดตั้งทริกเกอร์รายสัปดาห์ — เรียกซ้ำได้ ไม่สร้างซ้ำ */
+/** ตอนนี้มีทริกเกอร์สำรองอัตโนมัติอยู่จริงไหม — ใช้รายงานผลตามความจริง */
+function autoBackupOn_() {
+  try {
+    return ScriptApp.getProjectTriggers().some(function (t) {
+      return t.getHandlerFunction() === BACKUP_TRIGGER_FN;
+    });
+  } catch (e) {
+    return false;
+  }
+}
+
 function ensureAutoBackupTrigger_() {
   var exists = ScriptApp.getProjectTriggers().some(function (t) {
     return t.getHandlerFunction() === BACKUP_TRIGGER_FN;

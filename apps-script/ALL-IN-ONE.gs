@@ -229,8 +229,19 @@ function setupWorkbook() {
   });
   ss.setActiveSheet(ss.getSheetByName(SHEET_HELP));
 
+  // รายงานตามที่ตรวจได้จริง ไม่ใช่บอกว่าสำเร็จเสมอ
+  //
+  // การสร้างทริกเกอร์ล้มได้เงียบ ๆ (เช่นยังไม่ได้กดอนุญาตสิทธิ์ที่ Google ขอเพิ่ม)
+  // ถ้ายังขึ้น "ติดตั้งเรียบร้อย" ทั้งที่ล้ม ครูจะเข้าใจว่ามีสำรองไฟล์แล้วทั้งที่ไม่มี
+  // แล้วมารู้ตอนไฟล์เสีย ซึ่งสายไปแล้ว
+  var backupMsg = autoBackupOn_()
+    ? '💾 สำรองไฟล์อัตโนมัติ: เปิดอยู่ (ทุกวันอาทิตย์ ตี 3)'
+    : '⚠️ ยังตั้งสำรองไฟล์อัตโนมัติไม่ได้\n' +
+      'ถ้ามีหน้าต่างขออนุญาตสิทธิ์ ให้กดอนุญาต แล้วกดเมนูนี้ซ้ำอีกครั้ง';
+
   try {
-    SpreadsheetApp.getUi().alert('ติดตั้งเรียบร้อย ✅\n\nดูขั้นตอนถัดไปได้ที่แท็บ "' + SHEET_HELP + '"');
+    SpreadsheetApp.getUi().alert('ติดตั้งเรียบร้อย ✅\n\n' + backupMsg +
+      '\n\nดูขั้นตอนถัดไปได้ที่แท็บ "' + SHEET_HELP + '"');
   } catch (e) { /* เรียกจากสคริปต์ ไม่มี UI */ }
 }
 
@@ -1767,6 +1778,17 @@ function backupNowMenu() {
 }
 
 /** ติดตั้งทริกเกอร์รายสัปดาห์ — เรียกซ้ำได้ ไม่สร้างซ้ำ */
+/** ตอนนี้มีทริกเกอร์สำรองอัตโนมัติอยู่จริงไหม — ใช้รายงานผลตามความจริง */
+function autoBackupOn_() {
+  try {
+    return ScriptApp.getProjectTriggers().some(function (t) {
+      return t.getHandlerFunction() === BACKUP_TRIGGER_FN;
+    });
+  } catch (e) {
+    return false;
+  }
+}
+
 function ensureAutoBackupTrigger_() {
   var exists = ScriptApp.getProjectTriggers().some(function (t) {
     return t.getHandlerFunction() === BACKUP_TRIGGER_FN;
