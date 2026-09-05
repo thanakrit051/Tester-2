@@ -4735,7 +4735,7 @@ __exp(exports, { viewReport });
 const { h, toast, confirmBox, modal } = __req("js/dom.js");
 const { state, saveConfig, sync, bootAll, go, emit } = __req("js/state.js");
 const api = __req("js/api.js");
-const { auth } = __req("js/auth.js");
+const { auth, renderSignInButton } = __req("js/auth.js");
 const { icon } = __req("js/icons.js");
 const { THEMES, getTheme, setTheme } = __req("js/theme.js");
 
@@ -4998,6 +4998,10 @@ function secAcct() {
       h('div', { class: 'btn-row' },
         h('button', { class: 'btn btn-soft btn-sm', onclick: showTransfer },
           api.MODE === 'embedded' ? '🔗 ลิงก์เปิดแอป' : '📱 ย้ายไปเครื่องอื่น'),
+        api.MODE === 'remote' && !auth.signedIn && h('button', {
+          class: 'btn btn-soft btn-sm',
+          onclick: (e) => switchToGoogle(e.currentTarget)
+        }, '🔐 เข้าสู่ระบบด้วย Google'),
         state.installPrompt && h('button', {
           class: 'btn btn-sm',
           onclick: async () => {
@@ -5301,6 +5305,61 @@ function showStudentHowTo() {
 }
 
 /** ลิงก์สำหรับเปิดแอปบนเครื่องอื่น */
+/**
+ * สลับจาก "เชื่อมด้วยรหัสลับ" มาเป็นบัญชี Google โดยไม่ต้องตัดการเชื่อมต่อ
+ *
+ * ตัวเลือกนี้เคยมีแค่ในหน้าติดตั้งครั้งแรก ซึ่งอ่าน oauth_client_id จากชีต
+ * ตอนกรอก URL ครั้งเดียวแล้วเก็บใส่เครื่องไว้ ครูที่เชื่อมด้วยรหัสลับไปก่อน
+ * แล้วเพิ่งมาเปิด Google Sign-In ทีหลังจึงไม่มีทางสลับเลย นอกจากกด
+ * "ตัดการเชื่อมต่อ" ทิ้งทั้งหมดแล้วตั้งใหม่ — ซึ่งล้างแคชทั้งเครื่องไปด้วย
+ *
+ * ที่นี่จึงไปถาม oauth_client_id จากชีตสด ๆ อีกครั้งก่อนเปิดหน้าล็อกอิน
+ */
+async function switchToGoogle(btn) {
+  const label = btn.textContent;
+  btn.disabled = true; btn.textContent = 'กำลังตรวจสอบ…';
+  try {
+    if (!auth.clientId) {
+      const info = await api.conn.probe(api.conn.url);
+      if (!info || !info.clientId) {
+        throw new Error('ชีตยังไม่ได้ตั้ง oauth_client_id — ใส่ในแท็บ ⚙️ ตั้งค่า ของชีตก่อน');
+      }
+      auth.clientId = info.clientId;
+    }
+  } catch (e) {
+    return toast(e.message, 'err', 7000);
+  } finally {
+    btn.disabled = false; btn.textContent = label;
+  }
+
+  modal((close) => {
+    const box = h('div', { style: { display: 'flex', justifyContent: 'center', minHeight: '48px' } },
+      h('div', { class: 'boot-spin' }));
+
+    renderSignInButton(box, {
+      onSignedIn: async (p) => {
+        try {
+          await api.call('ping');           // ให้ชีตยืนยันก่อนว่าบัญชีนี้มีสิทธิ์จริง
+          close();
+          toast(`เข้าสู่ระบบเป็น ${p.name} แล้ว`, 'ok');
+          location.reload();
+        } catch (e) {
+          auth.signOut();                   // บัญชีไม่ผ่าน — อย่าค้าง token ที่ใช้ไม่ได้ไว้
+          toast(e.message, 'err', 7000);
+        }
+      }
+    }).catch(e => box.replaceChildren(h('div', { class: 'hint' }, e.message)));
+
+    return h('div', null,
+      h('h2', null, 'เข้าสู่ระบบด้วย Google'),
+      h('div', { class: 'hint', style: { marginBottom: '12px' } },
+        'ใช้บัญชีเดียวกับที่เป็นเจ้าของไฟล์ชีต (หรืออีเมลที่อยู่ใน ',
+        h('code', null, 'allowed_emails'), ')', h('br'),
+        'รหัสลับที่กรอกไว้ยังอยู่เหมือนเดิม ใช้เป็นตัวสำรองได้ต่อ'),
+      box);
+  });
+}
+
 function showTransfer() {
   const embedded = api.MODE === 'embedded';
   const link = embedded ? (state.webAppUrl || '') : api.conn.transferLink();
@@ -5682,7 +5741,7 @@ __exp(exports, { viewHealth });
  * ⚠️ เวลาแก้โค้ดที่กระทบทั้ง 2 ฝั่ง ให้บวกเลขนี้ และแก้ SERVER_VERSION
  *    ใน apps-script/00_Constants.gs ให้ตรงกันด้วย
  */
-const APP_VERSION = '3.3.0';
+const APP_VERSION = '3.4.0';
 
 /** เวอร์ชันต่ำสุดของฝั่งชีตที่หน้าเว็บนี้ทำงานด้วยได้ครบทุกฟีเจอร์ */
 const NEEDS_SERVER = '2.8.0';

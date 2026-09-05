@@ -31,14 +31,14 @@ html,body{margin:0;background:var(--bg);color:var(--ink);font-family:'Anuphan','
 .boot-spin{width:22px;height:22px;border-radius:50%;border:2.5px solid var(--line);border-top-color:var(--accent);animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 </style>
-<link rel="stylesheet" href="<?!= assets ?>styles.css?v=3.3.0">
+<link rel="stylesheet" href="<?!= assets ?>styles.css?v=3.4.0">
 </head>
 <body>
 
 <div id="boot" class="boot">
   <div class="boot-mark">A<span>&#10003;</span></div>
   <div class="boot-title">AssignCheck</div>
-  <div class="boot-ver">v3.3.0</div>
+  <div class="boot-ver">v3.4.0</div>
   <div class="boot-spin"></div>
 </div>
 
@@ -72,7 +72,7 @@ setTimeout(function () {
   }
   b.innerHTML = '<div style="max-width:420px"><div style="font-size:17px;font-weight:700;margin-bottom:10px">'
     + 'เปิดแอปไม่สำเร็จ</div><div style="font-size:13.5px;color:var(--ink2);line-height:1.9">' + why + '</div>'
-    + '<div style="font-size:11.5px;color:var(--ink3);margin-top:14px">v3.3.0</div></div>';
+    + '<div style="font-size:11.5px;color:var(--ink3);margin-top:14px">v3.4.0</div></div>';
 }, 8000);
 
 // โหลด CSS ไม่ได้ = แอปใช้ได้แต่หน้าตาเพี้ยน ต้องบอกให้รู้ ไม่ใช่ปล่อยให้งงเอง
@@ -85,6 +85,6 @@ setTimeout(function () {
   document.body.appendChild(d);
 }, 3000);
 </script>
-<script id="ac-js" src="<?!= assets ?>app.bundle.js?v=3.3.0" onload="window.__acJsOk=true"></script>
+<script id="ac-js" src="<?!= assets ?>app.bundle.js?v=3.4.0" onload="window.__acJsOk=true"></script>
 </body>
 </html>
