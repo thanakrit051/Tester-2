@@ -8,9 +8,13 @@
  *   แถว 4  รหัสคอลัมน์ KIND|HALF|ID  ← ซ่อน
  *   แถว 5  ชื่อคอลัมน์ (คนอ่าน)
  *   แถว 6  คะแนนเต็ม
- *   แถว 7+ ข้อมูลนักเรียน
+ *   แถว 7  เกณฑ์ผ่าน (ว่าง = ไม่ตรวจ)
+ *   แถว 8+ ข้อมูลนักเรียน
  *
  *   A เลขที่ | B เลขประจำตัว | C ชื่อ-นามสกุล | D.. บล็อกข้อมูลเรียงซ้าย→ขวา
+ *
+ * ⚠️ แถว 7 เพิ่มเข้ามาทีหลัง ชีตที่สร้างก่อนหน้านั้นข้อมูลนักเรียนเริ่มที่แถว 7
+ *    ตัวอ่านรองรับทั้ง 2 แบบ · คำสั่งเขียนจะเรียก ensureLayout_ อัปโครงให้ก่อนเสมอ
  */
 
 var BLOCK_SOFT = {
@@ -67,6 +71,50 @@ function sheetForClass_(classId) {
     }
   }
   return null;
+}
+
+// ── โครงแถว: รองรับชีตรุ่นก่อนที่ยังไม่มีแถวเกณฑ์ผ่าน ──────
+
+var PASS_MARK_ = 'เกณฑ์ผ่าน →';   // ป้ายในคอลัมน์ C ของแถวเกณฑ์ผ่าน — ใช้เป็นตัวบอกว่าชีตอัปโครงแล้ว
+
+/**
+ * ชีตแท็บนี้มีแถวเกณฑ์ผ่านหรือยัง
+ *
+ * ชีตรุ่นก่อนข้อมูลนักเรียนเริ่มที่แถว 7 · รุ่นใหม่แถว 7 เป็นเกณฑ์ผ่าน ข้อมูลเริ่มแถว 8
+ * แยกด้วยป้ายในคอลัมน์ C ประกอบกับคอลัมน์ A ที่ต้องว่าง (รุ่นเก่าแถว 7 คือ นร. คนแรก
+ * ซึ่งคอลัมน์ A มีเลขที่อยู่เสมอ) จึงไม่มีทางสับสนกับชื่อนักเรียนที่บังเอิญพ้องกัน
+ *
+ * @param head ตารางแถว 1..R_DATA ที่อ่านมาแล้ว (ถ้ามี จะได้ไม่ต้องอ่านชีตซ้ำ)
+ */
+function hasPassRow_(sh, head) {
+  var a, c;
+  if (head && head[R_PASS - 1]) {
+    a = head[R_PASS - 1][C_NO - 1];
+    c = head[R_PASS - 1][C_NAME - 1];
+  } else {
+    var row = sh.getRange(R_PASS, 1, 1, 3).getValues()[0];
+    a = row[C_NO - 1]; c = row[C_NAME - 1];
+  }
+  return String(a).trim() === '' && String(c).trim() === PASS_MARK_;
+}
+
+/**
+ * อัปโครงชีตให้มีแถวเกณฑ์ผ่าน — เรียกซ้ำได้ ไม่ทำอะไรถ้ามีอยู่แล้ว
+ *
+ * ⚠️ เรียกได้เฉพาะในคำสั่งที่ถือ lock อยู่ (คำสั่งเขียน) เท่านั้น
+ *    คำสั่งอ่านไม่จับ lock ถ้าไปแทรกแถวตอนนั้นจะชนกับการเขียนที่ทำอยู่พร้อมกัน
+ *    ฝั่งอ่านใช้วิธีรองรับทั้ง 2 โครงแทน (ดู readClassBySheet_)
+ */
+function ensureLayout_(sh) {
+  if (hasPassRow_(sh)) return false;
+
+  sh.insertRowBefore(R_PASS);        // ข้อมูลนักเรียนเลื่อนลงให้เองทั้งก้อน
+  sh.getRange(R_PASS, 1, 1, 3).setValues([['', '', PASS_MARK_]])
+    .setFontColor('#78909c').setFontSize(9)
+    .setHorizontalAlignment('right').setBackground('#eceff1');
+  sh.setFrozenRows(R_PASS);
+  sh.setRowHeight(R_PASS, 20);
+  return true;
 }
 
 function safeSheetName_(name) {
@@ -132,13 +180,16 @@ function initClassLayout_(sh, meta) {
     .setFontWeight('bold').setBackground('#eceff1');
   sh.getRange(R_MAX, 1, 1, 3).setValues([['', '', 'คะแนนเต็ม →']])
     .setFontColor('#78909c').setHorizontalAlignment('right').setBackground('#eceff1');
+  sh.getRange(R_PASS, 1, 1, 3).setValues([['', '', PASS_MARK_]])
+    .setFontColor('#78909c').setFontSize(9)
+    .setHorizontalAlignment('right').setBackground('#eceff1');
 
   // บล็อกสรุป (สร้างครั้งเดียว อยู่ขวาสุดเสมอ)
   for (var i = 0; i < SUM_COLS.length; i++) {
     writeColumnHeader_(sh, C_FIRST + i, SUM_COLS[i].key, SUM_COLS[i].label, SUM_COLS[i].max);
   }
 
-  sh.setFrozenRows(R_MAX);
+  sh.setFrozenRows(R_PASS);
   sh.setFrozenColumns(3);
   sh.setColumnWidth(1, 48);
   sh.setColumnWidth(2, 90);
@@ -146,6 +197,7 @@ function initClassLayout_(sh, meta) {
   sh.setRowHeight(R_TITLE, 30);
   sh.setRowHeight(R_GROUP, 26);
   sh.setRowHeight(R_LABEL, 42);
+  sh.setRowHeight(R_PASS, 20);
   sh.hideRows(R_META);
   sh.hideRows(R_KEY);
   sh.setHiddenGridlines(true);
@@ -159,11 +211,13 @@ function columnsOf_(sh) {
   var lastCol = sh.getLastColumn();
   if (lastCol < C_FIRST) return [];
   var n = lastCol - C_FIRST + 1;
-  // แถว 4-6 ติดกัน จึงขอทีเดียวได้ (เดิมขอทีละแถว = คุยกับ Google เกินจำเป็น 2 รอบ)
-  var head   = sh.getRange(R_KEY, C_FIRST, R_MAX - R_KEY + 1, n).getValues();
+  // แถว 4-7 ติดกัน จึงขอทีเดียวได้ (เดิมขอทีละแถว = คุยกับ Google เกินจำเป็น)
+  var hasPass = hasPassRow_(sh);
+  var head   = sh.getRange(R_KEY, C_FIRST, (hasPass ? R_PASS : R_MAX) - R_KEY + 1, n).getValues();
   var keys   = head[0];
   var labels = head[R_LABEL - R_KEY];
   var maxes  = head[R_MAX - R_KEY];
+  var passes = hasPass ? head[R_PASS - R_KEY] : [];
   var notes  = sh.getRange(R_LABEL, C_FIRST, 1, n).getNotes()[0];   // รายละเอียดงาน
   var out = [];
   for (var i = 0; i < n; i++) {
@@ -173,13 +227,14 @@ function columnsOf_(sh) {
       key: p.key, kind: p.kind, half: p.half, id: p.id,
       label: String(labels[i]), desc: String(notes[i] || ''),
       max: maxes[i] === '' ? null : num_(maxes[i]),
+      pass: (passes[i] === undefined || passes[i] === '') ? null : num_(passes[i]),
       col: C_FIRST + i
     });
   }
   return out;
 }
 
-function writeColumnHeader_(sh, col, key, label, max, desc) {
+function writeColumnHeader_(sh, col, key, label, max, desc, pass) {
   var p = parseKey_(key);
   var soft = softColor_(p.kind, p.half);
   sh.getRange(R_KEY, col).setValue(key);
@@ -190,6 +245,10 @@ function writeColumnHeader_(sh, col, key, label, max, desc) {
     .setNote(desc ? String(desc) : null);       // รายละเอียดงาน — เอาเมาส์ชี้ที่หัวคอลัมน์แล้วเห็น
   sh.getRange(R_MAX, col).setValue(max === '' || max == null ? '' : max)
     .setFontColor('#546e7a').setFontSize(9)
+    .setHorizontalAlignment('center').setBackground(soft);
+  // เกณฑ์ผ่านของรายการนี้ — ว่าง = ไม่ตรวจ (หรือใช้ค่าตั้งต้นจาก ⚙️ ตั้งค่า ถ้าตั้งไว้)
+  sh.getRange(R_PASS, col).setValue(pass === '' || pass == null ? '' : pass)
+    .setFontColor('#c62828').setFontSize(9)
     .setHorizontalAlignment('center').setBackground(soft);
 
   var body = sh.getRange(R_DATA, col, Math.max(sh.getMaxRows() - R_DATA + 1, 1), 1);
@@ -211,15 +270,21 @@ function writeColumnHeader_(sh, col, key, label, max, desc) {
 }
 
 /** คืนดัชนีคอลัมน์ของ key — สร้างใหม่ถ้ายังไม่มี */
-function ensureColumn_(sh, key, label, max, desc) {
+function ensureColumn_(sh, key, label, max, desc, pass) {
   var p = parseKey_(key);
   if (!p) throw new Error('รหัสคอลัมน์ไม่ถูกต้อง: ' + key);
+
+  ensureLayout_(sh);   // ต้องมีแถวเกณฑ์ผ่านก่อน ไม่งั้นเขียนไปตกบนหัวนักเรียนคนแรก
 
   var cols = columnsOf_(sh);
   for (var i = 0; i < cols.length; i++) if (cols[i].key === key) {
     if (label != null) sh.getRange(R_LABEL, cols[i].col).setValue(label);
     if (max != null)   sh.getRange(R_MAX,   cols[i].col).setValue(max);
     if (desc != null)  sh.getRange(R_LABEL, cols[i].col).setNote(String(desc) || null);
+    // '' = สั่งล้างเกณฑ์ทิ้ง · null/undefined = ไม่ได้สั่งอะไร ปล่อยของเดิมไว้
+    if (pass !== null && pass !== undefined) {
+      sh.getRange(R_PASS, cols[i].col).setValue(pass === '' ? '' : pass);
+    }
     return cols[i].col;
   }
 
@@ -236,7 +301,7 @@ function ensureColumn_(sh, key, label, max, desc) {
   sh.getRange(1, insertAt, sh.getMaxRows(), 1).clear({ contentsOnly: false })
     .setDataValidation(null).setBackground(null).setFontColor(null).setFontWeight('normal');
 
-  writeColumnHeader_(sh, insertAt, key, label || p.id, max, desc);
+  writeColumnHeader_(sh, insertAt, key, label || p.id, max, desc, pass);
   refreshGroupRow_(sh);
   return insertAt;
 }
@@ -307,6 +372,7 @@ function studentsOf_(sh) {
 
 /** เขียนทับรายชื่อทั้งหมด (ข้อมูลคะแนนเดิมจะถูกย้ายตาม sid) */
 function setStudents_(sh, students) {
+  ensureLayout_(sh);   // ต้องรู้แถวเริ่มข้อมูลที่ถูกต้องก่อนเขียนทับรายชื่อ
   var old = studentsOf_(sh);
   var cols = columnsOf_(sh).filter(function (c) { return c.kind !== 'SUM'; });
 
@@ -376,9 +442,15 @@ function applyBanding_(sh, count) {
  * (ค่า + โน้ตของแถวชื่อคอลัมน์ ซึ่งขอรวมกับค่าไม่ได้)
  */
 function readClassBySheet_(sh) {
-  var lastRow = Math.max(sh.getLastRow(), R_MAX);
+  var lastRow = Math.max(sh.getLastRow(), R_PASS);
   var lastCol = Math.max(sh.getLastColumn(), Math.min(8, sh.getMaxColumns()));
   var grid = sh.getRange(1, 1, lastRow, lastCol).getValues();
+
+  /* ชีตรุ่นก่อนไม่มีแถวเกณฑ์ผ่าน ข้อมูลนักเรียนจึงเริ่มเร็วกว่า 1 แถว
+   * ตรงนี้ต้องรองรับทั้ง 2 แบบ เพราะคำสั่งอ่านไม่จับ lock จะไปแทรกแถวเองไม่ได้
+   * (คำสั่งเขียนจะอัปโครงให้เองผ่าน ensureLayout_ แล้วอาการนี้จะหายไปเอง) */
+  var hasPass = hasPassRow_(sh, grid);
+  var dataRow = hasPass ? R_DATA : R_PASS;
 
   var m = grid[R_META - 1];
   var meta = {
@@ -388,7 +460,7 @@ function readClassBySheet_(sh) {
 
   // รายชื่อ — ข้ามแถวที่ทั้งเลขประจำตัวและชื่อว่าง (เกณฑ์เดียวกับ studentsOf_)
   var students = [];
-  for (var r = R_DATA - 1; r < grid.length; r++) {
+  for (var r = dataRow - 1; r < grid.length; r++) {
     var row = grid[r];
     if (String(row[C_SID - 1]).trim() === '' && String(row[C_NAME - 1]).trim() === '') continue;
     students.push({
@@ -405,11 +477,13 @@ function readClassBySheet_(sh) {
     var p = parseKey_(grid[R_KEY - 1][C_FIRST - 1 + i]);
     if (!p) continue;
     var mx = grid[R_MAX - 1][C_FIRST - 1 + i];
+    var ps = hasPass ? grid[R_PASS - 1][C_FIRST - 1 + i] : '';
     cols.push({
       key: p.key, kind: p.kind, half: p.half, id: p.id,
       label: String(grid[R_LABEL - 1][C_FIRST - 1 + i]),
       desc: String(notes[i] || ''),
       max: mx === '' ? null : num_(mx),
+      pass: (ps === '' || ps === null || ps === undefined) ? null : num_(ps),
       col: C_FIRST + i
     });
   }
@@ -428,7 +502,7 @@ function readClassBySheet_(sh) {
     meta: meta,
     students: students.map(function (s) { return { no: s.no, sid: s.sid, name: s.name }; }),
     columns: cols.map(function (c) {
-      var o = { key: c.key, kind: c.kind, half: c.half, id: c.id, label: c.label, desc: c.desc || '', max: c.max };
+      var o = { key: c.key, kind: c.kind, half: c.half, id: c.id, label: c.label, desc: c.desc || '', max: c.max, pass: c.pass };
       if (c.kind === 'ATT') {
         var a = parseAttId_(c.id);
         if (a) { o.date = a.date; o.period = a.period; }
@@ -450,6 +524,7 @@ function readClass_(classId) {
 /** cells: [{ key, sid, value }] — value '' หรือ null = ล้างค่า */
 function writeCells_(sh, cells) {
   if (!cells || !cells.length) return 0;
+  ensureLayout_(sh);   // ชีตรุ่นเก่าแถวเลื่อนไป 1 ถ้าไม่อัปก่อน คะแนนจะลงผิดแถว
   var students = studentsOf_(sh);
   var rowOf = {};
   students.forEach(function (s) { rowOf[s.sid] = s.row; });

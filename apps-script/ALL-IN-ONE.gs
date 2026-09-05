@@ -23,7 +23,7 @@
 // ── เวอร์ชัน ────────────────────────────────────────────────
 // ⚠️ ต้องตรงกับ APP_VERSION ใน js/version.js
 //    ถ้าเลขไม่ตรง หน้าเว็บจะขึ้นแถบเตือนให้ผู้ใช้อัปเดต/Deploy ใหม่
-var SERVER_VERSION = '2.12.0';
+var SERVER_VERSION = '2.13.0';
 
 // ── ชื่อแท็บระบบ ────────────────────────────────────────────
 var SHEET_CONFIG  = '⚙️ ตั้งค่า';
@@ -37,7 +37,12 @@ var R_GROUP = 3;   // แถวหัวกลุ่ม สีพื้น (ค�
 var R_KEY   = 4;   // แถวรหัสคอลัมน์ (ซ่อน)
 var R_LABEL = 5;   // แถวชื่อคอลัมน์ (คนอ่าน)
 var R_MAX   = 6;   // แถวคะแนนเต็ม (คนอ่าน)
-var R_DATA  = 7;   // แถวแรกของข้อมูลนักเรียน
+var R_PASS  = 7;   // แถวเกณฑ์ผ่าน (คนอ่าน) — ว่าง = ไม่ตั้งเกณฑ์
+var R_DATA  = 8;   // แถวแรกของข้อมูลนักเรียน
+
+/* ⚠️ R_PASS เพิ่มเข้ามาทีหลัง (ชีตรุ่นก่อนหน้าไม่มีแถวนี้ ข้อมูลนักเรียนเริ่มที่แถว 7)
+ *    ตัวอ่านรองรับทั้ง 2 แบบ ส่วนคำสั่งที่เขียนจะอัปโครงให้เองก่อนเสมอ
+ *    ดู hasPassRow_ / ensureLayout_ ใน 02_ClassSheet.gs */
 
 var C_NO   = 1;    // A เลขที่
 var C_SID  = 2;    // B เลขประจำตัว
@@ -128,6 +133,7 @@ var CONFIG_DEFAULTS = [
   ['การเข้าเรียน', 'att_count_ลา','TRUE','นับ "ลา" เป็นเวลาเรียนในการคิด % หรือไม่'],
 
   ['การให้คะแนน', 'ungraded_mode', 'ignore', 'ช่องที่ยังไม่ตรวจ (ว่าง): ignore = ไม่นำมาคิด | zero = นับเป็น 0 คะแนน'],
+  ['การให้คะแนน', 'pass_default_pct', '', 'เกณฑ์ผ่านตั้งต้น (% ของคะแนนเต็ม) ใช้กับรายการที่ไม่ได้ตั้งเกณฑ์เอง — เว้นว่าง = ตรวจเฉพาะรายการที่ตั้งเกณฑ์ไว้'],
   ['การให้คะแนน', 'late_penalty_pct', '0', 'ส่งช้าหักกี่ % ของคะแนนเต็ม (0 = ไม่หัก) ระบบหักให้ตอนกดปุ่ม "ส่งช้า"'],
 
   ['การปัดเศษ', 'round_digits', '0',    'ทศนิยมของคะแนนสรุป (0, 1 หรือ 2)'],
@@ -226,6 +232,22 @@ function setupWorkbook() {
     console.error('ตั้งสำรองอัตโนมัติไม่สำเร็จ: ' + backupErr);
   }
 
+  /* อัปโครงแท็บห้องเรียนที่สร้างไว้ก่อนมีแถว "เกณฑ์ผ่าน"
+   *
+   * คำสั่งเขียนแต่ละตัวอัปให้เองอยู่แล้ว (ensureLayout_) แต่กว่าจะครบทุกห้อง
+   * ต้องรอให้ครูไปแตะทีละห้อง ระหว่างนั้นชีตจะปนกันสองโครง ซึ่งอ่านออกก็จริง
+   * แต่ครูที่เปิดชีตดูเองจะงงว่าทำไมบางแท็บมีแถวเกณฑ์ผ่าน บางแท็บไม่มี
+   * ตรงนี้จึงกวาดให้ครบทีเดียวตอนกดซ่อมแซมโครงสร้าง */
+  var upgraded = 0;
+  listClasses_().forEach(function (c) {
+    try {
+      var csh = sheetForClass_(c.classId);
+      if (csh && ensureLayout_(csh)) upgraded++;
+    } catch (e) {
+      console.error('อัปโครงห้อง ' + c.classId + ' ไม่สำเร็จ: ' + e);
+    }
+  });
+
   ensureHelpSheet_(ss);
 
   // จัดลำดับแท็บระบบไว้หน้าสุด
@@ -247,8 +269,13 @@ function setupWorkbook() {
       'วิธีแก้: Apps Script → ไอคอนนาฬิกา ⏰ → + Add Trigger\n' +
       'เลือกฟังก์ชัน scheduledBackup · Time-driven · Week timer · Sunday · 3am';
 
+  var upgradeMsg = upgraded
+    ? '\n\n🆕 เพิ่มแถว "เกณฑ์ผ่าน" ให้แท็บห้องเรียนแล้ว ' + upgraded + ' ห้อง\n' +
+      '   (แถวที่ 7 ใต้แถวคะแนนเต็ม — เว้นว่างไว้ = ไม่ตรวจเกณฑ์)'
+    : '';
+
   try {
-    SpreadsheetApp.getUi().alert('ติดตั้งเรียบร้อย ✅\n\n' + backupMsg +
+    SpreadsheetApp.getUi().alert('ติดตั้งเรียบร้อย ✅\n\n' + backupMsg + upgradeMsg +
       '\n\nดูขั้นตอนถัดไปได้ที่แท็บ "' + SHEET_HELP + '"');
   } catch (e) { /* เรียกจากสคริปต์ ไม่มี UI */ }
 }
@@ -425,6 +452,12 @@ function ensureHelpSheet_(ss) {
     ['บล็อกสีม่วง', '📊 สรุปคะแนน 8 ช่องตรงกับหน้า SGS พอดี — คัดลอกไปวางได้เลย'],
     ['', 'ครบ 4 บล็อกแรก = ก่อนกลางภาค, 4 บล็อกถัดไป = หลังกลางภาค'],
     [''],
+    ['🎯 เกณฑ์ผ่าน (แถวที่ 7)'],
+    ['ใส่ยังไง', 'พิมพ์คะแนนดิบที่ถือว่าผ่านลงใต้ชิ้นงาน/ข้อสอบนั้น เช่น เต็ม 20 ผ่าน 10 ก็ใส่ 10'],
+    ['เว้นว่าง', 'ไม่ตรวจเกณฑ์ของรายการนั้น (หรือใช้ค่าตั้งต้น pass_default_pct ถ้าตั้งไว้)'],
+    ['ได้อะไร', 'คนที่ต่ำกว่าเกณฑ์จะขึ้นสีแดงในแอป · โผล่ในรายชื่อคนต้องซ่อม · ติดหมายเหตุในบล็อกสรุป'],
+    ['', 'ช่องที่ครูยังไม่ตรวจจะไม่ถือว่าไม่ผ่าน ส่วน "ไม่ส่ง" (x) นับเป็น 0 = ไม่ผ่าน'],
+    [''],
     ['⚠️ แถวที่ 2 และแถวที่ 4 ถูกซ่อนไว้ เป็นข้อมูลระบบ อย่าลบหรือแก้'],
     [''],
     ['🚀 ขั้นตอนติดตั้ง'],
@@ -452,7 +485,7 @@ function ensureHelpSheet_(ss) {
 
   // เน้นแถวหัวข้อ (แถวที่มีข้อความคอลัมน์เดียว) และแถวรหัสลับ — คำนวณจากข้อมูลจริง
   for (var i = 1; i < rows.length; i++) {
-    var isHeading = rows[i][0] && !rows[i][1] && /^(🧭|📁|🚀|🔑|🔗|⚠️|🗄️)/u.test(rows[i][0]);
+    var isHeading = rows[i][0] && !rows[i][1] && /^(🧭|📁|🚀|🔑|🔗|⚠️|🗄️|🎯)/u.test(rows[i][0]);
     if (isHeading) sh.getRange(i + 1, 1, 1, 2).setFontWeight('bold').setBackground('#e8f5e9');
     if (rows[i][1] === apiKey) sh.getRange(i + 1, 2).setFontFamily('Courier New').setBackground('#fff3e0');
   }
@@ -476,9 +509,13 @@ function ensureHelpSheet_(ss) {
  *   แถว 4  รหัสคอลัมน์ KIND|HALF|ID  ← ซ่อน
  *   แถว 5  ชื่อคอลัมน์ (คนอ่าน)
  *   แถว 6  คะแนนเต็ม
- *   แถว 7+ ข้อมูลนักเรียน
+ *   แถว 7  เกณฑ์ผ่าน (ว่าง = ไม่ตรวจ)
+ *   แถว 8+ ข้อมูลนักเรียน
  *
  *   A เลขที่ | B เลขประจำตัว | C ชื่อ-นามสกุล | D.. บล็อกข้อมูลเรียงซ้าย→ขวา
+ *
+ * ⚠️ แถว 7 เพิ่มเข้ามาทีหลัง ชีตที่สร้างก่อนหน้านั้นข้อมูลนักเรียนเริ่มที่แถว 7
+ *    ตัวอ่านรองรับทั้ง 2 แบบ · คำสั่งเขียนจะเรียก ensureLayout_ อัปโครงให้ก่อนเสมอ
  */
 
 var BLOCK_SOFT = {
@@ -535,6 +572,50 @@ function sheetForClass_(classId) {
     }
   }
   return null;
+}
+
+// ── โครงแถว: รองรับชีตรุ่นก่อนที่ยังไม่มีแถวเกณฑ์ผ่าน ──────
+
+var PASS_MARK_ = 'เกณฑ์ผ่าน →';   // ป้ายในคอลัมน์ C ของแถวเกณฑ์ผ่าน — ใช้เป็นตัวบอกว่าชีตอัปโครงแล้ว
+
+/**
+ * ชีตแท็บนี้มีแถวเกณฑ์ผ่านหรือยัง
+ *
+ * ชีตรุ่นก่อนข้อมูลนักเรียนเริ่มที่แถว 7 · รุ่นใหม่แถว 7 เป็นเกณฑ์ผ่าน ข้อมูลเริ่มแถว 8
+ * แยกด้วยป้ายในคอลัมน์ C ประกอบกับคอลัมน์ A ที่ต้องว่าง (รุ่นเก่าแถว 7 คือ นร. คนแรก
+ * ซึ่งคอลัมน์ A มีเลขที่อยู่เสมอ) จึงไม่มีทางสับสนกับชื่อนักเรียนที่บังเอิญพ้องกัน
+ *
+ * @param head ตารางแถว 1..R_DATA ที่อ่านมาแล้ว (ถ้ามี จะได้ไม่ต้องอ่านชีตซ้ำ)
+ */
+function hasPassRow_(sh, head) {
+  var a, c;
+  if (head && head[R_PASS - 1]) {
+    a = head[R_PASS - 1][C_NO - 1];
+    c = head[R_PASS - 1][C_NAME - 1];
+  } else {
+    var row = sh.getRange(R_PASS, 1, 1, 3).getValues()[0];
+    a = row[C_NO - 1]; c = row[C_NAME - 1];
+  }
+  return String(a).trim() === '' && String(c).trim() === PASS_MARK_;
+}
+
+/**
+ * อัปโครงชีตให้มีแถวเกณฑ์ผ่าน — เรียกซ้ำได้ ไม่ทำอะไรถ้ามีอยู่แล้ว
+ *
+ * ⚠️ เรียกได้เฉพาะในคำสั่งที่ถือ lock อยู่ (คำสั่งเขียน) เท่านั้น
+ *    คำสั่งอ่านไม่จับ lock ถ้าไปแทรกแถวตอนนั้นจะชนกับการเขียนที่ทำอยู่พร้อมกัน
+ *    ฝั่งอ่านใช้วิธีรองรับทั้ง 2 โครงแทน (ดู readClassBySheet_)
+ */
+function ensureLayout_(sh) {
+  if (hasPassRow_(sh)) return false;
+
+  sh.insertRowBefore(R_PASS);        // ข้อมูลนักเรียนเลื่อนลงให้เองทั้งก้อน
+  sh.getRange(R_PASS, 1, 1, 3).setValues([['', '', PASS_MARK_]])
+    .setFontColor('#78909c').setFontSize(9)
+    .setHorizontalAlignment('right').setBackground('#eceff1');
+  sh.setFrozenRows(R_PASS);
+  sh.setRowHeight(R_PASS, 20);
+  return true;
 }
 
 function safeSheetName_(name) {
@@ -600,13 +681,16 @@ function initClassLayout_(sh, meta) {
     .setFontWeight('bold').setBackground('#eceff1');
   sh.getRange(R_MAX, 1, 1, 3).setValues([['', '', 'คะแนนเต็ม →']])
     .setFontColor('#78909c').setHorizontalAlignment('right').setBackground('#eceff1');
+  sh.getRange(R_PASS, 1, 1, 3).setValues([['', '', PASS_MARK_]])
+    .setFontColor('#78909c').setFontSize(9)
+    .setHorizontalAlignment('right').setBackground('#eceff1');
 
   // บล็อกสรุป (สร้างครั้งเดียว อยู่ขวาสุดเสมอ)
   for (var i = 0; i < SUM_COLS.length; i++) {
     writeColumnHeader_(sh, C_FIRST + i, SUM_COLS[i].key, SUM_COLS[i].label, SUM_COLS[i].max);
   }
 
-  sh.setFrozenRows(R_MAX);
+  sh.setFrozenRows(R_PASS);
   sh.setFrozenColumns(3);
   sh.setColumnWidth(1, 48);
   sh.setColumnWidth(2, 90);
@@ -614,6 +698,7 @@ function initClassLayout_(sh, meta) {
   sh.setRowHeight(R_TITLE, 30);
   sh.setRowHeight(R_GROUP, 26);
   sh.setRowHeight(R_LABEL, 42);
+  sh.setRowHeight(R_PASS, 20);
   sh.hideRows(R_META);
   sh.hideRows(R_KEY);
   sh.setHiddenGridlines(true);
@@ -627,11 +712,13 @@ function columnsOf_(sh) {
   var lastCol = sh.getLastColumn();
   if (lastCol < C_FIRST) return [];
   var n = lastCol - C_FIRST + 1;
-  // แถว 4-6 ติดกัน จึงขอทีเดียวได้ (เดิมขอทีละแถว = คุยกับ Google เกินจำเป็น 2 รอบ)
-  var head   = sh.getRange(R_KEY, C_FIRST, R_MAX - R_KEY + 1, n).getValues();
+  // แถว 4-7 ติดกัน จึงขอทีเดียวได้ (เดิมขอทีละแถว = คุยกับ Google เกินจำเป็น)
+  var hasPass = hasPassRow_(sh);
+  var head   = sh.getRange(R_KEY, C_FIRST, (hasPass ? R_PASS : R_MAX) - R_KEY + 1, n).getValues();
   var keys   = head[0];
   var labels = head[R_LABEL - R_KEY];
   var maxes  = head[R_MAX - R_KEY];
+  var passes = hasPass ? head[R_PASS - R_KEY] : [];
   var notes  = sh.getRange(R_LABEL, C_FIRST, 1, n).getNotes()[0];   // รายละเอียดงาน
   var out = [];
   for (var i = 0; i < n; i++) {
@@ -641,13 +728,14 @@ function columnsOf_(sh) {
       key: p.key, kind: p.kind, half: p.half, id: p.id,
       label: String(labels[i]), desc: String(notes[i] || ''),
       max: maxes[i] === '' ? null : num_(maxes[i]),
+      pass: (passes[i] === undefined || passes[i] === '') ? null : num_(passes[i]),
       col: C_FIRST + i
     });
   }
   return out;
 }
 
-function writeColumnHeader_(sh, col, key, label, max, desc) {
+function writeColumnHeader_(sh, col, key, label, max, desc, pass) {
   var p = parseKey_(key);
   var soft = softColor_(p.kind, p.half);
   sh.getRange(R_KEY, col).setValue(key);
@@ -658,6 +746,10 @@ function writeColumnHeader_(sh, col, key, label, max, desc) {
     .setNote(desc ? String(desc) : null);       // รายละเอียดงาน — เอาเมาส์ชี้ที่หัวคอลัมน์แล้วเห็น
   sh.getRange(R_MAX, col).setValue(max === '' || max == null ? '' : max)
     .setFontColor('#546e7a').setFontSize(9)
+    .setHorizontalAlignment('center').setBackground(soft);
+  // เกณฑ์ผ่านของรายการนี้ — ว่าง = ไม่ตรวจ (หรือใช้ค่าตั้งต้นจาก ⚙️ ตั้งค่า ถ้าตั้งไว้)
+  sh.getRange(R_PASS, col).setValue(pass === '' || pass == null ? '' : pass)
+    .setFontColor('#c62828').setFontSize(9)
     .setHorizontalAlignment('center').setBackground(soft);
 
   var body = sh.getRange(R_DATA, col, Math.max(sh.getMaxRows() - R_DATA + 1, 1), 1);
@@ -679,15 +771,21 @@ function writeColumnHeader_(sh, col, key, label, max, desc) {
 }
 
 /** คืนดัชนีคอลัมน์ของ key — สร้างใหม่ถ้ายังไม่มี */
-function ensureColumn_(sh, key, label, max, desc) {
+function ensureColumn_(sh, key, label, max, desc, pass) {
   var p = parseKey_(key);
   if (!p) throw new Error('รหัสคอลัมน์ไม่ถูกต้อง: ' + key);
+
+  ensureLayout_(sh);   // ต้องมีแถวเกณฑ์ผ่านก่อน ไม่งั้นเขียนไปตกบนหัวนักเรียนคนแรก
 
   var cols = columnsOf_(sh);
   for (var i = 0; i < cols.length; i++) if (cols[i].key === key) {
     if (label != null) sh.getRange(R_LABEL, cols[i].col).setValue(label);
     if (max != null)   sh.getRange(R_MAX,   cols[i].col).setValue(max);
     if (desc != null)  sh.getRange(R_LABEL, cols[i].col).setNote(String(desc) || null);
+    // '' = สั่งล้างเกณฑ์ทิ้ง · null/undefined = ไม่ได้สั่งอะไร ปล่อยของเดิมไว้
+    if (pass !== null && pass !== undefined) {
+      sh.getRange(R_PASS, cols[i].col).setValue(pass === '' ? '' : pass);
+    }
     return cols[i].col;
   }
 
@@ -704,7 +802,7 @@ function ensureColumn_(sh, key, label, max, desc) {
   sh.getRange(1, insertAt, sh.getMaxRows(), 1).clear({ contentsOnly: false })
     .setDataValidation(null).setBackground(null).setFontColor(null).setFontWeight('normal');
 
-  writeColumnHeader_(sh, insertAt, key, label || p.id, max, desc);
+  writeColumnHeader_(sh, insertAt, key, label || p.id, max, desc, pass);
   refreshGroupRow_(sh);
   return insertAt;
 }
@@ -775,6 +873,7 @@ function studentsOf_(sh) {
 
 /** เขียนทับรายชื่อทั้งหมด (ข้อมูลคะแนนเดิมจะถูกย้ายตาม sid) */
 function setStudents_(sh, students) {
+  ensureLayout_(sh);   // ต้องรู้แถวเริ่มข้อมูลที่ถูกต้องก่อนเขียนทับรายชื่อ
   var old = studentsOf_(sh);
   var cols = columnsOf_(sh).filter(function (c) { return c.kind !== 'SUM'; });
 
@@ -844,9 +943,15 @@ function applyBanding_(sh, count) {
  * (ค่า + โน้ตของแถวชื่อคอลัมน์ ซึ่งขอรวมกับค่าไม่ได้)
  */
 function readClassBySheet_(sh) {
-  var lastRow = Math.max(sh.getLastRow(), R_MAX);
+  var lastRow = Math.max(sh.getLastRow(), R_PASS);
   var lastCol = Math.max(sh.getLastColumn(), Math.min(8, sh.getMaxColumns()));
   var grid = sh.getRange(1, 1, lastRow, lastCol).getValues();
+
+  /* ชีตรุ่นก่อนไม่มีแถวเกณฑ์ผ่าน ข้อมูลนักเรียนจึงเริ่มเร็วกว่า 1 แถว
+   * ตรงนี้ต้องรองรับทั้ง 2 แบบ เพราะคำสั่งอ่านไม่จับ lock จะไปแทรกแถวเองไม่ได้
+   * (คำสั่งเขียนจะอัปโครงให้เองผ่าน ensureLayout_ แล้วอาการนี้จะหายไปเอง) */
+  var hasPass = hasPassRow_(sh, grid);
+  var dataRow = hasPass ? R_DATA : R_PASS;
 
   var m = grid[R_META - 1];
   var meta = {
@@ -856,7 +961,7 @@ function readClassBySheet_(sh) {
 
   // รายชื่อ — ข้ามแถวที่ทั้งเลขประจำตัวและชื่อว่าง (เกณฑ์เดียวกับ studentsOf_)
   var students = [];
-  for (var r = R_DATA - 1; r < grid.length; r++) {
+  for (var r = dataRow - 1; r < grid.length; r++) {
     var row = grid[r];
     if (String(row[C_SID - 1]).trim() === '' && String(row[C_NAME - 1]).trim() === '') continue;
     students.push({
@@ -873,11 +978,13 @@ function readClassBySheet_(sh) {
     var p = parseKey_(grid[R_KEY - 1][C_FIRST - 1 + i]);
     if (!p) continue;
     var mx = grid[R_MAX - 1][C_FIRST - 1 + i];
+    var ps = hasPass ? grid[R_PASS - 1][C_FIRST - 1 + i] : '';
     cols.push({
       key: p.key, kind: p.kind, half: p.half, id: p.id,
       label: String(grid[R_LABEL - 1][C_FIRST - 1 + i]),
       desc: String(notes[i] || ''),
       max: mx === '' ? null : num_(mx),
+      pass: (ps === '' || ps === null || ps === undefined) ? null : num_(ps),
       col: C_FIRST + i
     });
   }
@@ -896,7 +1003,7 @@ function readClassBySheet_(sh) {
     meta: meta,
     students: students.map(function (s) { return { no: s.no, sid: s.sid, name: s.name }; }),
     columns: cols.map(function (c) {
-      var o = { key: c.key, kind: c.kind, half: c.half, id: c.id, label: c.label, desc: c.desc || '', max: c.max };
+      var o = { key: c.key, kind: c.kind, half: c.half, id: c.id, label: c.label, desc: c.desc || '', max: c.max, pass: c.pass };
       if (c.kind === 'ATT') {
         var a = parseAttId_(c.id);
         if (a) { o.date = a.date; o.period = a.period; }
@@ -918,6 +1025,7 @@ function readClass_(classId) {
 /** cells: [{ key, sid, value }] — value '' หรือ null = ล้างค่า */
 function writeCells_(sh, cells) {
   if (!cells || !cells.length) return 0;
+  ensureLayout_(sh);   // ชีตรุ่นเก่าแถวเลื่อนไป 1 ถ้าไม่อัปก่อน คะแนนจะลงผิดแถว
   var students = studentsOf_(sh);
   var rowOf = {};
   students.forEach(function (s) { rowOf[s.sid] = s.row; });
@@ -975,10 +1083,58 @@ function scoreSettings_(cfg) {
     minPct: num_(cfg.att_min_pct, 80),
     countLeave: cfg['att_count_ลา'] === undefined ? true : bool_(cfg['att_count_ลา']),
     ungraded: String(cfg.ungraded_mode || 'ignore').toLowerCase(),
+    // เกณฑ์ผ่านตั้งต้น (% ของคะแนนเต็ม) — ว่าง/อ่านไม่ออก = null คือไม่ตรวจอะไรเลย
+    // ต้องเป็น null ไม่ใช่ 0 เพราะ 0 แปลว่า "ผ่านหมดทุกคน" ซึ่งคนละเรื่องกับ "ไม่ตรวจ"
+    passPct: passPct_(cfg.pass_default_pct),
     digits: num_(cfg.round_digits, 0),
     roundMode: String(cfg.round_mode || 'half').toLowerCase(),
     cuts: parseCuts_(cfg.grade_cuts)
   };
+}
+
+/** อ่านเกณฑ์ผ่านตั้งต้น — คืน null เมื่อว่างหรืออ่านไม่ออก (คนละความหมายกับ 0)
+ *  ⚠️ ต้องตรงกับ settingsFrom().passPct ใน js/score.js เสมอ */
+function passPct_(v) {
+  var s = String(v === undefined || v === null ? '' : v).trim();
+  if (s === '') return null;
+  var x = Number(s);
+  return isNaN(x) ? null : x;
+}
+
+/**
+ * เกณฑ์ผ่านของรายการนี้ — คืน null เมื่อไม่ต้องตรวจ
+ *
+ * เก็บเป็นคะแนนดิบ ไม่ใช่ % เพื่อให้ครูอ่านเทียบกับคะแนนเต็มในแถวเหนือมันได้ทันที
+ * ลำดับ: เกณฑ์ของรายการนั้นเอง → ค่าตั้งต้นเป็น % จาก ⚙️ ตั้งค่า → ไม่ตรวจ
+ *
+ * ⚠️ ต้องตรงกับ passMarkOf() ใน js/score.js เสมอ (test/parity.mjs คุมไว้)
+ */
+function passMarkOf_(c, S) {
+  if (!c || c.kind === 'ATT' || c.kind === 'SUM') return null;
+  if (c.pass !== null && c.pass !== undefined && c.pass !== '') {
+    var p = Number(c.pass);
+    return isNaN(p) ? null : p;
+  }
+  var full = c.max == null ? 0 : Number(c.max);
+  if (S == null || S.passPct == null || !(full > 0)) return null;
+  return full * S.passPct / 100;
+}
+
+/**
+ * นักเรียนคนนี้ผ่านเกณฑ์ของรายการนี้ไหม
+ * true = ผ่าน · false = ไม่ผ่าน · null = ตัดสินไม่ได้ (ไม่ได้ตั้งเกณฑ์ หรือยังไม่ตรวจ)
+ *
+ * "ยังไม่ตรวจ" ต้องไม่นับเป็นไม่ผ่าน ไม่งั้นวันแรกที่สร้างข้อสอบ ทั้งห้องจะติดธงทันที
+ * ส่วน "ไม่ส่ง" (x) นับเป็น 0 คะแนน = ไม่ผ่าน ซึ่งตรงกับความจริง
+ *
+ * ⚠️ ต้องตรงกับ passOf() ใน js/score.js เสมอ
+ */
+function passOf_(c, raw, S) {
+  var mark = passMarkOf_(c, S);
+  if (mark === null) return null;
+  var w = parseWork_(raw);
+  if (w.status === 'none') return null;
+  return w.score >= mark;
 }
 
 var DEFAULT_CUTS_ = '80:4,75:3.5,70:3,65:2.5,60:2,55:1.5,50:1,0:0';
@@ -1036,6 +1192,7 @@ function computeClassScores_(data, settings) {
     var r = { sid: st.sid, no: st.no, name: st.name };
     var attStat = { total: 0, present: 0, missing: 0 };
     var pending = 0, filled = 0, late = 0, dataN = 0;
+    var failed = [];   // ชื่อรายการที่คนนี้สอบไม่ผ่านเกณฑ์ (เรียงซ้าย→ขวาตามชีต)
 
     BUCKET_ORDER.forEach(function (b) {
       var cols = byBucket[b];
@@ -1064,7 +1221,9 @@ function computeClassScores_(data, settings) {
       var got = 0, max = 0, blank = 0;
       cols.forEach(function (c) {
         var full = c.max == null ? 0 : c.max;
-        var w = parseWork_((data.values[c.key] || {})[st.sid]);
+        var raw = (data.values[c.key] || {})[st.sid];
+        var w = parseWork_(raw);
+        if (passOf_(c, raw, S) === false) failed.push(c.label || c.id);
         if (w.status === 'none') {
           blank++;
           if (S.ungraded === 'zero') max += full;             // นับเป็น 0 คะแนน
@@ -1090,6 +1249,8 @@ function computeClassScores_(data, settings) {
     r.dataN = dataN;          // จำนวนช่อง SGS ที่มีข้อมูลจริง (0 = ยังไม่ได้กรอกอะไรเลย)
     r.pending = pending;
     r.late = late;
+    r.failed = failed;
+    r.failN = failed.length;
 
     // ถือว่าจบเทอมเมื่อกรอกคะแนนปลายภาคของคนนี้แล้ว
     var termDone = byBucket.fin.some(function (c) {
@@ -1099,6 +1260,7 @@ function computeClassScores_(data, settings) {
     var flags = [];
     if (attStat.total > 0 && r.pct < S.minPct) flags.push('มส (เวลาเรียน ' + r.pct + '%)');
     if (pending > 0) flags.push('ยังไม่ตรวจ ' + pending + ' รายการ');
+    if (failed.length) flags.push('ไม่ผ่านเกณฑ์ ' + failed.length + ' รายการ (' + failed.join(', ') + ')');
     if (termDone && filled > 0 && pending === 0 && r.total < 50) flags.push('เสี่ยงติด 0');
     r.flag = flags.join(' · ');
     // ยังไม่มีข้อมูลสักช่อง = ยังตัดเกรดไม่ได้ (อย่าโชว์ 0 ให้เข้าใจผิดว่าตก)
@@ -1126,6 +1288,7 @@ function gradeOf_(total, cuts) {
 function recalcClass_(classId) {
   var sh = sheetForClass_(classId);
   if (!sh) throw new Error('ไม่พบห้องเรียน: ' + classId);
+  ensureLayout_(sh);   // คำนวณแล้วต้องเขียนคะแนนสรุปลงแถวนักเรียน ต้องอัปโครงก่อน
   var data = readClassBySheet_(sh);
   var S = scoreSettings_(getConfig_());
   var res = computeClassScores_(data, S);
@@ -1585,19 +1748,26 @@ function dispatch_(action, p, cfg) {
     case 'addColumn': {
       var sh4 = requireSheet_(p.classId);
       var spec = columnSpec_(p);
-      ensureColumn_(sh4, spec.key, spec.label, spec.max, spec.desc);
+      ensureColumn_(sh4, spec.key, spec.label, spec.max, spec.desc, spec.pass);
       return readClassBySheet_(sh4);
     }
 
     case 'updateColumn': {
       var sh5 = requireSheet_(p.classId);
+      ensureLayout_(sh5);                                  // ต้องมีแถวเกณฑ์ผ่านก่อนถึงจะเขียนลงไปได้
       var cols5 = columnsOf_(sh5);
       var hit = cols5.filter(function (c) { return c.key === p.key; })[0];
       if (!hit) throw new Error('ไม่พบคอลัมน์: ' + p.key);
       if (p.label !== undefined) sh5.getRange(R_LABEL, hit.col).setValue(p.label);
       if (p.max !== undefined)   sh5.getRange(R_MAX,   hit.col).setValue(p.max);
       if (p.desc !== undefined)  sh5.getRange(R_LABEL, hit.col).setNote(String(p.desc) || null);
-      if (p.max !== undefined) recalcClass_(p.classId);   // เปลี่ยนคะแนนเต็ม = คะแนนสรุปเปลี่ยนตาม
+      if (p.pass !== undefined) {
+        // เทียบกับคะแนนเต็มค่าใหม่ถ้าแก้มาพร้อมกัน ไม่งั้นเทียบกับของเดิมในชีต
+        sh5.getRange(R_PASS, hit.col).setValue(
+          passValue_(p.pass, p.max !== undefined ? p.max : hit.max));
+      }
+      // เปลี่ยนคะแนนเต็มหรือเกณฑ์ผ่าน = คะแนนสรุปกับธงหมายเหตุเปลี่ยนตาม
+      if (p.max !== undefined || p.pass !== undefined) recalcClass_(p.classId);
       return readClassBySheet_(sh5);
     }
 
@@ -1698,7 +1868,7 @@ function columnSpec_(p) {
     if (!/^\d{8}$/.test(d)) throw new Error('รูปแบบวันที่ไม่ถูกต้อง (ต้องเป็น YYYY-MM-DD)');
     if (period < 1) throw new Error('เลขคาบต้องมากกว่า 0');
     var id = d + '-' + period;
-    return { key: makeKey_('ATT', half, id), label: attLabel_(id), max: '', desc: '' };
+    return { key: makeKey_('ATT', half, id), label: attLabel_(id), max: '', desc: '', pass: '' };
   }
 
   if (['WORK', 'QUIZ', 'MID', 'FIN'].indexOf(kind) < 0) throw new Error('ประเภทคอลัมน์ไม่ถูกต้อง: ' + kind);
@@ -1707,7 +1877,27 @@ function columnSpec_(p) {
   if (!label) throw new Error('กรุณาตั้งชื่อรายการ');
   var max = num_(p.max, 10);
   if (max <= 0) throw new Error('คะแนนเต็มต้องมากกว่า 0');
-  return { key: makeKey_(kind, half, id2), label: label, max: max, desc: String(p.desc || '') };
+  return {
+    key: makeKey_(kind, half, id2), label: label, max: max, desc: String(p.desc || ''),
+    pass: passValue_(p.pass, max)
+  };
+}
+
+/**
+ * ตรวจค่าเกณฑ์ผ่านที่ส่งมา — คืน '' เมื่อไม่ตั้งเกณฑ์
+ *
+ * เกณฑ์เก็บเป็น "คะแนนดิบ" ไม่ใช่ % เพราะครูอ่านเทียบกับคะแนนเต็มในแถวบนได้ทันที
+ * และไม่ต้องมาเดาว่าปัดเศษยังไงตอนคะแนนเต็มเป็นเลขคี่ (เต็ม 15 ผ่าน 50% = 7.5)
+ */
+function passValue_(v, max) {
+  if (v === undefined || v === null || String(v).trim() === '') return '';
+  var n = Number(v);
+  if (!isFinite(n)) throw new Error('เกณฑ์ผ่านต้องเป็นตัวเลข');
+  if (n < 0) throw new Error('เกณฑ์ผ่านต้องไม่ติดลบ');
+  if (max != null && max !== '' && n > num_(max)) {
+    throw new Error('เกณฑ์ผ่าน (' + n + ') มากกว่าคะแนนเต็ม (' + max + ') — ไม่มีใครผ่านได้เลย');
+  }
+  return n;
 }
 
 
@@ -1830,7 +2020,9 @@ function studentClassView_(data, r, st, byBucket, S) {
   BUCKET_ORDER.forEach(function (id) {
     (byBucket[id] || []).forEach(function (c) {
       if (c.kind === 'ATT') return;
-      var w = parseWork_((V[c.key] || {})[st.sid]);
+      var raw = (V[c.key] || {})[st.sid];
+      var w = parseWork_(raw);
+      var mark = passMarkOf_(c, S);
       items.push({
         label: c.label || c.id,
         desc: c.desc || '',
@@ -1840,7 +2032,10 @@ function studentClassView_(data, r, st, byBucket, S) {
         bucket: id,
         max: c.max == null ? 0 : c.max,
         status: w.status,
-        score: w.status === 'ok' || w.status === 'late' ? w.score : null
+        score: w.status === 'ok' || w.status === 'late' ? w.score : null,
+        // เกณฑ์ผ่านของชิ้นนี้ · null = ครูไม่ได้ตั้งเกณฑ์ไว้ จึงไม่ต้องบอกว่าผ่าน/ไม่ผ่าน
+        pass: mark,
+        passed: passOf_(c, raw, S)
       });
     });
   });
@@ -1861,7 +2056,8 @@ function studentClassView_(data, r, st, byBucket, S) {
       risk: att.checked > 0 && r.pct < S.minPct
     },
     items: items,
-    pending: r.pending
+    pending: r.pending,
+    failN: r.failN || 0
   };
 }
 

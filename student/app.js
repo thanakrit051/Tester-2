@@ -223,6 +223,16 @@
   /** สีพื้นของแถว บอกสถานะโดยไม่ต้องอ่านตัวหนังสือก่อน (แต่มีตัวหนังสือกำกับเสมอ) */
   var TONE = { miss: 'bad', none: 'warn', ok: '', late: '' };
 
+  /**
+   * ป้ายผ่าน/ไม่ผ่านเกณฑ์ — คืน null เมื่อครูไม่ได้ตั้งเกณฑ์ไว้
+   * (it.passed เป็น null ได้ 2 กรณี: ไม่ได้ตั้งเกณฑ์ หรือครูยังไม่ตรวจ)
+   */
+  function passTag(it) {
+    if (it.passed === true) return h('span', { class: 'pass-tag ok' }, 'ผ่านเกณฑ์');
+    if (it.passed === false) return h('span', { class: 'pass-tag bad' }, 'ไม่ผ่านเกณฑ์ · ต้องได้ ' + nf(it.pass));
+    return null;
+  }
+
   function workCard(c) {
     var list = c.items.filter(function (it) { return !it.exam; });
     if (!list.length) return null;
@@ -245,7 +255,8 @@
         h('div', { class: 'srow-name' }, it.label),
         h('div', { class: 'srow-sub' },
           (it.phase === 1 ? 'ก่อนกลางภาค' : 'หลังกลางภาค') +
-          (it.desc ? ' · มีคำสั่งจากครู' : ''))),
+          (it.desc ? ' · มีคำสั่งจากครู' : '')),
+        passTag(it)),
       h('div', { class: 'srow-tag ' + (TONE[it.status] || 'ok') },
         got ? nf(it.score) + '/' + nf(it.max) : words[it.status]),
       h('span', { class: 'srow-go' }, '›')
@@ -265,7 +276,8 @@
             h('div', { class: 'srow-name', style: big ? { fontWeight: '600' } : null }, it.label),
             h('div', { class: 'srow-sub' },
               got ? (it.phase === 1 ? 'ก่อนกลางภาค' : 'หลังกลางภาค')
-                  : LABEL.exam[it.status])),
+                  : LABEL.exam[it.status]),
+            passTag(it)),
           h('div', { class: 'srow-tag ' + (big ? 'accent' : 'ok') },
             got ? nf(it.score) + '/' + nf(it.max) : '—/' + nf(it.max)));
       }))
@@ -293,7 +305,8 @@
         h('div', { class: 'hero-name', style: { marginTop: '10px' } }, it.label),
         h('div', { class: 'hero-mini' },
           mini('วิชา', c.subject),
-          mini('คะแนนเต็ม', nf(it.max)))),
+          mini('คะแนนเต็ม', nf(it.max)),
+          (it.pass === null || it.pass === undefined) ? null : mini('เกณฑ์ผ่าน', nf(it.pass)))),
 
       h('div', { class: 'stu-wrap' },
         h('div', { class: 'note ' + tone },

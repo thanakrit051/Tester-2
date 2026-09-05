@@ -440,6 +440,9 @@ select {
 }
 .score-inp.filled { border-color: var(--accent); color: var(--accent-ink); }
 .score-inp.miss   { border-color: var(--st-miss); color: var(--st-miss); }
+/* ต่ำกว่าเกณฑ์ผ่าน — ต้องเห็นต่างจาก .filled ชัด ๆ ตั้งแต่ตอนกรอก
+   ใช้พื้นหลังด้วย ไม่ใช่แค่ขอบ เพราะช่องนี้เล็กมากบนมือถือ */
+.score-inp.below  { border-color: var(--red); color: var(--red); background: var(--red-soft); }
 .score-max { font-size: 12px; color: var(--ink-3); }
 .miss-btn {
   width: 34px; height: 34px; border-radius: var(--r-1); font-size: 15px; font-weight: 700;
@@ -1009,6 +1012,24 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
 .gcol-bar.bad  { background: var(--st-miss); }
 .gaxis { display: flex; gap: 8px; margin-top: 8px; font-size: 11.5px; color: var(--ink-3); }
 .gaxis > div { flex: 1; text-align: center; }
+
+/* ── ไม่ผ่านเกณฑ์ แยกตามข้อสอบ (หน้ารายงาน) ──
+   ชื่อคนเป็นชิปเรียงต่อกัน เพราะครูอ่านเพื่อ "เรียกทีละกลุ่ม"
+   ไม่ใช่เพื่อไล่ทีละคน — แบบรายการยาว ๆ ทำให้กวาดตาหาชื่อช้ากว่ามาก */
+.fail-group { padding: 10px 0; border-top: 1px solid var(--line); }
+.fail-group:first-of-type { border-top: 0; padding-top: 4px; }
+.fail-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+.fail-head b { font-size: 14px; color: var(--ink); }
+.fail-head span { font-size: 12.5px; color: var(--ink-3); }
+.fail-names { display: flex; flex-wrap: wrap; gap: 6px; }
+.fail-chip {
+  display: inline-flex; align-items: baseline; gap: 6px;
+  padding: 5px 10px; border-radius: 999px;
+  background: var(--miss-soft); color: var(--st-miss);
+  font-size: 12.5px; max-width: 100%;
+}
+.fail-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fail-chip b { font-variant-numeric: tabular-nums; flex: none; }
 
 .watch-row {
   display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;

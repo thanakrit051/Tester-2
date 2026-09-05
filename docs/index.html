@@ -467,6 +467,9 @@ select {
 }
 .score-inp.filled { border-color: var(--accent); color: var(--accent-ink); }
 .score-inp.miss   { border-color: var(--st-miss); color: var(--st-miss); }
+/* ต่ำกว่าเกณฑ์ผ่าน — ต้องเห็นต่างจาก .filled ชัด ๆ ตั้งแต่ตอนกรอก
+   ใช้พื้นหลังด้วย ไม่ใช่แค่ขอบ เพราะช่องนี้เล็กมากบนมือถือ */
+.score-inp.below  { border-color: var(--red); color: var(--red); background: var(--red-soft); }
 .score-max { font-size: 12px; color: var(--ink-3); }
 .miss-btn {
   width: 34px; height: 34px; border-radius: var(--r-1); font-size: 15px; font-weight: 700;
@@ -1037,6 +1040,24 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
 .gaxis { display: flex; gap: 8px; margin-top: 8px; font-size: 11.5px; color: var(--ink-3); }
 .gaxis > div { flex: 1; text-align: center; }
 
+/* ── ไม่ผ่านเกณฑ์ แยกตามข้อสอบ (หน้ารายงาน) ──
+   ชื่อคนเป็นชิปเรียงต่อกัน เพราะครูอ่านเพื่อ "เรียกทีละกลุ่ม"
+   ไม่ใช่เพื่อไล่ทีละคน — แบบรายการยาว ๆ ทำให้กวาดตาหาชื่อช้ากว่ามาก */
+.fail-group { padding: 10px 0; border-top: 1px solid var(--line); }
+.fail-group:first-of-type { border-top: 0; padding-top: 4px; }
+.fail-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+.fail-head b { font-size: 14px; color: var(--ink); }
+.fail-head span { font-size: 12.5px; color: var(--ink-3); }
+.fail-names { display: flex; flex-wrap: wrap; gap: 6px; }
+.fail-chip {
+  display: inline-flex; align-items: baseline; gap: 6px;
+  padding: 5px 10px; border-radius: 999px;
+  background: var(--miss-soft); color: var(--st-miss);
+  font-size: 12.5px; max-width: 100%;
+}
+.fail-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fail-chip b { font-variant-numeric: tabular-nums; flex: none; }
+
 .watch-row {
   display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
   padding: 10px 12px; border-radius: 12px; background: var(--surface-2);
@@ -1582,6 +1603,15 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .srow-sub { font-size: 11.5px; color: var(--ink-2); margin-top: 1px; }
+
+/* ป้ายผ่าน/ไม่ผ่านเกณฑ์ — อยู่ใต้ชื่อรายการ ไม่ใช่ในช่องคะแนน
+   เพราะ 'ได้กี่คะแนน' กับ 'ผ่านไหม' เป็นคนละคำถาม เด็กอ่านทีละอย่าง */
+.pass-tag {
+  display: inline-block; margin-top: 4px; padding: 2px 8px;
+  border-radius: 999px; font-size: 11px; font-weight: 600;
+}
+.pass-tag.ok  { background: var(--ok-soft, rgba(45,160,90,.14)); color: var(--st-ok); }
+.pass-tag.bad { background: var(--red-soft); color: var(--st-miss); }
 .srow-tag {
   flex: none; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums;
   color: var(--st-ok);
@@ -1632,7 +1662,7 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
 <div id="boot" class="boot">
   <div class="boot-mark">A<span>✓</span></div>
   <div class="boot-title">ผลการเรียนของฉัน</div>
-  <div class="boot-ver">v3.6.0</div>
+  <div class="boot-ver">v3.7.0</div>
   <div class="boot-spin"></div>
 </div>
 
@@ -1865,6 +1895,16 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
   /** สีพื้นของแถว บอกสถานะโดยไม่ต้องอ่านตัวหนังสือก่อน (แต่มีตัวหนังสือกำกับเสมอ) */
   var TONE = { miss: 'bad', none: 'warn', ok: '', late: '' };
 
+  /**
+   * ป้ายผ่าน/ไม่ผ่านเกณฑ์ — คืน null เมื่อครูไม่ได้ตั้งเกณฑ์ไว้
+   * (it.passed เป็น null ได้ 2 กรณี: ไม่ได้ตั้งเกณฑ์ หรือครูยังไม่ตรวจ)
+   */
+  function passTag(it) {
+    if (it.passed === true) return h('span', { class: 'pass-tag ok' }, 'ผ่านเกณฑ์');
+    if (it.passed === false) return h('span', { class: 'pass-tag bad' }, 'ไม่ผ่านเกณฑ์ · ต้องได้ ' + nf(it.pass));
+    return null;
+  }
+
   function workCard(c) {
     var list = c.items.filter(function (it) { return !it.exam; });
     if (!list.length) return null;
@@ -1887,7 +1927,8 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
         h('div', { class: 'srow-name' }, it.label),
         h('div', { class: 'srow-sub' },
           (it.phase === 1 ? 'ก่อนกลางภาค' : 'หลังกลางภาค') +
-          (it.desc ? ' · มีคำสั่งจากครู' : ''))),
+          (it.desc ? ' · มีคำสั่งจากครู' : '')),
+        passTag(it)),
       h('div', { class: 'srow-tag ' + (TONE[it.status] || 'ok') },
         got ? nf(it.score) + '/' + nf(it.max) : words[it.status]),
       h('span', { class: 'srow-go' }, '›')
@@ -1907,7 +1948,8 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
             h('div', { class: 'srow-name', style: big ? { fontWeight: '600' } : null }, it.label),
             h('div', { class: 'srow-sub' },
               got ? (it.phase === 1 ? 'ก่อนกลางภาค' : 'หลังกลางภาค')
-                  : LABEL.exam[it.status])),
+                  : LABEL.exam[it.status]),
+            passTag(it)),
           h('div', { class: 'srow-tag ' + (big ? 'accent' : 'ok') },
             got ? nf(it.score) + '/' + nf(it.max) : '—/' + nf(it.max)));
       }))
@@ -1935,7 +1977,8 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
         h('div', { class: 'hero-name', style: { marginTop: '10px' } }, it.label),
         h('div', { class: 'hero-mini' },
           mini('วิชา', c.subject),
-          mini('คะแนนเต็ม', nf(it.max)))),
+          mini('คะแนนเต็ม', nf(it.max)),
+          (it.pass === null || it.pass === undefined) ? null : mini('เกณฑ์ผ่าน', nf(it.pass)))),
 
       h('div', { class: 'stu-wrap' },
         h('div', { class: 'note ' + tone },

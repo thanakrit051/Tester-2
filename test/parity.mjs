@@ -33,10 +33,10 @@ const columns = [
   { key: 'ATT|1|20260801-1', kind: 'ATT',  half: 1, id: '20260801-1', max: null, date: '2026-08-01', period: 1 },
   { key: 'ATT|1|20260802-1', kind: 'ATT',  half: 1, id: '20260802-1', max: null, date: '2026-08-02', period: 1 },
   { key: 'ATT|1|20260803-2', kind: 'ATT',  half: 1, id: '20260803-2', max: null, date: '2026-08-03', period: 2 },
-  { key: 'WORK|1|w1',        kind: 'WORK', half: 1, id: 'w1',  label: 'ใบงาน 1', max: 20 },
-  { key: 'WORK|1|w2',        kind: 'WORK', half: 1, id: 'w2',  label: 'ใบงาน 2', max: 5 },
-  { key: 'QUIZ|1|q1',        kind: 'QUIZ', half: 1, id: 'q1',  label: 'ควิซ 1',  max: 15 },
-  { key: 'MID|1|mid',        kind: 'MID',  half: 1, id: 'mid', label: 'กลางภาค', max: 40 },
+  { key: 'WORK|1|w1',        kind: 'WORK', half: 1, id: 'w1',  label: 'ใบงาน 1', max: 20, pass: 10 },
+  { key: 'WORK|1|w2',        kind: 'WORK', half: 1, id: 'w2',  label: 'ใบงาน 2', max: 5, pass: 0 },
+  { key: 'QUIZ|1|q1',        kind: 'QUIZ', half: 1, id: 'q1',  label: 'ควิซ 1',  max: 15, pass: 7.5 },
+  { key: 'MID|1|mid',        kind: 'MID',  half: 1, id: 'mid', label: 'กลางภาค', max: 40, pass: null },
   { key: 'ATT|2|20261101-1', kind: 'ATT',  half: 2, id: '20261101-1', max: null, date: '2026-11-01', period: 1 },
   { key: 'WORK|2|w3',        kind: 'WORK', half: 2, id: 'w3',  label: 'ใบงาน 3', max: 10 },
   { key: 'QUIZ|2|q2',        kind: 'QUIZ', half: 2, id: 'q2',  label: 'ควิซ 2',  max: 10 },
@@ -45,7 +45,7 @@ const columns = [
 
 const ATT = ['ม', 'ส', 'ล', 'ข', ''];
 const BUCKET_IDS = ['work1', 'quiz1', 'att1', 'mid', 'work2', 'quiz2', 'att2', 'fin'];
-const FIELDS = [...BUCKET_IDS, 'total', 'grade', 'pct', 'flag', 'attN', 'dataN',
+const FIELDS = [...BUCKET_IDS, 'total', 'grade', 'pct', 'flag', 'attN', 'dataN', 'failN', 'failed',
   ...BUCKET_IDS.map(b => '_has_' + b)];
 
 const rnd = (seed) => { let s = seed || 1; return () => (s = (s * 1103515245 + 12345) % 2147483648) / 2147483648; };
@@ -54,8 +54,9 @@ let fails = 0, checked = 0;
 for (const att_mode of ['ratio', 'deduct'])
 for (const ungraded_mode of ['ignore', 'zero'])
 for (const round_digits of [0, 1, 2])
-for (const round_mode of ['half', 'up', 'down']) {
-  const cfg = { ...baseCfg, att_mode, ungraded_mode, round_digits, round_mode };
+for (const round_mode of ['half', 'up', 'down'])
+for (const pass_default_pct of ['', 50]) {
+  const cfg = { ...baseCfg, att_mode, ungraded_mode, round_digits, round_mode, pass_default_pct };
   const r = rnd(round_digits * 977 + round_mode.length * 131 + att_mode.length * 17 + ungraded_mode.length);
 
   const students = Array.from({ length: 25 }, (_, i) => ({ no: String(i + 1), sid: 'S' + i, name: 'นักเรียน ' + i }));

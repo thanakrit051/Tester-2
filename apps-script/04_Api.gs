@@ -371,19 +371,26 @@ function dispatch_(action, p, cfg) {
     case 'addColumn': {
       var sh4 = requireSheet_(p.classId);
       var spec = columnSpec_(p);
-      ensureColumn_(sh4, spec.key, spec.label, spec.max, spec.desc);
+      ensureColumn_(sh4, spec.key, spec.label, spec.max, spec.desc, spec.pass);
       return readClassBySheet_(sh4);
     }
 
     case 'updateColumn': {
       var sh5 = requireSheet_(p.classId);
+      ensureLayout_(sh5);                                  // ต้องมีแถวเกณฑ์ผ่านก่อนถึงจะเขียนลงไปได้
       var cols5 = columnsOf_(sh5);
       var hit = cols5.filter(function (c) { return c.key === p.key; })[0];
       if (!hit) throw new Error('ไม่พบคอลัมน์: ' + p.key);
       if (p.label !== undefined) sh5.getRange(R_LABEL, hit.col).setValue(p.label);
       if (p.max !== undefined)   sh5.getRange(R_MAX,   hit.col).setValue(p.max);
       if (p.desc !== undefined)  sh5.getRange(R_LABEL, hit.col).setNote(String(p.desc) || null);
-      if (p.max !== undefined) recalcClass_(p.classId);   // เปลี่ยนคะแนนเต็ม = คะแนนสรุปเปลี่ยนตาม
+      if (p.pass !== undefined) {
+        // เทียบกับคะแนนเต็มค่าใหม่ถ้าแก้มาพร้อมกัน ไม่งั้นเทียบกับของเดิมในชีต
+        sh5.getRange(R_PASS, hit.col).setValue(
+          passValue_(p.pass, p.max !== undefined ? p.max : hit.max));
+      }
+      // เปลี่ยนคะแนนเต็มหรือเกณฑ์ผ่าน = คะแนนสรุปกับธงหมายเหตุเปลี่ยนตาม
+      if (p.max !== undefined || p.pass !== undefined) recalcClass_(p.classId);
       return readClassBySheet_(sh5);
     }
 
@@ -484,7 +491,7 @@ function columnSpec_(p) {
     if (!/^\d{8}$/.test(d)) throw new Error('รูปแบบวันที่ไม่ถูกต้อง (ต้องเป็น YYYY-MM-DD)');
     if (period < 1) throw new Error('เลขคาบต้องมากกว่า 0');
     var id = d + '-' + period;
-    return { key: makeKey_('ATT', half, id), label: attLabel_(id), max: '', desc: '' };
+    return { key: makeKey_('ATT', half, id), label: attLabel_(id), max: '', desc: '', pass: '' };
   }
 
   if (['WORK', 'QUIZ', 'MID', 'FIN'].indexOf(kind) < 0) throw new Error('ประเภทคอลัมน์ไม่ถูกต้อง: ' + kind);
@@ -493,5 +500,25 @@ function columnSpec_(p) {
   if (!label) throw new Error('กรุณาตั้งชื่อรายการ');
   var max = num_(p.max, 10);
   if (max <= 0) throw new Error('คะแนนเต็มต้องมากกว่า 0');
-  return { key: makeKey_(kind, half, id2), label: label, max: max, desc: String(p.desc || '') };
+  return {
+    key: makeKey_(kind, half, id2), label: label, max: max, desc: String(p.desc || ''),
+    pass: passValue_(p.pass, max)
+  };
+}
+
+/**
+ * ตรวจค่าเกณฑ์ผ่านที่ส่งมา — คืน '' เมื่อไม่ตั้งเกณฑ์
+ *
+ * เกณฑ์เก็บเป็น "คะแนนดิบ" ไม่ใช่ % เพราะครูอ่านเทียบกับคะแนนเต็มในแถวบนได้ทันที
+ * และไม่ต้องมาเดาว่าปัดเศษยังไงตอนคะแนนเต็มเป็นเลขคี่ (เต็ม 15 ผ่าน 50% = 7.5)
+ */
+function passValue_(v, max) {
+  if (v === undefined || v === null || String(v).trim() === '') return '';
+  var n = Number(v);
+  if (!isFinite(n)) throw new Error('เกณฑ์ผ่านต้องเป็นตัวเลข');
+  if (n < 0) throw new Error('เกณฑ์ผ่านต้องไม่ติดลบ');
+  if (max != null && max !== '' && n > num_(max)) {
+    throw new Error('เกณฑ์ผ่าน (' + n + ') มากกว่าคะแนนเต็ม (' + max + ') — ไม่มีใครผ่านได้เลย');
+  }
+  return n;
 }

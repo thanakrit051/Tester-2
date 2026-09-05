@@ -452,7 +452,7 @@ function makeColumnSpec(p) {
     const id = `${d}-${period}`;
     const [, mm, dd] = String(p.date).split('-');
     return {
-      key: `ATT|${half}|${id}`, kind, half, id, max: null,
+      key: `ATT|${half}|${id}`, kind, half, id, max: null, pass: null,
       label: `${dd}/${mm}\nคาบ ${period}`, date: p.date, period,
       payload: { kind, half, date: p.date, period }
     };
@@ -461,9 +461,11 @@ function makeColumnSpec(p) {
   const id = p.id || uid(kind[0].toLowerCase());
   const max = Number(p.max) || 0;
   const desc = String(p.desc || '');
+  // '' = ไม่ตั้งเกณฑ์ผ่าน — เก็บในเครื่องเป็น null ให้ตรงกับรูปที่ชีตคืนกลับมา
+  const pass = (p.pass === undefined || p.pass === null || p.pass === '') ? null : Number(p.pass);
   return {
-    key: `${kind}|${half}|${id}`, kind, half, id, max, label: p.label, desc,
-    payload: { kind, half, id, label: p.label, max, desc }
+    key: `${kind}|${half}|${id}`, kind, half, id, max, label: p.label, desc, pass,
+    payload: { kind, half, id, label: p.label, max, desc, pass: pass === null ? '' : pass }
   };
 }
 
@@ -489,7 +491,9 @@ export function ensureColumn(p, { quiet = false } = {}) {
 
 export async function updateColumn(key, patch) {
   const col = state.cls.columns.find(c => c.key === key);
-  if (col) { Object.assign(col, patch); persistClass(); emit(); }
+  // ฝั่งชีตรับ '' = ล้างเกณฑ์ทิ้ง แต่ในเครื่องเก็บเป็น null ให้เหมือนตอนอ่านกลับมา
+  const local = ('pass' in patch) ? { ...patch, pass: patch.pass === '' ? null : Number(patch.pass) } : patch;
+  if (col) { Object.assign(col, local); persistClass(); emit(); }
   api.queue.push('updateColumn', { classId: state.classId, key, ...patch });
   await sync();
 }

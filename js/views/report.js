@@ -6,7 +6,7 @@
 
 import { h, toast, fmtDate, nf } from '../dom.js';
 import { state, emit, settings, go } from '../state.js';
-import { computeClass, parseWork, BUCKETS, ATT_CODES } from '../score.js';
+import { computeClass, parseWork, BUCKETS, ATT_CODES, passMarkOf, passOf } from '../score.js';
 
 const ui = { tab: 'class', sid: null, q: '' };
 
@@ -143,10 +143,23 @@ function classReport() {
 
   // ผู้ที่ต้องติดตาม
   const watch = graded
-    .map(r => ({ r, score: (r.grade === 'มส' ? 1000 : 0) + r.pending * 10 + Math.max(0, 60 - r.total) }))
+    .map(r => ({ r, score: (r.grade === 'มส' ? 1000 : 0) + r.pending * 10 + r.failN * 25 + Math.max(0, 60 - r.total) }))
     .filter(x => x.score > 0)
     .sort((a, b) => b.score - a.score)
     .slice(0, 12);
+
+  /* ── คนที่ไม่ผ่านเกณฑ์ แยกตามรายการ ──────────────────────
+   * จัดกลุ่มตาม "ข้อสอบ" ไม่ใช่ตาม "นักเรียน" เพราะการซ่อมทำเป็นรอบ ๆ ตามชิ้นงาน
+   * ครูต้องการรายชื่อคนที่ต้องเรียกมาสอบใหม่ของชิ้นนั้น ๆ ไปเรียกทีเดียวพร้อมกัน
+   * รายการที่ไม่ได้ตั้งเกณฑ์จะไม่โผล่มาเลย (ไม่ใช่โผล่มาแบบ 0 คน) */
+  const failGroups = (cls.columns || [])
+    .map(c => {
+      const mark = passMarkOf(c, S);
+      if (mark === null) return null;
+      const who = (cls.students || []).filter(st => passOf(c, (cls.values[c.key] || {})[st.sid], S) === false);
+      return who.length ? { col: c, mark, who } : null;
+    })
+    .filter(Boolean);
 
   // ตัวเลขสรุปทั้งห้องอยู่หน้าแรกแล้ว หน้านี้จึงเริ่มที่กราฟเลยตามดีไซน์
   return h('div', null,
@@ -210,6 +223,28 @@ function classReport() {
             }))
     ),
 
+    // ── ไม่ผ่านเกณฑ์ แยกตามข้อสอบ (เอาไปเรียกซ่อมได้ทีเดียวทั้งกลุ่ม) ──
+    failGroups.length > 0 && h('div', { class: 'card', style: { marginBottom: '12px' } },
+      h('div', { class: 'rep-head' },
+        h('h3', null, `ไม่ผ่านเกณฑ์ · ${failGroups.length} รายการ`),
+        h('span', null, 'กดชื่อเพื่อดูรายบุคคล')),
+      failGroups.map(({ col, mark, who }) => h('div', { class: 'fail-group' },
+        h('div', { class: 'fail-head' },
+          h('b', null, col.label),
+          h('span', null, `${bucketName(col)} · ผ่านที่ ${nf(mark)}/${nf(col.max)} · ไม่ผ่าน ${who.length} คน`)),
+        h('div', { class: 'fail-names' }, who.map(st => {
+          const w = parseWork((cls.values[col.key] || {})[st.sid]);
+          return h('button', {
+            class: 'fail-chip',
+            title: `${st.name} · ได้ ${w.status === 'miss' ? (isExam(col) ? 'ยังไม่ได้สอบ' : 'ไม่ส่ง') : nf(w.score)}`,
+            onclick: () => { ui.tab = 'student'; ui.sid = st.sid; emit(); }
+          },
+            h('span', null, `${st.no}. ${st.name || '—'}`),
+            h('b', null, w.status === 'miss' ? '—' : nf(w.score)));
+        }))
+      ))
+    ),
+
     // ── ต้องติดตาม — เรียงตามความเร่งด่วน พื้นหลังบอกระดับ ──
     h('div', { class: 'card' },
       h('div', { class: 'rep-head' },
@@ -227,6 +262,7 @@ function classReport() {
               h('div', { class: 'w-name' }, r.name || '—', h('span', null, ` เลขที่ ${r.no}`)),
               r.attN > 0 && h('div', { class: 'w-tag ' + (r.pct < S.minPct ? 'bad' : (warn ? 'warn' : 'dim')) },
                 (r.pct < S.minPct ? 'มส · ' : '') + `เวลาเรียน ${nf(r.pct, 0)}%`),
+              r.failN > 0 && h('div', { class: 'w-tag bad' }, `ไม่ผ่าน ${r.failN} รายการ`),
               h('div', { class: 'w-tag ' + (bad ? 'bad' : 'dim') },
                 r.pending > 0 ? `ยังไม่ตรวจ ${r.pending} รายการ` : `รวม ${nf(r.total)}`),
               h('span', { class: 'w-go' }, '›'));

@@ -164,6 +164,15 @@
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .srow-sub { font-size: 11.5px; color: var(--ink-2); margin-top: 1px; }
+
+/* ป้ายผ่าน/ไม่ผ่านเกณฑ์ — อยู่ใต้ชื่อรายการ ไม่ใช่ในช่องคะแนน
+   เพราะ 'ได้กี่คะแนน' กับ 'ผ่านไหม' เป็นคนละคำถาม เด็กอ่านทีละอย่าง */
+.pass-tag {
+  display: inline-block; margin-top: 4px; padding: 2px 8px;
+  border-radius: 999px; font-size: 11px; font-weight: 600;
+}
+.pass-tag.ok  { background: var(--ok-soft, rgba(45,160,90,.14)); color: var(--st-ok); }
+.pass-tag.bad { background: var(--red-soft); color: var(--st-miss); }
 .srow-tag {
   flex: none; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums;
   color: var(--st-ok);

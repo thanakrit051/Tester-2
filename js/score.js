@@ -26,6 +26,45 @@ export function parseWork(raw) {
   return { status: late ? 'late' : 'ok', score: n };
 }
 
+/**
+ * เกณฑ์ผ่านของรายการนี้ — คืน null เมื่อไม่ต้องตรวจ
+ *
+ * เก็บเป็นคะแนนดิบ ไม่ใช่ % เพื่อให้ครูอ่านเทียบกับคะแนนเต็มในแถวเหนือมันได้ทันที
+ * และไม่ต้องเดาเรื่องปัดเศษตอนคะแนนเต็มเป็นเลขคี่ (เต็ม 15 · ผ่าน 50% = 7.5)
+ *
+ * ลำดับ: เกณฑ์ของรายการนั้นเอง → ค่าตั้งต้นเป็น % จาก ⚙️ ตั้งค่า → ไม่ตรวจ
+ * เช็คชื่อไม่มีเกณฑ์ผ่านรายคาบ (มีเกณฑ์เวลาเรียนรวมอยู่แล้ว) · บล็อกสรุปก็ไม่มี
+ *
+ * ⚠️ ต้องตรงกับ passMarkOf_ ใน apps-script/03_Score.gs เสมอ
+ */
+export function passMarkOf(c, S) {
+  if (!c || c.kind === 'ATT' || c.kind === 'SUM') return null;
+  if (c.pass !== null && c.pass !== undefined && c.pass !== '') {
+    const p = Number(c.pass);
+    return isNaN(p) ? null : p;
+  }
+  const full = c.max == null ? 0 : Number(c.max);
+  if (S == null || S.passPct == null || !(full > 0)) return null;
+  return full * S.passPct / 100;
+}
+
+/**
+ * นักเรียนคนนี้ผ่านเกณฑ์ของรายการนี้ไหม
+ * @returns true = ผ่าน · false = ไม่ผ่าน · null = ตัดสินไม่ได้ (ไม่ได้ตั้งเกณฑ์ หรือยังไม่ตรวจ)
+ *
+ * "ยังไม่ตรวจ" ต้องไม่นับเป็นไม่ผ่าน ไม่งั้นวันแรกที่สร้างข้อสอบ ทั้งห้องจะติดธงทันที
+ * ส่วน "ไม่ส่ง" (x) นับเป็น 0 คะแนน = ไม่ผ่าน ซึ่งตรงกับความจริง
+ *
+ * ⚠️ ต้องตรงกับ passOf_ ใน apps-script/03_Score.gs เสมอ
+ */
+export function passOf(c, raw, S) {
+  const mark = passMarkOf(c, S);
+  if (mark === null) return null;
+  const w = parseWork(raw);
+  if (w.status === 'none') return null;
+  return w.score >= mark;
+}
+
 /** ประกอบค่ากลับไปเก็บในชีต */
 export function formatWork(status, score) {
   if (status === 'none') return '';
@@ -61,6 +100,9 @@ export function settingsFrom(cfg = {}) {
     minPct: n(cfg.att_min_pct, 80),
     countLeave: cfg['att_count_ลา'] === undefined ? true : bool(cfg['att_count_ลา']),
     ungraded: String(cfg.ungraded_mode || 'ignore').toLowerCase(),
+    // เกณฑ์ผ่านตั้งต้น (% ของคะแนนเต็ม) — ว่าง/อ่านไม่ออก = null คือไม่ตรวจอะไรเลย
+    // ต้องเป็น null ไม่ใช่ 0 เพราะ 0 แปลว่า "ผ่านหมดทุกคน" ซึ่งคนละเรื่องกับ "ไม่ตรวจ"
+    passPct: (String(cfg.pass_default_pct ?? '').trim() === '' || isNaN(Number(cfg.pass_default_pct))) ? null : Number(cfg.pass_default_pct),
     latePenaltyPct: n(cfg.late_penalty_pct, 0),
     digits: n(cfg.round_digits, 0),
     roundMode: String(cfg.round_mode || 'half').toLowerCase(),
@@ -140,6 +182,7 @@ export function computeClass(cls, S) {
   return (cls.students || []).map(st => {
     const r = { sid: st.sid, no: st.no, name: st.name };
     let attTotal = 0, attPresent = 0, pending = 0, filled = 0, late = 0, dataN = 0;
+    const failed = [];   // ชื่อรายการที่คนนี้สอบไม่ผ่านเกณฑ์ (เรียงซ้าย→ขวาตามชีต)
 
     for (const b of BUCKETS) {
       const cols = byBucket[b.id];
@@ -167,7 +210,9 @@ export function computeClass(cls, S) {
       let got = 0, max = 0, blank = 0;
       for (const c of cols) {
         const full = c.max == null ? 0 : c.max;
-        const cell = parseWork((V[c.key] || {})[st.sid]);   // อย่าตั้งชื่อ w ทับน้ำหนักด้านบน
+        const raw = (V[c.key] || {})[st.sid];
+        const cell = parseWork(raw);                        // อย่าตั้งชื่อ w ทับน้ำหนักด้านบน
+        if (passOf(c, raw, S) === false) failed.push(c.label || c.id);
         if (cell.status === 'none') { blank++; if (S.ungraded === 'zero') max += full; continue; }
         max += full; filled++;
         if (cell.status === 'late') late++;
@@ -186,6 +231,8 @@ export function computeClass(cls, S) {
     r.dataN = dataN;          // จำนวนช่อง SGS ที่มีข้อมูลจริง (0 = ยังไม่ได้กรอกอะไรเลย)
     r.pending = pending;
     r.late = late;
+    r.failed = failed;
+    r.failN = failed.length;
 
     // ถือว่าจบเทอมเมื่อกรอกคะแนนปลายภาคของคนนี้แล้ว
     const termDone = byBucket.fin.some(c => String((V[c.key] || {})[st.sid] ?? '').trim() !== '');
@@ -194,6 +241,7 @@ export function computeClass(cls, S) {
     const lowTime = attTotal > 0 && r.pct < S.minPct;
     if (lowTime) flags.push(`มส (เวลาเรียน ${r.pct}%)`);
     if (pending > 0) flags.push(`ยังไม่ตรวจ ${pending} รายการ`);
+    if (failed.length) flags.push(`ไม่ผ่านเกณฑ์ ${failed.length} รายการ (${failed.join(', ')})`);
     if (termDone && filled > 0 && pending === 0 && r.total < 50) flags.push('เสี่ยงติด 0');
     r.flag = flags.join(' · ');
     // ยังไม่มีข้อมูลสักช่อง = ยังตัดเกรดไม่ได้ (อย่าโชว์ 0 ให้เข้าใจผิดว่าตก)

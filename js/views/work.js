@@ -2,7 +2,7 @@
 
 import { h, modal, toast, confirmBox, nf } from '../dom.js';
 import { state, emit, loadClass, ensureColumn, setCells, getCell, deleteColumn, updateColumn, settings, undoLastEdit } from '../state.js';
-import { BUCKETS, NOT_SUBMITTED, parseWork, formatWork } from '../score.js';
+import { BUCKETS, NOT_SUBMITTED, parseWork, formatWork, passMarkOf, passOf } from '../score.js';
 
 /** ปุ่ม "เลิกทำ" แปะท้าย toast — ใช้กับปุ่มที่แก้ทีเดียวหลายคน */
 const undoAction = () => ({
@@ -302,8 +302,13 @@ function scoreRow(col, s, { head, nextInput } = {}) {
   const W = words(col);
   const cur = parseWork(getCell(col.key, s.sid));
 
+  // ต่ำกว่าเกณฑ์ผ่าน = ขึ้นสีแดงทันทีตอนกรอก ครูจะได้เห็นว่าใครต้องซ่อมโดยไม่ต้องไปเปิดรายงาน
+  const mark = passMarkOf(col, settings());
+  const failCls = (raw) => passOf(col, raw, settings()) === false ? ' below' : '';
+
   const inp = h('input', {
-    class: 'score-inp' + (cur.status === 'miss' ? ' miss' : (cur.status !== 'none' ? ' filled' : '')),
+    class: 'score-inp' + (cur.status === 'miss' ? ' miss' : (cur.status !== 'none' ? ' filled' : ''))
+      + failCls(getCell(col.key, s.sid)),
     type: 'number', inputmode: 'decimal', min: '0', max: String(col.max), step: 'any',
     value: (cur.status === 'ok' || cur.status === 'late') ? String(cur.score) : '',
     placeholder: cur.status === 'miss' ? W.missShort : '',
@@ -346,6 +351,7 @@ function scoreRow(col, s, { head, nextInput } = {}) {
     inp.placeholder = status === 'miss' ? W.missShort : '';
     inp.classList.toggle('miss', status === 'miss');
     inp.classList.toggle('filled', status === 'ok' || status === 'late');
+    inp.classList.toggle('below', passOf(col, formatWork(status, sc), settings()) === false);
     refreshProgress(col);
   }
 
@@ -354,7 +360,9 @@ function scoreRow(col, s, { head, nextInput } = {}) {
   const row = h('div', { class: 'work-row' },
     h('div', { class: 'work-head' },
       head || null,
-      h('div', { class: 'score-cell' }, inp, h('span', { class: 'score-max' }, '/' + col.max))),
+      h('div', { class: 'score-cell' }, inp,
+        h('span', { class: 'score-max', title: mark === null ? null : `ผ่านที่ ${mark}` },
+          '/' + col.max + (mark === null ? '' : ` · ผ่าน ${mark}`)))),
     group
   );
   row.__input = inp;
@@ -597,6 +605,15 @@ function refreshProgress(col) {
 
 // ── เพิ่ม / แก้ไขรายการ ─────────────────────────────────────
 
+/** คำอธิบายใต้ช่องเกณฑ์ผ่าน — บอกด้วยว่าเว้นว่างแล้วจะเกิดอะไร */
+function passHint(max) {
+  const base = 'ได้เท่านี้ขึ้นไปถือว่าผ่าน · ต่ำกว่านี้ช่องคะแนนจะขึ้นสีแดง และไปโผล่ในรายชื่อคนต้องซ่อม';
+  const pct = settings().passPct;
+  if (pct == null) return base + ' · เว้นว่าง = ไม่ตรวจรายการนี้';
+  const mark = Math.round(max * pct / 100 * 100) / 100;
+  return `${base} · เว้นว่าง = ใช้ค่าตั้งต้น ${pct}% ของคะแนนเต็ม (${mark} คะแนน)`;
+}
+
 function openItemForm(edit) {
   const b = curBucket();
   const exam = b.kind !== 'WORK';
@@ -611,6 +628,11 @@ function openItemForm(edit) {
       : 'เช่น ทำข้อ 1–10 หน้า 42 ส่งท้ายคาบวันศุกร์ · เขียนมือเท่านั้น'
   });
   const max   = h('input', { type: 'number', min: '1', value: String(edit?.max ?? (b.kind === 'MID' ? 20 : b.kind === 'FIN' ? 30 : 10)) });
+  const pass  = h('input', {
+    type: 'number', min: '0', step: 'any',
+    value: String(edit?.pass ?? ''),     // null/undefined = ยังไม่ได้ตั้งเกณฑ์ → ช่องว่าง
+    placeholder: 'เว้นว่าง = ไม่ตรวจ'
+  });
 
   modal((close) => {
     const save = h('button', { class: 'btn btn-block' }, edit ? 'บันทึก' : 'เพิ่มรายการ');
@@ -618,10 +640,20 @@ function openItemForm(edit) {
       const l = label.value.trim(), m = Number(max.value), d = desc.value.trim();
       if (!l) return toast('ตั้งชื่อรายการก่อน', 'err');
       if (!(m > 0)) return toast('คะแนนเต็มต้องมากกว่า 0', 'err');
+
+      // ช่องว่าง = ไม่ตั้งเกณฑ์ · ส่ง '' ไปให้ฝั่งชีตล้างค่าเดิมทิ้ง
+      const praw = pass.value.trim();
+      let p = '';
+      if (praw !== '') {
+        p = Number(praw);
+        if (!isFinite(p) || p < 0) return toast('เกณฑ์ผ่านต้องเป็นตัวเลขไม่ติดลบ', 'err');
+        if (p > m) return toast(`เกณฑ์ผ่าน (${p}) มากกว่าคะแนนเต็ม (${m}) — ไม่มีใครผ่านได้เลย`, 'err');
+      }
+
       try {
-        if (edit) await updateColumn(edit.key, { label: l, max: m, desc: d });
+        if (edit) await updateColumn(edit.key, { label: l, max: m, desc: d, pass: p });
         else {
-          const { key } = ensureColumn({ kind: b.kind, half: b.half, label: l, max: m, desc: d });
+          const { key } = ensureColumn({ kind: b.kind, half: b.half, label: l, max: m, desc: d, pass: p });
           ui.open = key;
         }
         close(); emit();
@@ -635,6 +667,8 @@ function openItemForm(edit) {
       h('div', { class: 'field' }, h('label', null, 'คะแนนเต็ม (คะแนนดิบ)'), max,
         h('div', { class: 'hint' },
           `ใส่คะแนนเต็มจริงได้เลย ระบบจะเทียบสัดส่วนเป็น ${settings().weight[curBucket().id]} คะแนนของ SGS ให้เอง`)),
+      h('div', { class: 'field' }, h('label', null, 'เกณฑ์ผ่าน (คะแนนดิบ)'), pass,
+        h('div', { class: 'hint' }, passHint(Number(max.value) || 0))),
       save
     );
   });

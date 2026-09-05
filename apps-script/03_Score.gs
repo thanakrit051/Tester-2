@@ -24,10 +24,58 @@ function scoreSettings_(cfg) {
     minPct: num_(cfg.att_min_pct, 80),
     countLeave: cfg['att_count_ลา'] === undefined ? true : bool_(cfg['att_count_ลา']),
     ungraded: String(cfg.ungraded_mode || 'ignore').toLowerCase(),
+    // เกณฑ์ผ่านตั้งต้น (% ของคะแนนเต็ม) — ว่าง/อ่านไม่ออก = null คือไม่ตรวจอะไรเลย
+    // ต้องเป็น null ไม่ใช่ 0 เพราะ 0 แปลว่า "ผ่านหมดทุกคน" ซึ่งคนละเรื่องกับ "ไม่ตรวจ"
+    passPct: passPct_(cfg.pass_default_pct),
     digits: num_(cfg.round_digits, 0),
     roundMode: String(cfg.round_mode || 'half').toLowerCase(),
     cuts: parseCuts_(cfg.grade_cuts)
   };
+}
+
+/** อ่านเกณฑ์ผ่านตั้งต้น — คืน null เมื่อว่างหรืออ่านไม่ออก (คนละความหมายกับ 0)
+ *  ⚠️ ต้องตรงกับ settingsFrom().passPct ใน js/score.js เสมอ */
+function passPct_(v) {
+  var s = String(v === undefined || v === null ? '' : v).trim();
+  if (s === '') return null;
+  var x = Number(s);
+  return isNaN(x) ? null : x;
+}
+
+/**
+ * เกณฑ์ผ่านของรายการนี้ — คืน null เมื่อไม่ต้องตรวจ
+ *
+ * เก็บเป็นคะแนนดิบ ไม่ใช่ % เพื่อให้ครูอ่านเทียบกับคะแนนเต็มในแถวเหนือมันได้ทันที
+ * ลำดับ: เกณฑ์ของรายการนั้นเอง → ค่าตั้งต้นเป็น % จาก ⚙️ ตั้งค่า → ไม่ตรวจ
+ *
+ * ⚠️ ต้องตรงกับ passMarkOf() ใน js/score.js เสมอ (test/parity.mjs คุมไว้)
+ */
+function passMarkOf_(c, S) {
+  if (!c || c.kind === 'ATT' || c.kind === 'SUM') return null;
+  if (c.pass !== null && c.pass !== undefined && c.pass !== '') {
+    var p = Number(c.pass);
+    return isNaN(p) ? null : p;
+  }
+  var full = c.max == null ? 0 : Number(c.max);
+  if (S == null || S.passPct == null || !(full > 0)) return null;
+  return full * S.passPct / 100;
+}
+
+/**
+ * นักเรียนคนนี้ผ่านเกณฑ์ของรายการนี้ไหม
+ * true = ผ่าน · false = ไม่ผ่าน · null = ตัดสินไม่ได้ (ไม่ได้ตั้งเกณฑ์ หรือยังไม่ตรวจ)
+ *
+ * "ยังไม่ตรวจ" ต้องไม่นับเป็นไม่ผ่าน ไม่งั้นวันแรกที่สร้างข้อสอบ ทั้งห้องจะติดธงทันที
+ * ส่วน "ไม่ส่ง" (x) นับเป็น 0 คะแนน = ไม่ผ่าน ซึ่งตรงกับความจริง
+ *
+ * ⚠️ ต้องตรงกับ passOf() ใน js/score.js เสมอ
+ */
+function passOf_(c, raw, S) {
+  var mark = passMarkOf_(c, S);
+  if (mark === null) return null;
+  var w = parseWork_(raw);
+  if (w.status === 'none') return null;
+  return w.score >= mark;
 }
 
 var DEFAULT_CUTS_ = '80:4,75:3.5,70:3,65:2.5,60:2,55:1.5,50:1,0:0';
@@ -85,6 +133,7 @@ function computeClassScores_(data, settings) {
     var r = { sid: st.sid, no: st.no, name: st.name };
     var attStat = { total: 0, present: 0, missing: 0 };
     var pending = 0, filled = 0, late = 0, dataN = 0;
+    var failed = [];   // ชื่อรายการที่คนนี้สอบไม่ผ่านเกณฑ์ (เรียงซ้าย→ขวาตามชีต)
 
     BUCKET_ORDER.forEach(function (b) {
       var cols = byBucket[b];
@@ -113,7 +162,9 @@ function computeClassScores_(data, settings) {
       var got = 0, max = 0, blank = 0;
       cols.forEach(function (c) {
         var full = c.max == null ? 0 : c.max;
-        var w = parseWork_((data.values[c.key] || {})[st.sid]);
+        var raw = (data.values[c.key] || {})[st.sid];
+        var w = parseWork_(raw);
+        if (passOf_(c, raw, S) === false) failed.push(c.label || c.id);
         if (w.status === 'none') {
           blank++;
           if (S.ungraded === 'zero') max += full;             // นับเป็น 0 คะแนน
@@ -139,6 +190,8 @@ function computeClassScores_(data, settings) {
     r.dataN = dataN;          // จำนวนช่อง SGS ที่มีข้อมูลจริง (0 = ยังไม่ได้กรอกอะไรเลย)
     r.pending = pending;
     r.late = late;
+    r.failed = failed;
+    r.failN = failed.length;
 
     // ถือว่าจบเทอมเมื่อกรอกคะแนนปลายภาคของคนนี้แล้ว
     var termDone = byBucket.fin.some(function (c) {
@@ -148,6 +201,7 @@ function computeClassScores_(data, settings) {
     var flags = [];
     if (attStat.total > 0 && r.pct < S.minPct) flags.push('มส (เวลาเรียน ' + r.pct + '%)');
     if (pending > 0) flags.push('ยังไม่ตรวจ ' + pending + ' รายการ');
+    if (failed.length) flags.push('ไม่ผ่านเกณฑ์ ' + failed.length + ' รายการ (' + failed.join(', ') + ')');
     if (termDone && filled > 0 && pending === 0 && r.total < 50) flags.push('เสี่ยงติด 0');
     r.flag = flags.join(' · ');
     // ยังไม่มีข้อมูลสักช่อง = ยังตัดเกรดไม่ได้ (อย่าโชว์ 0 ให้เข้าใจผิดว่าตก)
@@ -175,6 +229,7 @@ function gradeOf_(total, cuts) {
 function recalcClass_(classId) {
   var sh = sheetForClass_(classId);
   if (!sh) throw new Error('ไม่พบห้องเรียน: ' + classId);
+  ensureLayout_(sh);   // คำนวณแล้วต้องเขียนคะแนนสรุปลงแถวนักเรียน ต้องอัปโครงก่อน
   var data = readClassBySheet_(sh);
   var S = scoreSettings_(getConfig_());
   var res = computeClassScores_(data, S);

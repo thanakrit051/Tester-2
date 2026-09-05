@@ -1,6 +1,6 @@
 {
   "name": "assigncheck",
-  "version": "3.6.0",
+  "version": "3.7.0",
   "private": true,
   "type": "module",
   "description": "ระบบเช็คชื่อ เช็คการส่งงาน และสรุปคะแนน SGS สำหรับครู — หน้าเว็บ static + Google Apps Script + Google Sheet",

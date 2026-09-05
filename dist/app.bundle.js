@@ -1781,7 +1781,7 @@ function makeColumnSpec(p) {
     const id = `${d}-${period}`;
     const [, mm, dd] = String(p.date).split('-');
     return {
-      key: `ATT|${half}|${id}`, kind, half, id, max: null,
+      key: `ATT|${half}|${id}`, kind, half, id, max: null, pass: null,
       label: `${dd}/${mm}\nคาบ ${period}`, date: p.date, period,
       payload: { kind, half, date: p.date, period }
     };
@@ -1790,9 +1790,11 @@ function makeColumnSpec(p) {
   const id = p.id || uid(kind[0].toLowerCase());
   const max = Number(p.max) || 0;
   const desc = String(p.desc || '');
+  // '' = ไม่ตั้งเกณฑ์ผ่าน — เก็บในเครื่องเป็น null ให้ตรงกับรูปที่ชีตคืนกลับมา
+  const pass = (p.pass === undefined || p.pass === null || p.pass === '') ? null : Number(p.pass);
   return {
-    key: `${kind}|${half}|${id}`, kind, half, id, max, label: p.label, desc,
-    payload: { kind, half, id, label: p.label, max, desc }
+    key: `${kind}|${half}|${id}`, kind, half, id, max, label: p.label, desc, pass,
+    payload: { kind, half, id, label: p.label, max, desc, pass: pass === null ? '' : pass }
   };
 }
 
@@ -1818,7 +1820,9 @@ function ensureColumn(p, { quiet = false } = {}) {
 
 async function updateColumn(key, patch) {
   const col = state.cls.columns.find(c => c.key === key);
-  if (col) { Object.assign(col, patch); persistClass(); emit(); }
+  // ฝั่งชีตรับ '' = ล้างเกณฑ์ทิ้ง แต่ในเครื่องเก็บเป็น null ให้เหมือนตอนอ่านกลับมา
+  const local = ('pass' in patch) ? { ...patch, pass: patch.pass === '' ? null : Number(patch.pass) } : patch;
+  if (col) { Object.assign(col, local); persistClass(); emit(); }
   api.queue.push('updateColumn', { classId: state.classId, key, ...patch });
   await sync();
 }
@@ -1998,6 +2002,45 @@ function parseWork(raw) {
   return { status: late ? 'late' : 'ok', score: n };
 }
 
+/**
+ * เกณฑ์ผ่านของรายการนี้ — คืน null เมื่อไม่ต้องตรวจ
+ *
+ * เก็บเป็นคะแนนดิบ ไม่ใช่ % เพื่อให้ครูอ่านเทียบกับคะแนนเต็มในแถวเหนือมันได้ทันที
+ * และไม่ต้องเดาเรื่องปัดเศษตอนคะแนนเต็มเป็นเลขคี่ (เต็ม 15 · ผ่าน 50% = 7.5)
+ *
+ * ลำดับ: เกณฑ์ของรายการนั้นเอง → ค่าตั้งต้นเป็น % จาก ⚙️ ตั้งค่า → ไม่ตรวจ
+ * เช็คชื่อไม่มีเกณฑ์ผ่านรายคาบ (มีเกณฑ์เวลาเรียนรวมอยู่แล้ว) · บล็อกสรุปก็ไม่มี
+ *
+ * ⚠️ ต้องตรงกับ passMarkOf_ ใน apps-script/03_Score.gs เสมอ
+ */
+function passMarkOf(c, S) {
+  if (!c || c.kind === 'ATT' || c.kind === 'SUM') return null;
+  if (c.pass !== null && c.pass !== undefined && c.pass !== '') {
+    const p = Number(c.pass);
+    return isNaN(p) ? null : p;
+  }
+  const full = c.max == null ? 0 : Number(c.max);
+  if (S == null || S.passPct == null || !(full > 0)) return null;
+  return full * S.passPct / 100;
+}
+
+/**
+ * นักเรียนคนนี้ผ่านเกณฑ์ของรายการนี้ไหม
+ * @returns true = ผ่าน · false = ไม่ผ่าน · null = ตัดสินไม่ได้ (ไม่ได้ตั้งเกณฑ์ หรือยังไม่ตรวจ)
+ *
+ * "ยังไม่ตรวจ" ต้องไม่นับเป็นไม่ผ่าน ไม่งั้นวันแรกที่สร้างข้อสอบ ทั้งห้องจะติดธงทันที
+ * ส่วน "ไม่ส่ง" (x) นับเป็น 0 คะแนน = ไม่ผ่าน ซึ่งตรงกับความจริง
+ *
+ * ⚠️ ต้องตรงกับ passOf_ ใน apps-script/03_Score.gs เสมอ
+ */
+function passOf(c, raw, S) {
+  const mark = passMarkOf(c, S);
+  if (mark === null) return null;
+  const w = parseWork(raw);
+  if (w.status === 'none') return null;
+  return w.score >= mark;
+}
+
 /** ประกอบค่ากลับไปเก็บในชีต */
 function formatWork(status, score) {
   if (status === 'none') return '';
@@ -2033,6 +2076,9 @@ function settingsFrom(cfg = {}) {
     minPct: n(cfg.att_min_pct, 80),
     countLeave: cfg['att_count_ลา'] === undefined ? true : bool(cfg['att_count_ลา']),
     ungraded: String(cfg.ungraded_mode || 'ignore').toLowerCase(),
+    // เกณฑ์ผ่านตั้งต้น (% ของคะแนนเต็ม) — ว่าง/อ่านไม่ออก = null คือไม่ตรวจอะไรเลย
+    // ต้องเป็น null ไม่ใช่ 0 เพราะ 0 แปลว่า "ผ่านหมดทุกคน" ซึ่งคนละเรื่องกับ "ไม่ตรวจ"
+    passPct: (String(cfg.pass_default_pct ?? '').trim() === '' || isNaN(Number(cfg.pass_default_pct))) ? null : Number(cfg.pass_default_pct),
     latePenaltyPct: n(cfg.late_penalty_pct, 0),
     digits: n(cfg.round_digits, 0),
     roundMode: String(cfg.round_mode || 'half').toLowerCase(),
@@ -2112,6 +2158,7 @@ function computeClass(cls, S) {
   return (cls.students || []).map(st => {
     const r = { sid: st.sid, no: st.no, name: st.name };
     let attTotal = 0, attPresent = 0, pending = 0, filled = 0, late = 0, dataN = 0;
+    const failed = [];   // ชื่อรายการที่คนนี้สอบไม่ผ่านเกณฑ์ (เรียงซ้าย→ขวาตามชีต)
 
     for (const b of BUCKETS) {
       const cols = byBucket[b.id];
@@ -2139,7 +2186,9 @@ function computeClass(cls, S) {
       let got = 0, max = 0, blank = 0;
       for (const c of cols) {
         const full = c.max == null ? 0 : c.max;
-        const cell = parseWork((V[c.key] || {})[st.sid]);   // อย่าตั้งชื่อ w ทับน้ำหนักด้านบน
+        const raw = (V[c.key] || {})[st.sid];
+        const cell = parseWork(raw);                        // อย่าตั้งชื่อ w ทับน้ำหนักด้านบน
+        if (passOf(c, raw, S) === false) failed.push(c.label || c.id);
         if (cell.status === 'none') { blank++; if (S.ungraded === 'zero') max += full; continue; }
         max += full; filled++;
         if (cell.status === 'late') late++;
@@ -2158,6 +2207,8 @@ function computeClass(cls, S) {
     r.dataN = dataN;          // จำนวนช่อง SGS ที่มีข้อมูลจริง (0 = ยังไม่ได้กรอกอะไรเลย)
     r.pending = pending;
     r.late = late;
+    r.failed = failed;
+    r.failN = failed.length;
 
     // ถือว่าจบเทอมเมื่อกรอกคะแนนปลายภาคของคนนี้แล้ว
     const termDone = byBucket.fin.some(c => String((V[c.key] || {})[st.sid] ?? '').trim() !== '');
@@ -2166,6 +2217,7 @@ function computeClass(cls, S) {
     const lowTime = attTotal > 0 && r.pct < S.minPct;
     if (lowTime) flags.push(`มส (เวลาเรียน ${r.pct}%)`);
     if (pending > 0) flags.push(`ยังไม่ตรวจ ${pending} รายการ`);
+    if (failed.length) flags.push(`ไม่ผ่านเกณฑ์ ${failed.length} รายการ (${failed.join(', ')})`);
     if (termDone && filled > 0 && pending === 0 && r.total < 50) flags.push('เสี่ยงติด 0');
     r.flag = flags.join(' · ');
     // ยังไม่มีข้อมูลสักช่อง = ยังตัดเกรดไม่ได้ (อย่าโชว์ 0 ให้เข้าใจผิดว่าตก)
@@ -2185,7 +2237,7 @@ function attStats(cls, colKey) {
   return out;
 }
 
-__exp(exports, { ATT_CODES, ATT_NAMES, NOT_SUBMITTED, parseWork, formatWork, BUCKETS, settingsFrom, badCuts, bucketColumns, computeClass, attStats });
+__exp(exports, { ATT_CODES, ATT_NAMES, NOT_SUBMITTED, parseWork, passMarkOf, passOf, formatWork, BUCKETS, settingsFrom, badCuts, bucketColumns, computeClass, attStats });
 
   };
 
@@ -3362,7 +3414,7 @@ __exp(exports, { viewAttendance });
 
 const { h, modal, toast, confirmBox, nf } = __req("js/dom.js");
 const { state, emit, loadClass, ensureColumn, setCells, getCell, deleteColumn, updateColumn, settings, undoLastEdit } = __req("js/state.js");
-const { BUCKETS, NOT_SUBMITTED, parseWork, formatWork } = __req("js/score.js");
+const { BUCKETS, NOT_SUBMITTED, parseWork, formatWork, passMarkOf, passOf } = __req("js/score.js");
 
 /** ปุ่ม "เลิกทำ" แปะท้าย toast — ใช้กับปุ่มที่แก้ทีเดียวหลายคน */
 const undoAction = () => ({
@@ -3662,8 +3714,13 @@ function scoreRow(col, s, { head, nextInput } = {}) {
   const W = words(col);
   const cur = parseWork(getCell(col.key, s.sid));
 
+  // ต่ำกว่าเกณฑ์ผ่าน = ขึ้นสีแดงทันทีตอนกรอก ครูจะได้เห็นว่าใครต้องซ่อมโดยไม่ต้องไปเปิดรายงาน
+  const mark = passMarkOf(col, settings());
+  const failCls = (raw) => passOf(col, raw, settings()) === false ? ' below' : '';
+
   const inp = h('input', {
-    class: 'score-inp' + (cur.status === 'miss' ? ' miss' : (cur.status !== 'none' ? ' filled' : '')),
+    class: 'score-inp' + (cur.status === 'miss' ? ' miss' : (cur.status !== 'none' ? ' filled' : ''))
+      + failCls(getCell(col.key, s.sid)),
     type: 'number', inputmode: 'decimal', min: '0', max: String(col.max), step: 'any',
     value: (cur.status === 'ok' || cur.status === 'late') ? String(cur.score) : '',
     placeholder: cur.status === 'miss' ? W.missShort : '',
@@ -3706,6 +3763,7 @@ function scoreRow(col, s, { head, nextInput } = {}) {
     inp.placeholder = status === 'miss' ? W.missShort : '';
     inp.classList.toggle('miss', status === 'miss');
     inp.classList.toggle('filled', status === 'ok' || status === 'late');
+    inp.classList.toggle('below', passOf(col, formatWork(status, sc), settings()) === false);
     refreshProgress(col);
   }
 
@@ -3714,7 +3772,9 @@ function scoreRow(col, s, { head, nextInput } = {}) {
   const row = h('div', { class: 'work-row' },
     h('div', { class: 'work-head' },
       head || null,
-      h('div', { class: 'score-cell' }, inp, h('span', { class: 'score-max' }, '/' + col.max))),
+      h('div', { class: 'score-cell' }, inp,
+        h('span', { class: 'score-max', title: mark === null ? null : `ผ่านที่ ${mark}` },
+          '/' + col.max + (mark === null ? '' : ` · ผ่าน ${mark}`)))),
     group
   );
   row.__input = inp;
@@ -3957,6 +4017,15 @@ function refreshProgress(col) {
 
 // ── เพิ่ม / แก้ไขรายการ ─────────────────────────────────────
 
+/** คำอธิบายใต้ช่องเกณฑ์ผ่าน — บอกด้วยว่าเว้นว่างแล้วจะเกิดอะไร */
+function passHint(max) {
+  const base = 'ได้เท่านี้ขึ้นไปถือว่าผ่าน · ต่ำกว่านี้ช่องคะแนนจะขึ้นสีแดง และไปโผล่ในรายชื่อคนต้องซ่อม';
+  const pct = settings().passPct;
+  if (pct == null) return base + ' · เว้นว่าง = ไม่ตรวจรายการนี้';
+  const mark = Math.round(max * pct / 100 * 100) / 100;
+  return `${base} · เว้นว่าง = ใช้ค่าตั้งต้น ${pct}% ของคะแนนเต็ม (${mark} คะแนน)`;
+}
+
 function openItemForm(edit) {
   const b = curBucket();
   const exam = b.kind !== 'WORK';
@@ -3971,6 +4040,11 @@ function openItemForm(edit) {
       : 'เช่น ทำข้อ 1–10 หน้า 42 ส่งท้ายคาบวันศุกร์ · เขียนมือเท่านั้น'
   });
   const max   = h('input', { type: 'number', min: '1', value: String(edit?.max ?? (b.kind === 'MID' ? 20 : b.kind === 'FIN' ? 30 : 10)) });
+  const pass  = h('input', {
+    type: 'number', min: '0', step: 'any',
+    value: String(edit?.pass ?? ''),     // null/undefined = ยังไม่ได้ตั้งเกณฑ์ → ช่องว่าง
+    placeholder: 'เว้นว่าง = ไม่ตรวจ'
+  });
 
   modal((close) => {
     const save = h('button', { class: 'btn btn-block' }, edit ? 'บันทึก' : 'เพิ่มรายการ');
@@ -3978,10 +4052,20 @@ function openItemForm(edit) {
       const l = label.value.trim(), m = Number(max.value), d = desc.value.trim();
       if (!l) return toast('ตั้งชื่อรายการก่อน', 'err');
       if (!(m > 0)) return toast('คะแนนเต็มต้องมากกว่า 0', 'err');
+
+      // ช่องว่าง = ไม่ตั้งเกณฑ์ · ส่ง '' ไปให้ฝั่งชีตล้างค่าเดิมทิ้ง
+      const praw = pass.value.trim();
+      let p = '';
+      if (praw !== '') {
+        p = Number(praw);
+        if (!isFinite(p) || p < 0) return toast('เกณฑ์ผ่านต้องเป็นตัวเลขไม่ติดลบ', 'err');
+        if (p > m) return toast(`เกณฑ์ผ่าน (${p}) มากกว่าคะแนนเต็ม (${m}) — ไม่มีใครผ่านได้เลย`, 'err');
+      }
+
       try {
-        if (edit) await updateColumn(edit.key, { label: l, max: m, desc: d });
+        if (edit) await updateColumn(edit.key, { label: l, max: m, desc: d, pass: p });
         else {
-          const { key } = ensureColumn({ kind: b.kind, half: b.half, label: l, max: m, desc: d });
+          const { key } = ensureColumn({ kind: b.kind, half: b.half, label: l, max: m, desc: d, pass: p });
           ui.open = key;
         }
         close(); emit();
@@ -3995,6 +4079,8 @@ function openItemForm(edit) {
       h('div', { class: 'field' }, h('label', null, 'คะแนนเต็ม (คะแนนดิบ)'), max,
         h('div', { class: 'hint' },
           `ใส่คะแนนเต็มจริงได้เลย ระบบจะเทียบสัดส่วนเป็น ${settings().weight[curBucket().id]} คะแนนของ SGS ให้เอง`)),
+      h('div', { class: 'field' }, h('label', null, 'เกณฑ์ผ่าน (คะแนนดิบ)'), pass,
+        h('div', { class: 'hint' }, passHint(Number(max.value) || 0))),
       save
     );
   });
@@ -4412,7 +4498,7 @@ __exp(exports, { viewSummary });
 
 const { h, toast, fmtDate, nf } = __req("js/dom.js");
 const { state, emit, settings, go } = __req("js/state.js");
-const { computeClass, parseWork, BUCKETS, ATT_CODES } = __req("js/score.js");
+const { computeClass, parseWork, BUCKETS, ATT_CODES, passMarkOf, passOf } = __req("js/score.js");
 
 const ui = { tab: 'class', sid: null, q: '' };
 
@@ -4549,10 +4635,23 @@ function classReport() {
 
   // ผู้ที่ต้องติดตาม
   const watch = graded
-    .map(r => ({ r, score: (r.grade === 'มส' ? 1000 : 0) + r.pending * 10 + Math.max(0, 60 - r.total) }))
+    .map(r => ({ r, score: (r.grade === 'มส' ? 1000 : 0) + r.pending * 10 + r.failN * 25 + Math.max(0, 60 - r.total) }))
     .filter(x => x.score > 0)
     .sort((a, b) => b.score - a.score)
     .slice(0, 12);
+
+  /* ── คนที่ไม่ผ่านเกณฑ์ แยกตามรายการ ──────────────────────
+   * จัดกลุ่มตาม "ข้อสอบ" ไม่ใช่ตาม "นักเรียน" เพราะการซ่อมทำเป็นรอบ ๆ ตามชิ้นงาน
+   * ครูต้องการรายชื่อคนที่ต้องเรียกมาสอบใหม่ของชิ้นนั้น ๆ ไปเรียกทีเดียวพร้อมกัน
+   * รายการที่ไม่ได้ตั้งเกณฑ์จะไม่โผล่มาเลย (ไม่ใช่โผล่มาแบบ 0 คน) */
+  const failGroups = (cls.columns || [])
+    .map(c => {
+      const mark = passMarkOf(c, S);
+      if (mark === null) return null;
+      const who = (cls.students || []).filter(st => passOf(c, (cls.values[c.key] || {})[st.sid], S) === false);
+      return who.length ? { col: c, mark, who } : null;
+    })
+    .filter(Boolean);
 
   // ตัวเลขสรุปทั้งห้องอยู่หน้าแรกแล้ว หน้านี้จึงเริ่มที่กราฟเลยตามดีไซน์
   return h('div', null,
@@ -4616,6 +4715,28 @@ function classReport() {
             }))
     ),
 
+    // ── ไม่ผ่านเกณฑ์ แยกตามข้อสอบ (เอาไปเรียกซ่อมได้ทีเดียวทั้งกลุ่ม) ──
+    failGroups.length > 0 && h('div', { class: 'card', style: { marginBottom: '12px' } },
+      h('div', { class: 'rep-head' },
+        h('h3', null, `ไม่ผ่านเกณฑ์ · ${failGroups.length} รายการ`),
+        h('span', null, 'กดชื่อเพื่อดูรายบุคคล')),
+      failGroups.map(({ col, mark, who }) => h('div', { class: 'fail-group' },
+        h('div', { class: 'fail-head' },
+          h('b', null, col.label),
+          h('span', null, `${bucketName(col)} · ผ่านที่ ${nf(mark)}/${nf(col.max)} · ไม่ผ่าน ${who.length} คน`)),
+        h('div', { class: 'fail-names' }, who.map(st => {
+          const w = parseWork((cls.values[col.key] || {})[st.sid]);
+          return h('button', {
+            class: 'fail-chip',
+            title: `${st.name} · ได้ ${w.status === 'miss' ? (isExam(col) ? 'ยังไม่ได้สอบ' : 'ไม่ส่ง') : nf(w.score)}`,
+            onclick: () => { ui.tab = 'student'; ui.sid = st.sid; emit(); }
+          },
+            h('span', null, `${st.no}. ${st.name || '—'}`),
+            h('b', null, w.status === 'miss' ? '—' : nf(w.score)));
+        }))
+      ))
+    ),
+
     // ── ต้องติดตาม — เรียงตามความเร่งด่วน พื้นหลังบอกระดับ ──
     h('div', { class: 'card' },
       h('div', { class: 'rep-head' },
@@ -4633,6 +4754,7 @@ function classReport() {
               h('div', { class: 'w-name' }, r.name || '—', h('span', null, ` เลขที่ ${r.no}`)),
               r.attN > 0 && h('div', { class: 'w-tag ' + (r.pct < S.minPct ? 'bad' : (warn ? 'warn' : 'dim')) },
                 (r.pct < S.minPct ? 'มส · ' : '') + `เวลาเรียน ${nf(r.pct, 0)}%`),
+              r.failN > 0 && h('div', { class: 'w-tag bad' }, `ไม่ผ่าน ${r.failN} รายการ`),
               h('div', { class: 'w-tag ' + (bad ? 'bad' : 'dim') },
                 r.pending > 0 ? `ยังไม่ตรวจ ${r.pending} รายการ` : `รวม ${nf(r.total)}`),
               h('span', { class: 'w-go' }, '›'));
@@ -5834,7 +5956,7 @@ __exp(exports, { viewHealth });
  * ⚠️ เวลาแก้โค้ดที่กระทบทั้ง 2 ฝั่ง ให้บวกเลขนี้ และแก้ SERVER_VERSION
  *    ใน apps-script/00_Constants.gs ให้ตรงกันด้วย
  */
-const APP_VERSION = '3.6.0';
+const APP_VERSION = '3.7.0';
 
 /** เวอร์ชันต่ำสุดของฝั่งชีตที่หน้าเว็บนี้ทำงานด้วยได้ครบทุกฟีเจอร์ */
 const NEEDS_SERVER = '2.8.0';

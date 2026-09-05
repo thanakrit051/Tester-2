@@ -115,7 +115,9 @@ function studentClassView_(data, r, st, byBucket, S) {
   BUCKET_ORDER.forEach(function (id) {
     (byBucket[id] || []).forEach(function (c) {
       if (c.kind === 'ATT') return;
-      var w = parseWork_((V[c.key] || {})[st.sid]);
+      var raw = (V[c.key] || {})[st.sid];
+      var w = parseWork_(raw);
+      var mark = passMarkOf_(c, S);
       items.push({
         label: c.label || c.id,
         desc: c.desc || '',
@@ -125,7 +127,10 @@ function studentClassView_(data, r, st, byBucket, S) {
         bucket: id,
         max: c.max == null ? 0 : c.max,
         status: w.status,
-        score: w.status === 'ok' || w.status === 'late' ? w.score : null
+        score: w.status === 'ok' || w.status === 'late' ? w.score : null,
+        // เกณฑ์ผ่านของชิ้นนี้ · null = ครูไม่ได้ตั้งเกณฑ์ไว้ จึงไม่ต้องบอกว่าผ่าน/ไม่ผ่าน
+        pass: mark,
+        passed: passOf_(c, raw, S)
       });
     });
   });
@@ -146,7 +151,8 @@ function studentClassView_(data, r, st, byBucket, S) {
       risk: att.checked > 0 && r.pct < S.minPct
     },
     items: items,
-    pending: r.pending
+    pending: r.pending,
+    failN: r.failN || 0
   };
 }
 
