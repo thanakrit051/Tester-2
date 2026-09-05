@@ -23,7 +23,7 @@
 // ── เวอร์ชัน ────────────────────────────────────────────────
 // ⚠️ ต้องตรงกับ APP_VERSION ใน js/version.js
 //    ถ้าเลขไม่ตรง หน้าเว็บจะขึ้นแถบเตือนให้ผู้ใช้อัปเดต/Deploy ใหม่
-var SERVER_VERSION = '2.11.0';
+var SERVER_VERSION = '2.12.0';
 
 // ── ชื่อแท็บระบบ ────────────────────────────────────────────
 var SHEET_CONFIG  = '⚙️ ตั้งค่า';
@@ -294,17 +294,27 @@ function ensureConfigSheet_(ss) {
   return sh;
 }
 
+/* จำค่าไว้ตลอดคำขอเดียว — คำขอหนึ่งเรียก getConfig_() 3-5 ครั้ง
+ * (handle_ → dispatch_ → recalcClass_ → upsertClassRow_) ซึ่งอ่านชีตซ้ำทุกครั้ง
+ * ทั้งที่ค่าเปลี่ยนไม่ได้ระหว่างคำขอเดียว เว้นแต่เราเขียนเอง (setConfigValue_ ล้างให้)
+ *
+ * จงใจไม่เก็บข้าม request (CacheService) เพราะครูแก้ค่าในชีตแล้วต้องเห็นผลทันที */
+var CONFIG_MEMO_ = null;
+
 function getConfig_() {
+  if (CONFIG_MEMO_) return CONFIG_MEMO_;
   var sh = ss_().getSheetByName(SHEET_CONFIG);
   var out = {};
   if (!sh || sh.getLastRow() < 2) return out;
   sh.getRange(2, 2, sh.getLastRow() - 1, 2).getValues().forEach(function (r) {
     if (r[0] !== '') out[String(r[0]).trim()] = r[1];
   });
+  CONFIG_MEMO_ = out;
   return out;
 }
 
 function setConfigValue_(key, value) {
+  CONFIG_MEMO_ = null;
   var sh = ss_().getSheetByName(SHEET_CONFIG);
   var last = sh.getLastRow();
   var keys = sh.getRange(2, 2, Math.max(last - 1, 1), 1).getValues();
@@ -349,6 +359,7 @@ function upsertClassRow_(meta, studentCount) {
     }
   }
   if (row < 0) row = last + 1;
+  CLASSES_MEMO_ = null;
   sh.getRange(row, 1, 1, CLASSES_HEADER.length).setValues([[
     meta.classId, meta.subject, meta.subjectCode || '', meta.grade || '', meta.room || '',
     meta.sheetName, studentCount, new Date(), meta.status || 'ใช้งาน'
@@ -357,6 +368,7 @@ function upsertClassRow_(meta, studentCount) {
 }
 
 function removeClassRow_(classId) {
+  CLASSES_MEMO_ = null;
   var sh = ss_().getSheetByName(SHEET_CLASSES);
   if (!sh || sh.getLastRow() < 2) return;
   var ids = sh.getRange(2, 1, sh.getLastRow() - 1, 1).getValues();
@@ -365,10 +377,15 @@ function removeClassRow_(classId) {
   }
 }
 
+/* เหตุผลเดียวกับ CONFIG_MEMO_ — สารบัญถูกอ่านหลายรอบต่อคำขอ
+ * (bootstrap · หา sheetName ของห้อง · upsert) แต่เปลี่ยนได้เฉพาะตอนเราเขียนเอง */
+var CLASSES_MEMO_ = null;
+
 function listClasses_() {
+  if (CLASSES_MEMO_) return CLASSES_MEMO_;
   var sh = ss_().getSheetByName(SHEET_CLASSES);
   if (!sh || sh.getLastRow() < 2) return [];
-  return sh.getRange(2, 1, sh.getLastRow() - 1, CLASSES_HEADER.length).getValues()
+  CLASSES_MEMO_ = sh.getRange(2, 1, sh.getLastRow() - 1, CLASSES_HEADER.length).getValues()
     .filter(function (r) { return r[0] !== ''; })
     .map(function (r) {
       return {
@@ -378,6 +395,7 @@ function listClasses_() {
         status: r[8] || 'ใช้งาน'
       };
     });
+  return CLASSES_MEMO_;
 }
 
 // ── 📖 วิธีใช้ ──────────────────────────────────────────────
@@ -473,15 +491,48 @@ function softColor_(kind, half) { return BLOCK_SOFT[kind + '|' + (kind === 'SUM'
 
 // ── หา / สร้างแท็บห้องเรียน ─────────────────────────────────
 
+/**
+ * หาแท็บของห้องเรียนจากรหัสห้อง
+ *
+ * ถามสารบัญ 🏫 ห้องเรียน ก่อนเสมอ (อ่านครั้งเดียว แล้วจำไว้ทั้งคำขอ)
+ * ของเดิมไล่เปิดทุกแท็บแล้วอ่านเซลล์ทีละใบ = ครูที่มี 8 ห้องเสียเวลาไปฟรี ๆ
+ * 8 รอบต่อ "ทุกคำสั่งที่แตะห้องเรียน" ซึ่งรวมถึงการกดเช็คชื่อทีละคน
+ *
+ * ยังเหลือการไล่ดูทุกแท็บไว้เป็นทางสำรอง เผื่อสารบัญเพี้ยน/ครูเปลี่ยนชื่อแท็บเอง
+ */
+var SHEET_FOR_CLASS_MEMO_ = {};
+
 function sheetForClass_(classId) {
+  if (!classId) return null;
+  var hit = SHEET_FOR_CLASS_MEMO_[classId];
+  if (hit) return hit;
+
   var ss = ss_();
+
+  // 1) ทางลัด — สารบัญบอกชื่อแท็บไว้แล้ว (ยังต้องตรวจว่าใช่ห้องนั้นจริง)
+  var idx = listClasses_();
+  for (var k = 0; k < idx.length; k++) {
+    if (String(idx[k].classId) !== classId) continue;
+    var byName = idx[k].sheetName ? ss.getSheetByName(String(idx[k].sheetName)) : null;
+    if (byName && byName.getMaxRows() >= R_DATA &&
+        String(byName.getRange(R_META, 1).getValue()) === classId) {
+      SHEET_FOR_CLASS_MEMO_[classId] = byName;
+      return byName;
+    }
+    break;
+  }
+
+  // 2) ทางสำรอง — ไล่ดูทุกแท็บ
   var sheets = ss.getSheets();
   for (var i = 0; i < sheets.length; i++) {
     var sh = sheets[i];
     var n = sh.getName();
     if (n === SHEET_CONFIG || n === SHEET_CLASSES || n === SHEET_HELP) continue;
     if (sh.getMaxRows() < R_DATA) continue;
-    if (String(sh.getRange(R_META, 1).getValue()) === classId) return sh;
+    if (String(sh.getRange(R_META, 1).getValue()) === classId) {
+      SHEET_FOR_CLASS_MEMO_[classId] = sh;
+      return sh;
+    }
   }
   return null;
 }
@@ -576,10 +627,12 @@ function columnsOf_(sh) {
   var lastCol = sh.getLastColumn();
   if (lastCol < C_FIRST) return [];
   var n = lastCol - C_FIRST + 1;
-  var keys   = sh.getRange(R_KEY,   C_FIRST, 1, n).getValues()[0];
-  var labels = sh.getRange(R_LABEL, C_FIRST, 1, n).getValues()[0];
+  // แถว 4-6 ติดกัน จึงขอทีเดียวได้ (เดิมขอทีละแถว = คุยกับ Google เกินจำเป็น 2 รอบ)
+  var head   = sh.getRange(R_KEY, C_FIRST, R_MAX - R_KEY + 1, n).getValues();
+  var keys   = head[0];
+  var labels = head[R_LABEL - R_KEY];
+  var maxes  = head[R_MAX - R_KEY];
   var notes  = sh.getRange(R_LABEL, C_FIRST, 1, n).getNotes()[0];   // รายละเอียดงาน
-  var maxes  = sh.getRange(R_MAX,   C_FIRST, 1, n).getValues()[0];
   var out = [];
   for (var i = 0; i < n; i++) {
     var p = parseKey_(keys[i]);
@@ -780,28 +833,64 @@ function applyBanding_(sh, count) {
 
 // ── อ่านห้องเรียนทั้งแท็บ ───────────────────────────────────
 
+/**
+ * อ่านทั้งแท็บด้วยการเรียกชีตครั้งเดียว
+ *
+ * ของเดิมอ่านทีละส่วน (ข้อมูลระบบ · รายชื่อ · รหัสคอลัมน์ · ชื่อคอลัมน์ ·
+ * โน้ต · คะแนนเต็ม · ตารางค่า) = คุยกับ Google 7-9 รอบต่อการเปิดห้อง 1 ครั้ง
+ * ซึ่งเป็นคำสั่งที่ถูกเรียกบ่อยที่สุดในระบบ (เปิดแอป · สลับห้อง · หลังบันทึกทุกครั้ง)
+ *
+ * ตอนนี้ขอตารางทั้งผืนทีเดียวแล้วแยกเอาเองในหน่วยความจำ เหลือ 2 รอบ
+ * (ค่า + โน้ตของแถวชื่อคอลัมน์ ซึ่งขอรวมกับค่าไม่ได้)
+ */
 function readClassBySheet_(sh) {
-  var m = sh.getRange(R_META, 1, 1, 8).getValues()[0];
+  var lastRow = Math.max(sh.getLastRow(), R_MAX);
+  var lastCol = Math.max(sh.getLastColumn(), Math.min(8, sh.getMaxColumns()));
+  var grid = sh.getRange(1, 1, lastRow, lastCol).getValues();
+
+  var m = grid[R_META - 1];
   var meta = {
-    classId: String(m[0]), subject: m[1], subjectCode: m[2], grade: m[3], room: m[4],
+    classId: String(m[0] || ''), subject: m[1], subjectCode: m[2], grade: m[3], room: m[4],
     teacher: m[5], year: m[6], term: m[7], sheetName: sh.getName()
   };
-  var students = studentsOf_(sh);
-  var cols = columnsOf_(sh);
-  var values = {};
 
-  if (students.length && cols.length) {
-    var lastCol = sh.getLastColumn();
-    var grid = sh.getRange(R_DATA, C_FIRST, students.length, lastCol - C_FIRST + 1).getValues();
-    cols.forEach(function (c) {
-      var m2 = {};
-      for (var i = 0; i < students.length; i++) {
-        var v = grid[i][c.col - C_FIRST];
-        if (v !== '' && v !== null) m2[students[i].sid] = v;
-      }
-      values[c.key] = m2;
+  // รายชื่อ — ข้ามแถวที่ทั้งเลขประจำตัวและชื่อว่าง (เกณฑ์เดียวกับ studentsOf_)
+  var students = [];
+  for (var r = R_DATA - 1; r < grid.length; r++) {
+    var row = grid[r];
+    if (String(row[C_SID - 1]).trim() === '' && String(row[C_NAME - 1]).trim() === '') continue;
+    students.push({
+      no: String(row[C_NO - 1]), sid: String(row[C_SID - 1]), name: String(row[C_NAME - 1]),
+      row: r + 1
     });
   }
+
+  // คอลัมน์ — โน้ต (รายละเอียดงาน) อยู่คนละชั้นกับค่า ต้องขอแยก
+  var n = lastCol - C_FIRST + 1;
+  var notes = n > 0 ? sh.getRange(R_LABEL, C_FIRST, 1, n).getNotes()[0] : [];
+  var cols = [];
+  for (var i = 0; i < n; i++) {
+    var p = parseKey_(grid[R_KEY - 1][C_FIRST - 1 + i]);
+    if (!p) continue;
+    var mx = grid[R_MAX - 1][C_FIRST - 1 + i];
+    cols.push({
+      key: p.key, kind: p.kind, half: p.half, id: p.id,
+      label: String(grid[R_LABEL - 1][C_FIRST - 1 + i]),
+      desc: String(notes[i] || ''),
+      max: mx === '' ? null : num_(mx),
+      col: C_FIRST + i
+    });
+  }
+
+  var values = {};
+  cols.forEach(function (c) {
+    var m2 = {};
+    for (var j = 0; j < students.length; j++) {
+      var v = grid[students[j].row - 1][c.col - 1];
+      if (v !== '' && v !== null) m2[students[j].sid] = v;
+    }
+    values[c.key] = m2;
+  });
 
   return {
     meta: meta,
@@ -1041,26 +1130,57 @@ function recalcClass_(classId) {
   var S = scoreSettings_(getConfig_());
   var res = computeClassScores_(data, S);
 
-  // ให้แน่ใจว่าคอลัมน์สรุปมีครบ (กรณีไฟล์เก่า)
-  SUM_COLS.forEach(function (sc) { ensureColumn_(sh, sc.key, sc.label, sc.max); });
-
+  /* ให้แน่ใจว่าคอลัมน์สรุปมีครบ (กรณีไฟล์เก่า)
+   *
+   * ต้องเช็คก่อนว่าขาดจริงไหม แล้วค่อยเรียก ensureColumn_ เฉพาะตัวที่ขาด
+   * ของเดิมยิงครบทั้ง 12 ตัวทุกครั้ง และ ensureColumn_ แต่ละครั้งอ่านหัวคอลัมน์
+   * ทั้งแท็บใหม่หมดแล้วเขียนทับชื่อ/คะแนนเต็มซ้ำของเดิม — คุยกับ Google ~80 รอบ
+   * ต่อการคำนวณ 1 ครั้ง ทั้งที่แทบทุกครั้งไม่มีอะไรขาดเลย
+   *
+   * นี่คือคำสั่งที่ตามหลังการกรอกคะแนนทุกครั้ง (setCells + recalc)
+   * จึงเป็นต้นเหตุหลักที่ครูรู้สึกว่า "กดแล้วรอ"
+   */
   var colOf = {};
-  columnsOf_(sh).forEach(function (c) { if (c.kind === 'SUM') colOf[c.id] = c.col; });
+  var cols0 = columnsOf_(sh);
+  cols0.forEach(function (c) { if (c.kind === 'SUM') colOf[c.id] = c.col; });
+
+  var missing = SUM_COLS.filter(function (sc) { return !colOf[parseKey_(sc.key).id]; });
+  if (missing.length) {
+    missing.forEach(function (sc) { ensureColumn_(sh, sc.key, sc.label, sc.max); });
+    colOf = {};
+    columnsOf_(sh).forEach(function (c) { if (c.kind === 'SUM') colOf[c.id] = c.col; });
+  }
 
   if (res.rows.length) {
     var order = ['work1', 'quiz1', 'att1', 'mid', 'work2', 'quiz2', 'att2', 'fin', 'total', 'grade', 'pct', 'flag'];
-    order.forEach(function (id) {
-      var col = colOf[id];
-      if (!col) return;
-      var vals = res.rows.map(function (r) {
-        // ช่องที่ยังไม่มีข้อมูล ปล่อยว่างไว้ อย่าเขียน 0 ให้เข้าใจผิดว่าได้ 0 คะแนน
-        if (BUCKET_ORDER.indexOf(id) >= 0) return r['_has_' + id] ? r[id] : '';
-        if (id === 'total') return r.dataN ? r.total : '';
-        if (id === 'pct')   return r.attN ? r.pct + '%' : '';
-        return r[id] === undefined ? '' : r[id];
-      });
-      sh.getRange(R_DATA, col, vals.length, 1).setValues(vals.map(function (v) { return [v]; }));
+    var cellOf = function (r, id) {
+      // ช่องที่ยังไม่มีข้อมูล ปล่อยว่างไว้ อย่าเขียน 0 ให้เข้าใจผิดว่าได้ 0 คะแนน
+      if (BUCKET_ORDER.indexOf(id) >= 0) return r['_has_' + id] ? r[id] : '';
+      if (id === 'total') return r.dataN ? r.total : '';
+      if (id === 'pct')   return r.attN ? r.pct + '%' : '';
+      return r[id] === undefined ? '' : r[id];
+    };
+
+    /* บล็อกสรุปอยู่ขวาสุดและเรียงตาม SUM_COLS เสมอ (ensureColumn_ แทรกคอลัมน์อื่น
+     * ไว้ก่อนหน้ามันเสมอ) จึงเขียนรวดเดียวได้ — 1 รอบแทน 12 รอบ
+     * ถ้าไฟล์เก่าเรียงไม่ตรง ก็ถอยไปเขียนทีละคอลัมน์เหมือนเดิม ไม่เสี่ยงเขียนผิดช่อง */
+    var run = order.filter(function (id) { return !!colOf[id]; });
+    var solid = run.length === order.length && run.every(function (id, i) {
+      return colOf[id] === colOf[run[0]] + i;
     });
+
+    if (solid) {
+      sh.getRange(R_DATA, colOf[run[0]], res.rows.length, run.length).setValues(
+        res.rows.map(function (r) {
+          return run.map(function (id) { return cellOf(r, id); });
+        }));
+    } else {
+      run.forEach(function (id) {
+        sh.getRange(R_DATA, colOf[id], res.rows.length, 1).setValues(
+          res.rows.map(function (r) { return [cellOf(r, id)]; }));
+      });
+    }
+
     var flagCol = colOf['flag'];
     if (flagCol) sh.getRange(R_DATA, flagCol, res.rows.length, 1)
       .setFontSize(9).setFontColor('#c62828').setHorizontalAlignment('left');
@@ -1447,6 +1567,7 @@ function dispatch_(action, p, cfg) {
     case 'deleteClass': {
       var sh2 = requireSheet_(p.classId);
       ss_().deleteSheet(sh2);
+      delete SHEET_FOR_CLASS_MEMO_[p.classId];   // อยู่ใน batch เดียวกันแล้วเรียกซ้ำ จะได้ไม่ได้แท็บที่ลบไปแล้ว
       removeClassRow_(p.classId);
       return { deleted: p.classId };
     }

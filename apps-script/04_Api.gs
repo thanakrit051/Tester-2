@@ -353,6 +353,7 @@ function dispatch_(action, p, cfg) {
     case 'deleteClass': {
       var sh2 = requireSheet_(p.classId);
       ss_().deleteSheet(sh2);
+      delete SHEET_FOR_CLASS_MEMO_[p.classId];   // อยู่ใน batch เดียวกันแล้วเรียกซ้ำ จะได้ไม่ได้แท็บที่ลบไปแล้ว
       removeClassRow_(p.classId);
       return { deleted: p.classId };
     }

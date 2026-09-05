@@ -179,26 +179,57 @@ function recalcClass_(classId) {
   var S = scoreSettings_(getConfig_());
   var res = computeClassScores_(data, S);
 
-  // ให้แน่ใจว่าคอลัมน์สรุปมีครบ (กรณีไฟล์เก่า)
-  SUM_COLS.forEach(function (sc) { ensureColumn_(sh, sc.key, sc.label, sc.max); });
-
+  /* ให้แน่ใจว่าคอลัมน์สรุปมีครบ (กรณีไฟล์เก่า)
+   *
+   * ต้องเช็คก่อนว่าขาดจริงไหม แล้วค่อยเรียก ensureColumn_ เฉพาะตัวที่ขาด
+   * ของเดิมยิงครบทั้ง 12 ตัวทุกครั้ง และ ensureColumn_ แต่ละครั้งอ่านหัวคอลัมน์
+   * ทั้งแท็บใหม่หมดแล้วเขียนทับชื่อ/คะแนนเต็มซ้ำของเดิม — คุยกับ Google ~80 รอบ
+   * ต่อการคำนวณ 1 ครั้ง ทั้งที่แทบทุกครั้งไม่มีอะไรขาดเลย
+   *
+   * นี่คือคำสั่งที่ตามหลังการกรอกคะแนนทุกครั้ง (setCells + recalc)
+   * จึงเป็นต้นเหตุหลักที่ครูรู้สึกว่า "กดแล้วรอ"
+   */
   var colOf = {};
-  columnsOf_(sh).forEach(function (c) { if (c.kind === 'SUM') colOf[c.id] = c.col; });
+  var cols0 = columnsOf_(sh);
+  cols0.forEach(function (c) { if (c.kind === 'SUM') colOf[c.id] = c.col; });
+
+  var missing = SUM_COLS.filter(function (sc) { return !colOf[parseKey_(sc.key).id]; });
+  if (missing.length) {
+    missing.forEach(function (sc) { ensureColumn_(sh, sc.key, sc.label, sc.max); });
+    colOf = {};
+    columnsOf_(sh).forEach(function (c) { if (c.kind === 'SUM') colOf[c.id] = c.col; });
+  }
 
   if (res.rows.length) {
     var order = ['work1', 'quiz1', 'att1', 'mid', 'work2', 'quiz2', 'att2', 'fin', 'total', 'grade', 'pct', 'flag'];
-    order.forEach(function (id) {
-      var col = colOf[id];
-      if (!col) return;
-      var vals = res.rows.map(function (r) {
-        // ช่องที่ยังไม่มีข้อมูล ปล่อยว่างไว้ อย่าเขียน 0 ให้เข้าใจผิดว่าได้ 0 คะแนน
-        if (BUCKET_ORDER.indexOf(id) >= 0) return r['_has_' + id] ? r[id] : '';
-        if (id === 'total') return r.dataN ? r.total : '';
-        if (id === 'pct')   return r.attN ? r.pct + '%' : '';
-        return r[id] === undefined ? '' : r[id];
-      });
-      sh.getRange(R_DATA, col, vals.length, 1).setValues(vals.map(function (v) { return [v]; }));
+    var cellOf = function (r, id) {
+      // ช่องที่ยังไม่มีข้อมูล ปล่อยว่างไว้ อย่าเขียน 0 ให้เข้าใจผิดว่าได้ 0 คะแนน
+      if (BUCKET_ORDER.indexOf(id) >= 0) return r['_has_' + id] ? r[id] : '';
+      if (id === 'total') return r.dataN ? r.total : '';
+      if (id === 'pct')   return r.attN ? r.pct + '%' : '';
+      return r[id] === undefined ? '' : r[id];
+    };
+
+    /* บล็อกสรุปอยู่ขวาสุดและเรียงตาม SUM_COLS เสมอ (ensureColumn_ แทรกคอลัมน์อื่น
+     * ไว้ก่อนหน้ามันเสมอ) จึงเขียนรวดเดียวได้ — 1 รอบแทน 12 รอบ
+     * ถ้าไฟล์เก่าเรียงไม่ตรง ก็ถอยไปเขียนทีละคอลัมน์เหมือนเดิม ไม่เสี่ยงเขียนผิดช่อง */
+    var run = order.filter(function (id) { return !!colOf[id]; });
+    var solid = run.length === order.length && run.every(function (id, i) {
+      return colOf[id] === colOf[run[0]] + i;
     });
+
+    if (solid) {
+      sh.getRange(R_DATA, colOf[run[0]], res.rows.length, run.length).setValues(
+        res.rows.map(function (r) {
+          return run.map(function (id) { return cellOf(r, id); });
+        }));
+    } else {
+      run.forEach(function (id) {
+        sh.getRange(R_DATA, colOf[id], res.rows.length, 1).setValues(
+          res.rows.map(function (r) { return [cellOf(r, id)]; }));
+      });
+    }
+
     var flagCol = colOf['flag'];
     if (flagCol) sh.getRange(R_DATA, flagCol, res.rows.length, 1)
       .setFontSize(9).setFontColor('#c62828').setHorizontalAlignment('left');

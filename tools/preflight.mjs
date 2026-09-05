@@ -27,6 +27,11 @@
  *      ที่ข้อมูลจากชีตมาทับไหม — ฝั่งชีตไม่จับ lock ตอนอ่านแล้ว คำสั่งอ่าน
  *      จึงแซงคำสั่งเขียนได้ ถ้าพลาดตรงนี้ช่องที่ครูเพิ่งกดจะหายไปต่อหน้า
  *
+ *   5. test/classsheet.mjs
+ *      ตัวอ่านแท็บห้องเรียน (readClassBySheet_) ยังแปลงตารางในชีตเป็นข้อมูล
+ *      ได้ตรงไหม — ถ้าเลื่อนไปแถวเดียว คะแนนจะไปโผล่ผิดคนโดยไม่มีอะไรเตือน
+ *      และตรวจด้วยว่ายังคุยกับชีตไม่เกินที่ควร (Apps Script คิดเวลาตามจำนวนครั้งที่เรียก)
+ *
  * ข้าม: node tools/build-pages.mjs --skip-checks
  *       (ใช้ตอนกำลังแก้ค้างอยู่เท่านั้น ห้ามใช้ตอนจะ deploy จริง)
  */
@@ -38,5 +43,6 @@ if (process.argv.includes('--skip-checks')) {
   await import('../test/parity.mjs');
   await import('../test/queue.mjs');
   await import('../test/state.mjs');
+  await import('../test/classsheet.mjs');
   console.log('');
 }

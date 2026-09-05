@@ -3,7 +3,7 @@
 import { h, mount, toast, closeTopModal } from './dom.js';
 import * as api from './api.js';
 import { state, subscribe, bootAll, loadClass, sync, isSyncing, go, pushView } from './state.js';
-import { auth } from './auth.js';
+import { auth, restoreSession } from './auth.js';
 import { icon } from './icons.js';
 import { applyTheme, watchSystemTheme } from './theme.js';
 
@@ -489,11 +489,20 @@ window.addEventListener('appinstalled', () => { state.installPrompt = null; safe
 
 (async function start() {
   try {
+    /* ต่อเซสชัน Google ให้เองก่อนตัดสินว่าต้องไปหน้าเข้าสู่ระบบไหม
+     * (ดูเหตุผลเต็มที่ restoreSession ใน js/auth.js — สรุปคือ token อายุ 1 ชั่วโมง
+     * ปิดแท็บแล้วกลับมาใหม่วันหลังจึงต้องกดล็อกอินซ้ำทุกครั้งโดยไม่จำเป็น) */
+    if (api.MODE === 'remote' && !api.conn.ready) await restoreSession();
+
     if (api.conn.ready) {
       try {
         await bootAll();          // ยิงครั้งเดียวได้ทั้งตั้งค่า รายชื่อห้อง และห้องที่เปิดค้างไว้
       } catch (e) {
-        if (e instanceof api.ApiError && (e.code === 'AUTH' || e.code === 'FORBIDDEN')) {
+        // เซสชันหมดอายุระหว่างยิงพอดี — ขอใหม่เงียบ ๆ แล้วลองอีกรอบ ก่อนจะไล่ให้ล็อกอินใหม่
+        if (e instanceof api.ApiError && e.code === 'AUTH' && await restoreSession({ timeout: 8000 })) {
+          try { await bootAll(); }
+          catch (e2) { if (!(e2 instanceof api.OfflineError)) toast(e2.message, 'err', 6000); }
+        } else if (e instanceof api.ApiError && (e.code === 'AUTH' || e.code === 'FORBIDDEN')) {
           toast(e.message + ' — กรุณาเชื่อมต่อใหม่', 'err', 6000);
           if (e.code === 'AUTH') auth.signOut(); else api.conn.clear();
         }

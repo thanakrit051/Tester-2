@@ -23,15 +23,48 @@ function softColor_(kind, half) { return BLOCK_SOFT[kind + '|' + (kind === 'SUM'
 
 // ── หา / สร้างแท็บห้องเรียน ─────────────────────────────────
 
+/**
+ * หาแท็บของห้องเรียนจากรหัสห้อง
+ *
+ * ถามสารบัญ 🏫 ห้องเรียน ก่อนเสมอ (อ่านครั้งเดียว แล้วจำไว้ทั้งคำขอ)
+ * ของเดิมไล่เปิดทุกแท็บแล้วอ่านเซลล์ทีละใบ = ครูที่มี 8 ห้องเสียเวลาไปฟรี ๆ
+ * 8 รอบต่อ "ทุกคำสั่งที่แตะห้องเรียน" ซึ่งรวมถึงการกดเช็คชื่อทีละคน
+ *
+ * ยังเหลือการไล่ดูทุกแท็บไว้เป็นทางสำรอง เผื่อสารบัญเพี้ยน/ครูเปลี่ยนชื่อแท็บเอง
+ */
+var SHEET_FOR_CLASS_MEMO_ = {};
+
 function sheetForClass_(classId) {
+  if (!classId) return null;
+  var hit = SHEET_FOR_CLASS_MEMO_[classId];
+  if (hit) return hit;
+
   var ss = ss_();
+
+  // 1) ทางลัด — สารบัญบอกชื่อแท็บไว้แล้ว (ยังต้องตรวจว่าใช่ห้องนั้นจริง)
+  var idx = listClasses_();
+  for (var k = 0; k < idx.length; k++) {
+    if (String(idx[k].classId) !== classId) continue;
+    var byName = idx[k].sheetName ? ss.getSheetByName(String(idx[k].sheetName)) : null;
+    if (byName && byName.getMaxRows() >= R_DATA &&
+        String(byName.getRange(R_META, 1).getValue()) === classId) {
+      SHEET_FOR_CLASS_MEMO_[classId] = byName;
+      return byName;
+    }
+    break;
+  }
+
+  // 2) ทางสำรอง — ไล่ดูทุกแท็บ
   var sheets = ss.getSheets();
   for (var i = 0; i < sheets.length; i++) {
     var sh = sheets[i];
     var n = sh.getName();
     if (n === SHEET_CONFIG || n === SHEET_CLASSES || n === SHEET_HELP) continue;
     if (sh.getMaxRows() < R_DATA) continue;
-    if (String(sh.getRange(R_META, 1).getValue()) === classId) return sh;
+    if (String(sh.getRange(R_META, 1).getValue()) === classId) {
+      SHEET_FOR_CLASS_MEMO_[classId] = sh;
+      return sh;
+    }
   }
   return null;
 }
@@ -126,10 +159,12 @@ function columnsOf_(sh) {
   var lastCol = sh.getLastColumn();
   if (lastCol < C_FIRST) return [];
   var n = lastCol - C_FIRST + 1;
-  var keys   = sh.getRange(R_KEY,   C_FIRST, 1, n).getValues()[0];
-  var labels = sh.getRange(R_LABEL, C_FIRST, 1, n).getValues()[0];
+  // แถว 4-6 ติดกัน จึงขอทีเดียวได้ (เดิมขอทีละแถว = คุยกับ Google เกินจำเป็น 2 รอบ)
+  var head   = sh.getRange(R_KEY, C_FIRST, R_MAX - R_KEY + 1, n).getValues();
+  var keys   = head[0];
+  var labels = head[R_LABEL - R_KEY];
+  var maxes  = head[R_MAX - R_KEY];
   var notes  = sh.getRange(R_LABEL, C_FIRST, 1, n).getNotes()[0];   // รายละเอียดงาน
-  var maxes  = sh.getRange(R_MAX,   C_FIRST, 1, n).getValues()[0];
   var out = [];
   for (var i = 0; i < n; i++) {
     var p = parseKey_(keys[i]);
@@ -330,28 +365,64 @@ function applyBanding_(sh, count) {
 
 // ── อ่านห้องเรียนทั้งแท็บ ───────────────────────────────────
 
+/**
+ * อ่านทั้งแท็บด้วยการเรียกชีตครั้งเดียว
+ *
+ * ของเดิมอ่านทีละส่วน (ข้อมูลระบบ · รายชื่อ · รหัสคอลัมน์ · ชื่อคอลัมน์ ·
+ * โน้ต · คะแนนเต็ม · ตารางค่า) = คุยกับ Google 7-9 รอบต่อการเปิดห้อง 1 ครั้ง
+ * ซึ่งเป็นคำสั่งที่ถูกเรียกบ่อยที่สุดในระบบ (เปิดแอป · สลับห้อง · หลังบันทึกทุกครั้ง)
+ *
+ * ตอนนี้ขอตารางทั้งผืนทีเดียวแล้วแยกเอาเองในหน่วยความจำ เหลือ 2 รอบ
+ * (ค่า + โน้ตของแถวชื่อคอลัมน์ ซึ่งขอรวมกับค่าไม่ได้)
+ */
 function readClassBySheet_(sh) {
-  var m = sh.getRange(R_META, 1, 1, 8).getValues()[0];
+  var lastRow = Math.max(sh.getLastRow(), R_MAX);
+  var lastCol = Math.max(sh.getLastColumn(), Math.min(8, sh.getMaxColumns()));
+  var grid = sh.getRange(1, 1, lastRow, lastCol).getValues();
+
+  var m = grid[R_META - 1];
   var meta = {
-    classId: String(m[0]), subject: m[1], subjectCode: m[2], grade: m[3], room: m[4],
+    classId: String(m[0] || ''), subject: m[1], subjectCode: m[2], grade: m[3], room: m[4],
     teacher: m[5], year: m[6], term: m[7], sheetName: sh.getName()
   };
-  var students = studentsOf_(sh);
-  var cols = columnsOf_(sh);
-  var values = {};
 
-  if (students.length && cols.length) {
-    var lastCol = sh.getLastColumn();
-    var grid = sh.getRange(R_DATA, C_FIRST, students.length, lastCol - C_FIRST + 1).getValues();
-    cols.forEach(function (c) {
-      var m2 = {};
-      for (var i = 0; i < students.length; i++) {
-        var v = grid[i][c.col - C_FIRST];
-        if (v !== '' && v !== null) m2[students[i].sid] = v;
-      }
-      values[c.key] = m2;
+  // รายชื่อ — ข้ามแถวที่ทั้งเลขประจำตัวและชื่อว่าง (เกณฑ์เดียวกับ studentsOf_)
+  var students = [];
+  for (var r = R_DATA - 1; r < grid.length; r++) {
+    var row = grid[r];
+    if (String(row[C_SID - 1]).trim() === '' && String(row[C_NAME - 1]).trim() === '') continue;
+    students.push({
+      no: String(row[C_NO - 1]), sid: String(row[C_SID - 1]), name: String(row[C_NAME - 1]),
+      row: r + 1
     });
   }
+
+  // คอลัมน์ — โน้ต (รายละเอียดงาน) อยู่คนละชั้นกับค่า ต้องขอแยก
+  var n = lastCol - C_FIRST + 1;
+  var notes = n > 0 ? sh.getRange(R_LABEL, C_FIRST, 1, n).getNotes()[0] : [];
+  var cols = [];
+  for (var i = 0; i < n; i++) {
+    var p = parseKey_(grid[R_KEY - 1][C_FIRST - 1 + i]);
+    if (!p) continue;
+    var mx = grid[R_MAX - 1][C_FIRST - 1 + i];
+    cols.push({
+      key: p.key, kind: p.kind, half: p.half, id: p.id,
+      label: String(grid[R_LABEL - 1][C_FIRST - 1 + i]),
+      desc: String(notes[i] || ''),
+      max: mx === '' ? null : num_(mx),
+      col: C_FIRST + i
+    });
+  }
+
+  var values = {};
+  cols.forEach(function (c) {
+    var m2 = {};
+    for (var j = 0; j < students.length; j++) {
+      var v = grid[students[j].row - 1][c.col - 1];
+      if (v !== '' && v !== null) m2[students[j].sid] = v;
+    }
+    values[c.key] = m2;
+  });
 
   return {
     meta: meta,

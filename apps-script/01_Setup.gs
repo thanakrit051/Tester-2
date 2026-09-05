@@ -104,17 +104,27 @@ function ensureConfigSheet_(ss) {
   return sh;
 }
 
+/* จำค่าไว้ตลอดคำขอเดียว — คำขอหนึ่งเรียก getConfig_() 3-5 ครั้ง
+ * (handle_ → dispatch_ → recalcClass_ → upsertClassRow_) ซึ่งอ่านชีตซ้ำทุกครั้ง
+ * ทั้งที่ค่าเปลี่ยนไม่ได้ระหว่างคำขอเดียว เว้นแต่เราเขียนเอง (setConfigValue_ ล้างให้)
+ *
+ * จงใจไม่เก็บข้าม request (CacheService) เพราะครูแก้ค่าในชีตแล้วต้องเห็นผลทันที */
+var CONFIG_MEMO_ = null;
+
 function getConfig_() {
+  if (CONFIG_MEMO_) return CONFIG_MEMO_;
   var sh = ss_().getSheetByName(SHEET_CONFIG);
   var out = {};
   if (!sh || sh.getLastRow() < 2) return out;
   sh.getRange(2, 2, sh.getLastRow() - 1, 2).getValues().forEach(function (r) {
     if (r[0] !== '') out[String(r[0]).trim()] = r[1];
   });
+  CONFIG_MEMO_ = out;
   return out;
 }
 
 function setConfigValue_(key, value) {
+  CONFIG_MEMO_ = null;
   var sh = ss_().getSheetByName(SHEET_CONFIG);
   var last = sh.getLastRow();
   var keys = sh.getRange(2, 2, Math.max(last - 1, 1), 1).getValues();
@@ -159,6 +169,7 @@ function upsertClassRow_(meta, studentCount) {
     }
   }
   if (row < 0) row = last + 1;
+  CLASSES_MEMO_ = null;
   sh.getRange(row, 1, 1, CLASSES_HEADER.length).setValues([[
     meta.classId, meta.subject, meta.subjectCode || '', meta.grade || '', meta.room || '',
     meta.sheetName, studentCount, new Date(), meta.status || 'ใช้งาน'
@@ -167,6 +178,7 @@ function upsertClassRow_(meta, studentCount) {
 }
 
 function removeClassRow_(classId) {
+  CLASSES_MEMO_ = null;
   var sh = ss_().getSheetByName(SHEET_CLASSES);
   if (!sh || sh.getLastRow() < 2) return;
   var ids = sh.getRange(2, 1, sh.getLastRow() - 1, 1).getValues();
@@ -175,10 +187,15 @@ function removeClassRow_(classId) {
   }
 }
 
+/* เหตุผลเดียวกับ CONFIG_MEMO_ — สารบัญถูกอ่านหลายรอบต่อคำขอ
+ * (bootstrap · หา sheetName ของห้อง · upsert) แต่เปลี่ยนได้เฉพาะตอนเราเขียนเอง */
+var CLASSES_MEMO_ = null;
+
 function listClasses_() {
+  if (CLASSES_MEMO_) return CLASSES_MEMO_;
   var sh = ss_().getSheetByName(SHEET_CLASSES);
   if (!sh || sh.getLastRow() < 2) return [];
-  return sh.getRange(2, 1, sh.getLastRow() - 1, CLASSES_HEADER.length).getValues()
+  CLASSES_MEMO_ = sh.getRange(2, 1, sh.getLastRow() - 1, CLASSES_HEADER.length).getValues()
     .filter(function (r) { return r[0] !== ''; })
     .map(function (r) {
       return {
@@ -188,6 +205,7 @@ function listClasses_() {
         status: r[8] || 'ใช้งาน'
       };
     });
+  return CLASSES_MEMO_;
 }
 
 // ── 📖 วิธีใช้ ──────────────────────────────────────────────

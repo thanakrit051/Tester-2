@@ -95,13 +95,23 @@ function loadGIS() {
 }
 
 let initialised = false;
+
+/* ตัวรับ token ปัจจุบัน — เก็บไว้นอก initialize() โดยตั้งใจ
+ *
+ * initialize() เรียกได้ครั้งเดียว (เรียกซ้ำ Google ไม่รับ callback ใหม่)
+ * ของเดิมจึงล็อก callback ของ "คนที่เรียกก่อน" ไว้ตลอด แปลว่าถ้าการต่ออายุ
+ * เงียบ ๆ ทำงานก่อน ปุ่ม "เข้าสู่ระบบด้วย Google" ที่กดทีหลังจะบันทึก token ได้
+ * แต่ onSignedIn ไม่ถูกเรียก — หน้าเข้าสู่ระบบค้างอยู่กับที่ทั้งที่ล็อกอินผ่านแล้ว */
+let tokenCb = null;
+
 async function initGIS(onToken) {
   const g = await loadGIS();
   if (!auth.clientId) throw new Error('ยังไม่ได้ตั้ง Google Client ID');
+  tokenCb = onToken;
   if (!initialised) {
     g.accounts.id.initialize({
       client_id: auth.clientId,
-      callback: (res) => { if (res?.credential) onToken(res.credential); },
+      callback: (res) => { if (res?.credential && tokenCb) tokenCb(res.credential); },
       auto_select: true,
       use_fedcm_for_prompt: true
     });
@@ -125,7 +135,7 @@ export async function renderSignInButton(el, { onSignedIn } = {}) {
 }
 
 /** พยายามต่ออายุ token เงียบ ๆ (ใช้ตอนใกล้หมดอายุ หรือโดนปฏิเสธ) */
-function silentSignIn() {
+function silentSignIn(timeout = 12_000) {
   return new Promise((resolve, reject) => {
     initGIS((token) => { auth.save(token); resolve(true); })
       .then((g) => {
@@ -134,6 +144,38 @@ function silentSignIn() {
         });
       })
       .catch(reject);
-    setTimeout(() => reject(new Error('หมดเวลารอ')), 12_000);
+    setTimeout(() => reject(new Error('หมดเวลารอ')), timeout);
   });
 }
+
+/**
+ * ต่อเซสชันให้เองตอนเปิดแอป — ครูจะได้ไม่ต้องกดเข้าสู่ระบบใหม่ทุกครั้ง
+ *
+ * ID token ของ Google อายุแค่ 1 ชั่วโมง ของเดิมมีแต่ตัวตั้งเวลาต่ออายุ
+ * ซึ่งทำงานเฉพาะตอนแท็บเปิดค้างอยู่ พอปิดแท็บแล้วกลับมาเปิดใหม่วันรุ่งขึ้น
+ * token หมดอายุไปแล้ว conn.ready จึงเป็น false = เด้งไปหน้าเข้าสู่ระบบทุกเช้า
+ * ทั้งที่บัญชี Google ในเบราว์เซอร์ยังล็อกอินอยู่และเคยกดอนุญาตไปแล้ว
+ *
+ * ขอใหม่เงียบ ๆ ก่อน (auto_select ทำให้ไม่มีอะไรเด้งขึ้นมาถ้าเคยอนุญาตแล้ว)
+ * ถ้าไม่ได้ค่อยไปหน้าเข้าสู่ระบบตามเดิม
+ *
+ * @param timeout อย่าตั้งนาน — ระหว่างนี้แอปยังค้างอยู่ที่หน้าโหลด
+ * @returns true = ได้ token ใหม่แล้ว
+ */
+export function restoreSession({ timeout = 4000 } = {}) {
+  if (auth.signedIn) return Promise.resolve(true);
+  // ไม่เคยล็อกอินด้วย Google จากเครื่องนี้ → ไม่มีอะไรให้ต่อ อย่าไปหน่วงเวลาเปิดแอป
+  if (!auth.clientId || !auth.profile) return Promise.resolve(false);
+  return silentSignIn(timeout).then(() => true, () => false);
+}
+
+/* กลับมาที่แท็บแล้วเจอว่า token หมดอายุระหว่างที่พับไว้ → ต่อให้เลย
+ * ตัวตั้งเวลาใน scheduleRefresh พึ่งไม่ได้ เพราะเบราว์เซอร์หยุด timer
+ * ของแท็บที่ไม่ได้ใช้งาน (มือถือหนักสุด) กว่าจะรู้ตัวก็ตอนกดแล้วขึ้นว่าหมดสิทธิ์ */
+try {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible') return;
+    if (auth.signedIn || !auth.clientId || !auth.profile) return;
+    restoreSession({ timeout: 8000 }).catch(() => {});
+  });
+} catch { /* ไม่มี document (เช่นตอนรันเทส) — ข้ามไป */ }
