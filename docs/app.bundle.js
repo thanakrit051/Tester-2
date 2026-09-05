@@ -2289,7 +2289,8 @@ const ui = {
   step: 1,
   method: 'google',   // วิธียืนยันตัวตนที่เลือกอยู่
   editUrl: false,     // ครูกด "เปลี่ยน URL" เอง — อย่าเด้งกลับไปขั้นเข้าสู่ระบบ
-  probed: false       // ถาม oauth_client_id จากชีตไปแล้วรอบหนึ่ง
+  probed: false,      // ถาม oauth_client_id จากชีตไปแล้วรอบหนึ่ง
+  probing: false      // กำลังถามอยู่ — ยังไม่รู้ว่าชีตเปิด Google Sign-In ไว้ไหม
 };
 
 function viewSetup() {
@@ -2384,9 +2385,11 @@ function stepSignIn() {
    * ทั้งที่ชีตเปิดไว้เรียบร้อยแล้ว */
   if (!auth.clientId && api.conn.url && !ui.probed) {
     ui.probed = true;
+    ui.probing = true;
     api.conn.probe(api.conn.url)
-      .then((info) => { if (info && info.clientId) { auth.clientId = info.clientId; render(); } })
-      .catch(() => {});
+      .then((info) => { if (info && info.clientId) auth.clientId = info.clientId; })
+      .catch(() => {})
+      .finally(() => { ui.probing = false; render(); });
   }
 
   if (auth.clientId) {
@@ -2449,6 +2452,12 @@ function stepSignIn() {
               h('div', { class: 'setup-p', style: { marginBottom: '10px' } },
                 'ใช้บัญชี Google เดียวกับที่เป็นเจ้าของไฟล์ชีต — เปลี่ยนเครื่องเมื่อไหร่ก็เข้าได้ทันที'),
               gBox)
+          /* ระหว่างถามชีตอยู่ห้ามขึ้นกล่องเหลือง — Apps Script ตอบ 2-10 วินาที
+             ครูจะอ่านว่า "ยังไม่ได้เปิดใช้" ทั้งที่เปิดไว้เรียบร้อยแล้ว */
+          : ui.probing
+          ? h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', minHeight: '48px' } },
+              h('div', { class: 'boot-spin' }),
+              h('span', { class: 'setup-p' }, 'กำลังอ่านการตั้งค่าจากชีต…'))
           : h('div', { style: { background: 'var(--amber-soft)', padding: '11px 13px', borderRadius: '11px', fontSize: '13px', color: 'var(--warn-ink)', lineHeight: '1.6' } },
               h('b', null, 'ยังไม่ได้เปิดใช้การเข้าสู่ระบบด้วย Google'), h('br'),
               'ใส่ ', h('code', null, 'oauth_client_id'), ' ในแท็บ ⚙️ ตั้งค่า ของชีต แล้ว Deploy ใหม่ (ดูวิธีด้านล่าง)',
@@ -5774,7 +5783,7 @@ __exp(exports, { viewHealth });
  * ⚠️ เวลาแก้โค้ดที่กระทบทั้ง 2 ฝั่ง ให้บวกเลขนี้ และแก้ SERVER_VERSION
  *    ใน apps-script/00_Constants.gs ให้ตรงกันด้วย
  */
-const APP_VERSION = '3.5.0';
+const APP_VERSION = '3.5.1';
 
 /** เวอร์ชันต่ำสุดของฝั่งชีตที่หน้าเว็บนี้ทำงานด้วยได้ครบทุกฟีเจอร์ */
 const NEEDS_SERVER = '2.8.0';

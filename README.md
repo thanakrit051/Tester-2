@@ -52,6 +52,9 @@
 1. push โฟลเดอร์นี้ขึ้น GitHub repo
 2. Settings → Pages → Source: `Deploy from a branch` → branch `main` / folder `/ (root)`
 3. เปิด URL ที่ได้ → กรอก **Web app URL** + **รหัสลับ** → กด **เชื่อมต่อ**
+4. อยากให้เครื่องอื่น ๆ ไม่ต้องกรอก URL อีก: ใส่ลิงก์ `/exec` ลงใน
+   [`config.js`](config.js) ที่รากโปรเจกต์แล้ว push — เปิดเว็บบนเครื่องใหม่
+   จะข้ามไปหน้าเข้าสู่ระบบเลย (ค่าที่กรอกเองในเครื่องชนะค่าในไฟล์นี้เสมอ)
 
 เสร็จแล้ว 🎉 (เพิ่มลงหน้าจอโฮมของมือถือได้ ใช้เป็นแอปเลย)
 
@@ -165,7 +168,14 @@ A     B          C              │ 🕐เช็คชื่อ ช1 │ 📝�
 3. **Credentials → Create credentials → OAuth client ID → Web application**
 4. **Authorized JavaScript origins** ใส่ให้ครบทุกที่ที่จะเปิดแอป เช่น
    `http://localhost:5599` และ `https://ชื่อคุณ.github.io`
-5. คัดลอก **Client ID** → ใส่ในแท็บ `⚙️ ตั้งค่า` ช่อง `oauth_client_id` → Deploy ใหม่
+5. คัดลอก **Client ID** → ใส่ในแท็บ `⚙️ ตั้งค่า` ช่อง `oauth_client_id`
+   (ไม่ต้อง Deploy ใหม่ — ฝั่งชีตอ่านค่านี้สดทุกครั้ง แค่รีเฟรชหน้าเว็บ)
+6. ถ้าเครื่องนี้เชื่อมด้วยรหัสลับไปแล้ว → ในแอปกด **⚙️ ตั้งค่า → บัญชีและการเชื่อมต่อ
+   → 🔐 เข้าสู่ระบบด้วย Google** (ไม่ต้องตัดการเชื่อมต่อ)
+
+> เมนู OAuth ของ Google Cloud ย้ายไปอยู่ใต้ชื่อ **Google Auth Platform** แล้ว
+> (Branding · Audience · Clients · Data access) ขั้นที่ 2-3 อยู่ที่ **Clients → Create client**
+> · ไม่ต้องเปิด API ตัวไหน ไม่ต้องใส่ Redirect URI และอย่าลืมกด **Publish app** ที่หน้า Audience
 
 ให้ครูคนอื่นใช้ร่วมได้โดยใส่อีเมลใน `allowed_emails` (คั่นด้วยจุลภาค) — เว้นว่าง = เฉพาะเจ้าของไฟล์
 
