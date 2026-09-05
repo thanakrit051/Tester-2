@@ -309,7 +309,7 @@ function secAcct() {
         api.MODE === 'remote' && h('button', {
           class: 'btn btn-danger btn-sm',
           onclick: async () => {
-            if (!await confirmBox('ตัดการเชื่อมต่อ?', 'ต้องกรอก URL และรหัสลับใหม่อีกครั้ง', 'ตัดการเชื่อมต่อ')) return;
+            if (!await confirmBox('ตัดการเชื่อมต่อ?', 'ต้องยืนยันตัวตนใหม่อีกครั้ง และแคชในเครื่องนี้จะถูกล้าง', 'ตัดการเชื่อมต่อ')) return;
             api.conn.clear(); api.cache.clearAll(); location.reload();
           }
         }, 'ตัดการเชื่อมต่อ'))

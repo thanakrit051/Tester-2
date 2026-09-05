@@ -757,8 +757,21 @@ const storagePersistent = () => store.persistent;
 const MODE = (typeof google !== 'undefined' && google.script && google.script.run)
   ? 'embedded' : 'remote';
 
+/**
+ * ลิงก์ตั้งต้นจาก config.js (ถ้ามี) — ใช้เมื่อเครื่องนี้ยังไม่เคยตั้งค่าเอง
+ *
+ * เครื่องใหม่จะได้ไม่ต้องไปคัดลอกลิงก์ Apps Script มาวางก่อนทุกครั้ง
+ * เหลือแค่กดเข้าสู่ระบบด้วย Google อย่างเดียว
+ *
+ * ลิงก์นี้ไม่ใช่ความลับ ใครยิงก็ได้แต่จะถูกปฏิเสธถ้าไม่มีสิทธิ์ (ดูหัวไฟล์ js/auth.js)
+ * ตัวที่กันคือ ID token กับรหัสลับ ซึ่งไม่ได้อยู่ในไฟล์นี้
+ */
+const defaultUrl = () => {
+  try { return String(window.AC_API || '').trim(); } catch (e) { return ''; }
+};
+
 const conn = {
-  get url() { return lsGet(LS.url) || ''; },
+  get url() { return lsGet(LS.url) || defaultUrl(); },
   get key() { return lsGet(LS.key) || ''; },
   /** พร้อมใช้เมื่อมี URL และมีวิธียืนยันตัวตนอย่างน้อย 1 อย่าง */
   get ready() { return MODE === 'embedded' || !!(this.url && (this.key || auth.signedIn)); },
@@ -2272,10 +2285,19 @@ const { h, toast } = __req("js/dom.js");
 const api = __req("js/api.js");
 const { auth, renderSignInButton } = __req("js/auth.js");
 
-const ui = { step: 1, info: null, busy: false, method: 'google' };  // method = วิธียืนยันตัวตนที่เลือกอยู่
+const ui = {
+  step: 1,
+  method: 'google',   // วิธียืนยันตัวตนที่เลือกอยู่
+  editUrl: false,     // ครูกด "เปลี่ยน URL" เอง — อย่าเด้งกลับไปขั้นเข้าสู่ระบบ
+  probed: false       // ถาม oauth_client_id จากชีตไปแล้วรอบหนึ่ง
+};
 
 function viewSetup() {
-  if (api.conn.url && !ui.info) ui.step = 2;
+  /* มี URL อยู่แล้ว (เคยตั้งไว้ หรือมาจาก config.js) → ข้ามไปขั้นเข้าสู่ระบบเลย
+   * เดิมเช็คด้วย ui.info ซึ่งเป็นค่าที่มีเฉพาะรอบที่เพิ่งกรอก URL เอง
+   * ครูที่รีเฟรชหน้าแล้วกด "‹ เปลี่ยน URL" จึงถูกดีดกลับมาขั้น 2 ทันที
+   * แก้ URL ไม่ได้เลยจนกว่าจะกดตัดการเชื่อมต่อทิ้ง */
+  if (api.conn.url && !ui.editUrl) ui.step = 2;
 
   // ดีไซน์หน้า 07: พื้นเข้มเต็มจอ + แผ่นขาวลอยขึ้นมา เห็นความคืบหน้าตลอด
   return h('div', { class: 'setup-screen' },
@@ -2327,7 +2349,7 @@ function stepUrl() {
       const info = await api.conn.probe(url);
       api.conn.save(url);
       if (info.clientId) auth.clientId = info.clientId;
-      ui.info = info; ui.step = 2;
+      ui.editUrl = false; ui.step = 2;
       render();
     } catch (e) {
       btn.disabled = false; btn.textContent = 'ถัดไป';
@@ -2355,6 +2377,17 @@ function stepSignIn() {
 
   const gBox = h('div', { style: { display: 'flex', justifyContent: 'center', minHeight: '48px' } },
     h('div', { class: 'boot-spin' }));
+
+  /* เครื่องใหม่ที่ได้ URL มาจาก config.js ยังไม่เคยถาม oauth_client_id จากชีต
+   * (ปกติถามตอนกรอก URL เอง ซึ่งขั้นนั้นถูกข้ามไปแล้ว) ถ้าไม่ถามตรงนี้
+   * ครูจะเห็นกล่องเหลือง "ยังไม่ได้เปิดใช้การเข้าสู่ระบบด้วย Google"
+   * ทั้งที่ชีตเปิดไว้เรียบร้อยแล้ว */
+  if (!auth.clientId && api.conn.url && !ui.probed) {
+    ui.probed = true;
+    api.conn.probe(api.conn.url)
+      .then((info) => { if (info && info.clientId) { auth.clientId = info.clientId; render(); } })
+      .catch(() => {});
+  }
 
   if (auth.clientId) {
     renderSignInButton(gBox, {
@@ -2428,7 +2461,7 @@ function stepSignIn() {
 
     h('button', {
       class: 'btn btn-ghost btn-block btn-sm', style: { marginTop: '8px' },
-      onclick: () => { ui.step = 1; ui.info = null; render(); }
+      onclick: () => { ui.editUrl = true; ui.step = 1; render(); }
     }, '‹ เปลี่ยน URL')
   );
 }
@@ -5035,7 +5068,7 @@ function secAcct() {
         api.MODE === 'remote' && h('button', {
           class: 'btn btn-danger btn-sm',
           onclick: async () => {
-            if (!await confirmBox('ตัดการเชื่อมต่อ?', 'ต้องกรอก URL และรหัสลับใหม่อีกครั้ง', 'ตัดการเชื่อมต่อ')) return;
+            if (!await confirmBox('ตัดการเชื่อมต่อ?', 'ต้องยืนยันตัวตนใหม่อีกครั้ง และแคชในเครื่องนี้จะถูกล้าง', 'ตัดการเชื่อมต่อ')) return;
             api.conn.clear(); api.cache.clearAll(); location.reload();
           }
         }, 'ตัดการเชื่อมต่อ'))
@@ -5741,7 +5774,7 @@ __exp(exports, { viewHealth });
  * ⚠️ เวลาแก้โค้ดที่กระทบทั้ง 2 ฝั่ง ให้บวกเลขนี้ และแก้ SERVER_VERSION
  *    ใน apps-script/00_Constants.gs ให้ตรงกันด้วย
  */
-const APP_VERSION = '3.4.0';
+const APP_VERSION = '3.5.0';
 
 /** เวอร์ชันต่ำสุดของฝั่งชีตที่หน้าเว็บนี้ทำงานด้วยได้ครบทุกฟีเจอร์ */
 const NEEDS_SERVER = '2.8.0';

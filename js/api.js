@@ -30,8 +30,21 @@ export const storagePersistent = () => store.persistent;
 export const MODE = (typeof google !== 'undefined' && google.script && google.script.run)
   ? 'embedded' : 'remote';
 
+/**
+ * ลิงก์ตั้งต้นจาก config.js (ถ้ามี) — ใช้เมื่อเครื่องนี้ยังไม่เคยตั้งค่าเอง
+ *
+ * เครื่องใหม่จะได้ไม่ต้องไปคัดลอกลิงก์ Apps Script มาวางก่อนทุกครั้ง
+ * เหลือแค่กดเข้าสู่ระบบด้วย Google อย่างเดียว
+ *
+ * ลิงก์นี้ไม่ใช่ความลับ ใครยิงก็ได้แต่จะถูกปฏิเสธถ้าไม่มีสิทธิ์ (ดูหัวไฟล์ js/auth.js)
+ * ตัวที่กันคือ ID token กับรหัสลับ ซึ่งไม่ได้อยู่ในไฟล์นี้
+ */
+const defaultUrl = () => {
+  try { return String(window.AC_API || '').trim(); } catch (e) { return ''; }
+};
+
 export const conn = {
-  get url() { return lsGet(LS.url) || ''; },
+  get url() { return lsGet(LS.url) || defaultUrl(); },
   get key() { return lsGet(LS.key) || ''; },
   /** พร้อมใช้เมื่อมี URL และมีวิธียืนยันตัวตนอย่างน้อย 1 อย่าง */
   get ready() { return MODE === 'embedded' || !!(this.url && (this.key || auth.signedIn)); },

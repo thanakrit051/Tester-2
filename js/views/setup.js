@@ -4,10 +4,19 @@ import { h, toast } from '../dom.js';
 import * as api from '../api.js';
 import { auth, renderSignInButton } from '../auth.js';
 
-const ui = { step: 1, info: null, busy: false, method: 'google' };  // method = วิธียืนยันตัวตนที่เลือกอยู่
+const ui = {
+  step: 1,
+  method: 'google',   // วิธียืนยันตัวตนที่เลือกอยู่
+  editUrl: false,     // ครูกด "เปลี่ยน URL" เอง — อย่าเด้งกลับไปขั้นเข้าสู่ระบบ
+  probed: false       // ถาม oauth_client_id จากชีตไปแล้วรอบหนึ่ง
+};
 
 export function viewSetup() {
-  if (api.conn.url && !ui.info) ui.step = 2;
+  /* มี URL อยู่แล้ว (เคยตั้งไว้ หรือมาจาก config.js) → ข้ามไปขั้นเข้าสู่ระบบเลย
+   * เดิมเช็คด้วย ui.info ซึ่งเป็นค่าที่มีเฉพาะรอบที่เพิ่งกรอก URL เอง
+   * ครูที่รีเฟรชหน้าแล้วกด "‹ เปลี่ยน URL" จึงถูกดีดกลับมาขั้น 2 ทันที
+   * แก้ URL ไม่ได้เลยจนกว่าจะกดตัดการเชื่อมต่อทิ้ง */
+  if (api.conn.url && !ui.editUrl) ui.step = 2;
 
   // ดีไซน์หน้า 07: พื้นเข้มเต็มจอ + แผ่นขาวลอยขึ้นมา เห็นความคืบหน้าตลอด
   return h('div', { class: 'setup-screen' },
@@ -59,7 +68,7 @@ function stepUrl() {
       const info = await api.conn.probe(url);
       api.conn.save(url);
       if (info.clientId) auth.clientId = info.clientId;
-      ui.info = info; ui.step = 2;
+      ui.editUrl = false; ui.step = 2;
       render();
     } catch (e) {
       btn.disabled = false; btn.textContent = 'ถัดไป';
@@ -87,6 +96,17 @@ function stepSignIn() {
 
   const gBox = h('div', { style: { display: 'flex', justifyContent: 'center', minHeight: '48px' } },
     h('div', { class: 'boot-spin' }));
+
+  /* เครื่องใหม่ที่ได้ URL มาจาก config.js ยังไม่เคยถาม oauth_client_id จากชีต
+   * (ปกติถามตอนกรอก URL เอง ซึ่งขั้นนั้นถูกข้ามไปแล้ว) ถ้าไม่ถามตรงนี้
+   * ครูจะเห็นกล่องเหลือง "ยังไม่ได้เปิดใช้การเข้าสู่ระบบด้วย Google"
+   * ทั้งที่ชีตเปิดไว้เรียบร้อยแล้ว */
+  if (!auth.clientId && api.conn.url && !ui.probed) {
+    ui.probed = true;
+    api.conn.probe(api.conn.url)
+      .then((info) => { if (info && info.clientId) { auth.clientId = info.clientId; render(); } })
+      .catch(() => {});
+  }
 
   if (auth.clientId) {
     renderSignInButton(gBox, {
@@ -160,7 +180,7 @@ function stepSignIn() {
 
     h('button', {
       class: 'btn btn-ghost btn-block btn-sm', style: { marginTop: '8px' },
-      onclick: () => { ui.step = 1; ui.info = null; render(); }
+      onclick: () => { ui.editUrl = true; ui.step = 1; render(); }
     }, '‹ เปลี่ยน URL')
   );
 }
