@@ -32,6 +32,11 @@
  *      ได้ตรงไหม — ถ้าเลื่อนไปแถวเดียว คะแนนจะไปโผล่ผิดคนโดยไม่มีอะไรเตือน
  *      และตรวจด้วยว่ายังคุยกับชีตไม่เกินที่ควร (Apps Script คิดเวลาตามจำนวนครั้งที่เรียก)
  *
+ *   6. test/config.mjs
+ *      ค่าใน ⚙️ ตั้งค่า เดินทางผ่าน Google Sheets แล้วกลับมาเป็นชนิดเดิมไหม —
+ *      Sheets ตีความชนิดข้อมูลให้เอง ค่าที่เขียนกับที่อ่านกลับจึงคนละชนิดได้
+ *      โดยไม่มี error (ของจริง: ตั้งวันสอบกลางภาคแล้วขึ้นว่าบันทึก แต่ช่องว่างเปล่า)
+ *
  * ข้าม: node tools/build-pages.mjs --skip-checks
  *       (ใช้ตอนกำลังแก้ค้างอยู่เท่านั้น ห้ามใช้ตอนจะ deploy จริง)
  */
@@ -44,5 +49,6 @@ if (process.argv.includes('--skip-checks')) {
   await import('../test/queue.mjs');
   await import('../test/state.mjs');
   await import('../test/classsheet.mjs');
+  await import('../test/config.mjs');
   console.log('');
 }

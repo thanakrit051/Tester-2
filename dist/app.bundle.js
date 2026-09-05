@@ -5956,7 +5956,7 @@ __exp(exports, { viewHealth });
  * ⚠️ เวลาแก้โค้ดที่กระทบทั้ง 2 ฝั่ง ให้บวกเลขนี้ และแก้ SERVER_VERSION
  *    ใน apps-script/00_Constants.gs ให้ตรงกันด้วย
  */
-const APP_VERSION = '3.7.0';
+const APP_VERSION = '3.7.1';
 
 /** เวอร์ชันต่ำสุดของฝั่งชีตที่หน้าเว็บนี้ทำงานด้วยได้ครบทุกฟีเจอร์ */
 const NEEDS_SERVER = '2.8.0';

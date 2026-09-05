@@ -132,13 +132,34 @@ function ensureConfigSheet_(ss) {
  * จงใจไม่เก็บข้าม request (CacheService) เพราะครูแก้ค่าในชีตแล้วต้องเห็นผลทันที */
 var CONFIG_MEMO_ = null;
 
+var DATE_ONLY_RE_ = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * แปลงค่าที่อ่านจากชีตให้กลับเป็นข้อความแบบที่เขียนลงไป
+ *
+ * ปัญหาที่เจอ: กดตั้ง "วันสอบกลางภาค" แล้วขึ้นว่าบันทึกแล้ว แต่ช่องวันที่ว่างเปล่า
+ *
+ * เพราะ setValue('2026-10-01') Google Sheets จะตีความเหมือนคนพิมพ์เอง
+ * แล้วแปลงช่องนั้นเป็นชนิด "วันที่" ให้เอง พออ่านกลับด้วย getValues()
+ * จึงได้ Date ไม่ใช่ข้อความ และ JSON แปลงต่อเป็น '2026-09-30T17:00:00.000Z'
+ * (มีเวลากับเขตเวลาติดมา) ฝั่งเว็บตรวจด้วย /^\d{4}-\d{2}-\d{2}$/ จึงไม่ผ่าน
+ * = แสดงผลเหมือนไม่เคยบันทึก ทั้งที่ค่าลงชีตไปแล้วจริง ๆ
+ *
+ * ใช้เขตเวลาของสเปรดชีต ไม่ใช่ UTC ไม่งั้นวันจะเพี้ยนไป 1 วันสำหรับไทย (UTC+7)
+ */
+function normalizeConfigValue_(v) {
+  if (Object.prototype.toString.call(v) !== '[object Date]') return v;
+  if (isNaN(v.getTime())) return '';
+  return Utilities.formatDate(v, ss_().getSpreadsheetTimeZone(), 'yyyy-MM-dd');
+}
+
 function getConfig_() {
   if (CONFIG_MEMO_) return CONFIG_MEMO_;
   var sh = ss_().getSheetByName(SHEET_CONFIG);
   var out = {};
   if (!sh || sh.getLastRow() < 2) return out;
   sh.getRange(2, 2, sh.getLastRow() - 1, 2).getValues().forEach(function (r) {
-    if (r[0] !== '') out[String(r[0]).trim()] = r[1];
+    if (r[0] !== '') out[String(r[0]).trim()] = normalizeConfigValue_(r[1]);
   });
   CONFIG_MEMO_ = out;
   return out;
@@ -151,11 +172,18 @@ function setConfigValue_(key, value) {
   var keys = sh.getRange(2, 2, Math.max(last - 1, 1), 1).getValues();
   for (var i = 0; i < keys.length; i++) {
     if (String(keys[i][0]).trim() === key) {
-      sh.getRange(i + 2, 3).setValue(value);
+      writeConfigCell_(sh.getRange(i + 2, 3), value);
       return;
     }
   }
-  sh.getRange(last + 1, 1, 1, 3).setValues([['เพิ่มเติม', key, value]]);
+  sh.getRange(last + 1, 1, 1, 2).setValues([['เพิ่มเติม', key]]);
+  writeConfigCell_(sh.getRange(last + 1, 3), value);
+}
+
+/** เขียนค่าลงช่องตั้งค่า — บังคับให้วันที่เก็บเป็นข้อความ ไม่ให้ Sheets แปลงชนิด */
+function writeConfigCell_(cell, value) {
+  if (DATE_ONLY_RE_.test(String(value))) cell.setNumberFormat('@');
+  cell.setValue(value);
 }
 
 // ── 🏫 ห้องเรียน (สารบัญ) ───────────────────────────────────
