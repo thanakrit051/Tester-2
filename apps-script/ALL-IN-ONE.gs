@@ -23,7 +23,7 @@
 // ── เวอร์ชัน ────────────────────────────────────────────────
 // ⚠️ ต้องตรงกับ APP_VERSION ใน js/version.js
 //    ถ้าเลขไม่ตรง หน้าเว็บจะขึ้นแถบเตือนให้ผู้ใช้อัปเดต/Deploy ใหม่
-var SERVER_VERSION = '2.13.1';
+var SERVER_VERSION = '2.13.2';
 
 // ── ชื่อแท็บระบบ ────────────────────────────────────────────
 var SHEET_CONFIG  = '⚙️ ตั้งค่า';
@@ -905,25 +905,33 @@ function setStudents_(sh, students) {
   var old = studentsOf_(sh);
   var cols = columnsOf_(sh).filter(function (c) { return c.kind !== 'SUM'; });
 
-  // เก็บค่าเดิมไว้ตาม sid
+  /* เก็บค่าเดิมไว้ตาม sid
+   *
+   * ต้องหยิบจาก "แถวจริงของคนนั้น" ไม่ใช่ลำดับที่เท่าไหร่ในรายชื่อ
+   * รายชื่อมีแถวว่างคั่นกลางได้ (ครูลบชื่อคนที่ย้ายออกแต่ไม่ได้ลบแถว)
+   * ถ้าหยิบตามลำดับ คะแนนทุกคนใต้แถวว่างจะเลื่อนไปสวมของคนข้างบนทั้งห้อง */
   var keep = {};
+  var lastOldRow = old.length ? old[old.length - 1].row : R_DATA - 1;
   if (old.length && cols.length) {
     var lastCol = sh.getLastColumn();
-    var grid = sh.getRange(R_DATA, C_FIRST, old.length, lastCol - C_FIRST + 1).getValues();
-    old.forEach(function (s, i) {
+    var grid = sh.getRange(R_DATA, C_FIRST, lastOldRow - R_DATA + 1, lastCol - C_FIRST + 1).getValues();
+    old.forEach(function (s) {
       keep[s.sid] = {};
-      cols.forEach(function (c) { keep[s.sid][c.key] = grid[i][c.col - C_FIRST]; });
+      cols.forEach(function (c) { keep[s.sid][c.key] = grid[s.row - R_DATA][c.col - C_FIRST]; });
     });
   }
 
+  // ขยายชีตก่อนล้าง — ช่วงที่จะล้างต้องอยู่ในชีตจริงแล้ว ไม่งั้น getRange จะโยนขอบชีต
+  var need = R_DATA + students.length - 1;
+  if (need > sh.getMaxRows()) sh.insertRowsAfter(sh.getMaxRows(), need - sh.getMaxRows());
+
   // ล้างเฉพาะช่วงแถวที่เคยมีข้อมูลจริง — อย่ากวาดถึงท้ายชีต (ช้ามากเมื่อชีตมี 1000 แถว)
-  var clearRows = Math.max(old.length, students.length);
+  // นับถึงแถวสุดท้ายที่เคยมีคนอยู่ ไม่ใช่จำนวนคน — ไม่งั้นแถวว่างท้ายรายชื่อจะค้างของเก่าไว้
+  var clearRows = Math.max(lastOldRow - R_DATA + 1, students.length);
   if (clearRows > 0) {
     sh.getRange(R_DATA, 1, clearRows, Math.max(sh.getLastColumn(), 3)).clearContent();
   }
 
-  var need = R_DATA + students.length - 1;
-  if (need > sh.getMaxRows()) sh.insertRowsAfter(sh.getMaxRows(), need - sh.getMaxRows());
   if (!students.length) return;
 
   var rows = students.map(function (s, i) {
@@ -1312,6 +1320,30 @@ function gradeOf_(total, cuts) {
   return '0';
 }
 
+/**
+ * จัดผลคำนวณให้ตรงแถวจริงของนักเรียนแต่ละคน ก่อนเขียนลงบล็อกสรุป
+ *
+ * รายชื่อในชีตมีแถวว่างคั่นกลางได้ (ครูลบชื่อคนที่ย้ายออกแต่ไม่ได้ลบแถวทิ้ง)
+ * ทั้ง studentsOf_ และ readClassBySheet_ ข้ามแถวเหล่านี้ด้วยเกณฑ์เดียวกัน
+ * ลำดับคนจึงตรงกันเสมอ จับคู่ตามลำดับได้เลย (เลขประจำตัวซ้ำ/ว่างก็ไม่สับสน)
+ *
+ * @param rows     ผลจาก computeClassScores_ (เรียงตาม data.students)
+ * @param students ผลจาก studentsOf_ (มีเลขแถวจริงติดมา)
+ * @return { start, height, rows } — rows[i] คือแถว start+i · null = แถวว่าง (ล้างทิ้ง)
+ *         คืน null เมื่อไม่มีอะไรให้เขียน
+ */
+function summaryBlock_(rows, students) {
+  var n = Math.min(rows.length, students.length);
+  if (!n) return null;
+
+  var start = students[0].row;
+  var height = students[n - 1].row - start + 1;
+  var out = [];
+  for (var i = 0; i < height; i++) out.push(null);
+  for (var j = 0; j < n; j++) out[students[j].row - start] = rows[j];
+  return { start: start, height: height, rows: out };
+}
+
 /** คำนวณแล้วเขียนกลับลงบล็อกสรุปในแท็บ */
 function recalcClass_(classId) {
   var sh = sheetForClass_(classId);
@@ -1360,21 +1392,30 @@ function recalcClass_(classId) {
       return colOf[id] === colOf[run[0]] + i;
     });
 
-    if (solid) {
-      sh.getRange(R_DATA, colOf[run[0]], res.rows.length, run.length).setValues(
-        res.rows.map(function (r) {
-          return run.map(function (id) { return cellOf(r, id); });
-        }));
-    } else {
-      run.forEach(function (id) {
-        sh.getRange(R_DATA, colOf[id], res.rows.length, 1).setValues(
-          res.rows.map(function (r) { return [cellOf(r, id)]; }));
-      });
-    }
+    /* ต้องรู้แถวจริงของแต่ละคน อย่าไล่เขียนติดกันลงไปจากแถวแรก
+     * readClassBySheet_ ข้ามแถวว่างทิ้ง (ครูลบชื่อคนที่ย้ายออกแต่ไม่ได้ลบแถว)
+     * ถ้าเขียนไล่จาก R_DATA ติดกันรวดเดียว คะแนนสรุปของทุกคนใต้แถวว่าง
+     * จะเลื่อนขึ้นไปสวมของคนข้างบน โดยช่องของคนสุดท้ายค้างว่าง — ไม่มีอะไรเตือนเลย */
+    var block = summaryBlock_(res.rows, studentsOf_(sh));
 
-    var flagCol = colOf['flag'];
-    if (flagCol) sh.getRange(R_DATA, flagCol, res.rows.length, 1)
-      .setFontSize(9).setFontColor('#c62828').setHorizontalAlignment('left');
+    if (block) {
+      if (solid) {
+        sh.getRange(block.start, colOf[run[0]], block.height, run.length).setValues(
+          block.rows.map(function (r) {
+            return r === null ? run.map(function () { return ''; })
+                              : run.map(function (id) { return cellOf(r, id); });
+          }));
+      } else {
+        run.forEach(function (id) {
+          sh.getRange(block.start, colOf[id], block.height, 1).setValues(
+            block.rows.map(function (r) { return [r === null ? '' : cellOf(r, id)]; }));
+        });
+      }
+
+      var flagCol = colOf['flag'];
+      if (flagCol) sh.getRange(block.start, flagCol, block.height, 1)
+        .setFontSize(9).setFontColor('#c62828').setHorizontalAlignment('left');
+    }
   }
 
   upsertClassRow_(data.meta, data.students.length);

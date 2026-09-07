@@ -7,7 +7,7 @@ import { h, toast, modal } from '../dom.js';
 import { state, emit, go, settings, sync } from '../state.js';
 import * as api from '../api.js';
 import { auth } from '../auth.js';
-import { APP_VERSION, NEEDS_SERVER, cmpVersion, FEATURES } from '../version.js';
+import { APP_VERSION, NEEDS_SERVER, SERVER_BUILT_FOR, cmpVersion, FEATURES } from '../version.js';
 import { badCuts } from '../score.js';
 
 /** ข้อความสรุปหัวหน้า — ใช้ทั้งแถบเข้ม (มือถือ) และแถบบริบท (PC) */
@@ -119,14 +119,21 @@ function runChecks() {
     } else if (cmp < 0) {
       const missing = FEATURES.filter(f => cmpVersion(sv, f.since) < 0);
       out.push({
-        level: 'err', title: `โค้ดในชีตเก่ากว่าหน้าเว็บ (v${sv} < v${NEEDS_SERVER})`,
+        level: 'err', title: `โค้ดในชีตเก่ากว่าที่หน้าเว็บต้องการ (v${sv} < v${NEEDS_SERVER})`,
         detail: 'ฟีเจอร์ที่จะเพี้ยน: ' + (missing.map(f => f.name).join(' · ') || '—'),
         fix: 'Deploy โค้ดใหม่ก่อนใช้ฟีเจอร์เหล่านี้',
         action: { label: 'ดูวิธีทีละขั้น', run: showUpdateSteps }
       });
-    } else if (cmp > 0) {
-      out.push({ level: 'warn', title: `โค้ดในชีตใหม่กว่าหน้าเว็บ (v${sv})`, detail: 'หน้าเว็บอาจยังไม่รองรับของใหม่',
+    } else if (cmpVersion(sv, SERVER_BUILT_FOR) > 0) {
+      // ชีตใหม่กว่าชุดที่หน้าเว็บนี้ถูก build มาคู่ — มักเป็นเพราะ Service Worker ยังคายหน้าเก่าไว้
+      out.push({ level: 'warn', title: `โค้ดในชีตใหม่กว่าหน้าเว็บ (v${sv} > v${SERVER_BUILT_FOR})`,
+        detail: 'หน้าเว็บอาจยังไม่รองรับของใหม่',
         fix: 'รีเฟรชหน้าเว็บ (Ctrl+Shift+R)' });
+    } else if (cmpVersion(sv, SERVER_BUILT_FOR) < 0) {
+      // ใช้งานได้ครบ แต่มีของใหม่รออยู่ — บอกไว้เฉย ๆ ไม่ต้องทำเป็นเรื่องด่วน
+      out.push({ level: 'ok', title: `โค้ดในชีตใช้งานได้ครบ (v${sv})`,
+        detail: `มีโค้ดชีตรุ่นใหม่กว่า (v${SERVER_BUILT_FOR}) จะอัปเมื่อไหร่ก็ได้`,
+        action: { label: 'ดูวิธีอัปเดต', run: showUpdateSteps } });
     } else {
       out.push({ level: 'ok', title: `โค้ดในชีตตรงกับหน้าเว็บ (v${sv})`, detail: 'ทุกฟีเจอร์ทำงานครบ' });
     }
@@ -221,10 +228,13 @@ function runChecks() {
   // 9) งานที่ส่งไม่ผ่านซ้ำ ๆ — ยังอยู่ในคิว แต่ครูควรรู้ว่าไม่ได้ไปถึงชีต
   const stuck = api.queue.stuck();
   if (stuck.length) {
+    // บอกสาเหตุที่ชีตตอบมาจริง — เดาเอาเองไม่ออกว่าเพราะอะไร และมักแก้ได้ทันทีถ้ารู้
+    const why = stuck.map(o => o.lastError).filter(Boolean)[0];
     out.push({
       level: 'err',
       title: `มี ${stuck.length} รายการส่งไม่ผ่านหลายรอบแล้ว`,
-      detail: 'ยังเก็บไว้ให้ครบ ไม่ได้หายไปไหน และระบบยังลองส่งใหม่ให้เรื่อย ๆ',
+      detail: 'ยังเก็บไว้ให้ครบ ไม่ได้หายไปไหน และระบบยังลองส่งใหม่ให้เรื่อย ๆ' +
+        (why ? ` · ชีตตอบกลับมาว่า: ${why}` : ''),
       fix: 'มักเป็นเพราะโค้ดในชีตเป็นเวอร์ชันเก่า หรือห้อง/คอลัมน์ถูกลบไปแล้ว — ตรวจ 2 อย่างนี้ก่อน',
       action: { label: '⟳ ลองส่งอีกครั้ง', run: () => sync({ loud: true }) }
     });

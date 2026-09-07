@@ -267,8 +267,10 @@ export async function flush() {
       failed.push({ ...o, error: (r && r.error) || 'เซิร์ฟเวอร์ตอบกลับไม่ครบ' });
     });
 
-    // งานที่ยังไม่ผ่านต้องกลับไปอยู่หน้าคิว เพื่อรักษาลำดับก่อน-หลังของการแก้ค่า
-    const retry = failed.map(({ error, sending, ...o }) => ({ ...o, tries: (o.tries || 0) + 1 }));
+    /* งานที่ยังไม่ผ่านต้องกลับไปอยู่หน้าคิว เพื่อรักษาลำดับก่อน-หลังของการแก้ค่า
+     * เก็บสาเหตุที่ชีตตอบมาติดไปด้วย — ถ้าทิ้ง หน้าตรวจสภาพจะบอกได้แค่ "ส่งไม่ผ่าน"
+     * โดยไม่มีทางรู้เลยว่าติดตรงไหน ซึ่งเป็นข้อมูลเดียวที่บอกได้ว่าต้องไปแก้ตรงไหน */
+    const retry = failed.map(({ error, sending, ...o }) => ({ ...o, tries: (o.tries || 0) + 1, lastError: error }));
     const sentIds = new Set(ops.map(o => o.id));
     const fresh = queue.all().filter(o => !sentIds.has(o.id));   // ของที่เพิ่งกดระหว่างรอคำตอบ
     queue.set([...retry, ...fresh]);

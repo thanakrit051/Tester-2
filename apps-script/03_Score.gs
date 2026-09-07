@@ -225,6 +225,30 @@ function gradeOf_(total, cuts) {
   return '0';
 }
 
+/**
+ * จัดผลคำนวณให้ตรงแถวจริงของนักเรียนแต่ละคน ก่อนเขียนลงบล็อกสรุป
+ *
+ * รายชื่อในชีตมีแถวว่างคั่นกลางได้ (ครูลบชื่อคนที่ย้ายออกแต่ไม่ได้ลบแถวทิ้ง)
+ * ทั้ง studentsOf_ และ readClassBySheet_ ข้ามแถวเหล่านี้ด้วยเกณฑ์เดียวกัน
+ * ลำดับคนจึงตรงกันเสมอ จับคู่ตามลำดับได้เลย (เลขประจำตัวซ้ำ/ว่างก็ไม่สับสน)
+ *
+ * @param rows     ผลจาก computeClassScores_ (เรียงตาม data.students)
+ * @param students ผลจาก studentsOf_ (มีเลขแถวจริงติดมา)
+ * @return { start, height, rows } — rows[i] คือแถว start+i · null = แถวว่าง (ล้างทิ้ง)
+ *         คืน null เมื่อไม่มีอะไรให้เขียน
+ */
+function summaryBlock_(rows, students) {
+  var n = Math.min(rows.length, students.length);
+  if (!n) return null;
+
+  var start = students[0].row;
+  var height = students[n - 1].row - start + 1;
+  var out = [];
+  for (var i = 0; i < height; i++) out.push(null);
+  for (var j = 0; j < n; j++) out[students[j].row - start] = rows[j];
+  return { start: start, height: height, rows: out };
+}
+
 /** คำนวณแล้วเขียนกลับลงบล็อกสรุปในแท็บ */
 function recalcClass_(classId) {
   var sh = sheetForClass_(classId);
@@ -273,21 +297,30 @@ function recalcClass_(classId) {
       return colOf[id] === colOf[run[0]] + i;
     });
 
-    if (solid) {
-      sh.getRange(R_DATA, colOf[run[0]], res.rows.length, run.length).setValues(
-        res.rows.map(function (r) {
-          return run.map(function (id) { return cellOf(r, id); });
-        }));
-    } else {
-      run.forEach(function (id) {
-        sh.getRange(R_DATA, colOf[id], res.rows.length, 1).setValues(
-          res.rows.map(function (r) { return [cellOf(r, id)]; }));
-      });
-    }
+    /* ต้องรู้แถวจริงของแต่ละคน อย่าไล่เขียนติดกันลงไปจากแถวแรก
+     * readClassBySheet_ ข้ามแถวว่างทิ้ง (ครูลบชื่อคนที่ย้ายออกแต่ไม่ได้ลบแถว)
+     * ถ้าเขียนไล่จาก R_DATA ติดกันรวดเดียว คะแนนสรุปของทุกคนใต้แถวว่าง
+     * จะเลื่อนขึ้นไปสวมของคนข้างบน โดยช่องของคนสุดท้ายค้างว่าง — ไม่มีอะไรเตือนเลย */
+    var block = summaryBlock_(res.rows, studentsOf_(sh));
 
-    var flagCol = colOf['flag'];
-    if (flagCol) sh.getRange(R_DATA, flagCol, res.rows.length, 1)
-      .setFontSize(9).setFontColor('#c62828').setHorizontalAlignment('left');
+    if (block) {
+      if (solid) {
+        sh.getRange(block.start, colOf[run[0]], block.height, run.length).setValues(
+          block.rows.map(function (r) {
+            return r === null ? run.map(function () { return ''; })
+                              : run.map(function (id) { return cellOf(r, id); });
+          }));
+      } else {
+        run.forEach(function (id) {
+          sh.getRange(block.start, colOf[id], block.height, 1).setValues(
+            block.rows.map(function (r) { return [r === null ? '' : cellOf(r, id)]; }));
+        });
+      }
+
+      var flagCol = colOf['flag'];
+      if (flagCol) sh.getRange(block.start, flagCol, block.height, 1)
+        .setFontSize(9).setFontColor('#c62828').setHorizontalAlignment('left');
+    }
   }
 
   upsertClassRow_(data.meta, data.students.length);

@@ -100,4 +100,41 @@ release();
 await loading2;
 ok(state.cls.meta.classId === 'C2', 'โหลดห้องใหม่เสร็จแล้วแต่ข้อมูลไม่ใช่ห้องนั้น');
 
+// ── 4. โครงสร้างที่ยังค้างคิวก็ต้องไม่ถูกทับหาย ──────────
+//
+// จำลอง: ครูเพิ่งตั้งเกณฑ์ผ่านข้อสอบกลางภาค และเพิ่งเพิ่มข้อสอบเก็บคะแนนอีกตัว
+// ทั้งสองยังอยู่ในคิว แล้วคำสั่งอ่านแซงไปถึงชีตก่อน (ฝั่งชีตไม่จับ lock ตอนอ่าน)
+// ถ้าเอาของที่อ่านมาทับตรง ๆ เกณฑ์ที่เพิ่งตั้งจะหายจากจอ ครูจะนึกว่า "ห้องนี้ตั้งเกณฑ์ไม่ได้"
+api.queue.clear();
+api.queue.push('updateColumn', {
+  classId: 'C1', key: 'MID|1|mid', label: 'สอบกลางภาค', max: 20, desc: '', pass: 10
+});
+api.queue.push('addColumn', {
+  classId: 'C1', kind: 'QUIZ', half: 1, id: 'q9', label: 'สอบเก็บ 9', max: 10, desc: '', pass: 6
+});
+
+reply = {
+  ...clsOf({}),
+  columns: [
+    { key: 'ATT|1|A1', kind: 'ATT', half: 1, id: 'A1', label: 'คาบ 1', max: 0, pass: null },
+    { key: 'MID|1|mid', kind: 'MID', half: 1, id: 'mid', label: 'สอบกลางภาค', max: 20, pass: null }
+  ]
+};
+waitForTest = null;
+await loadClass('C1', { force: true });
+
+const colAt = (k) => state.cls.columns.find((c) => c.key === k);
+ok(colAt('MID|1|mid').pass === 10, 'เกณฑ์ผ่านที่ยังค้างคิวหายไปตอนข้อมูลจากชีตมาทับ');
+ok(!!colAt('QUIZ|1|q9'), 'รายการที่เพิ่งเพิ่มแล้วยังค้างคิวหายไปตอนข้อมูลจากชีตมาทับ');
+ok(colAt('QUIZ|1|q9').pass === 6, 'รายการใหม่กลับมาแต่เกณฑ์ผ่านหาย');
+ok(api.cache.get('class.C1').columns.some((c) => c.key === 'QUIZ|1|q9'),
+  'แคชที่เขียนทับไม่มีรายการที่ยังค้างคิว');
+
+// ลบรายการตอนค้างคิว ก็ต้องไม่โผล่กลับมาตอนชีตตอบ
+api.queue.clear();
+api.queue.push('deleteColumn', { classId: 'C1', key: 'MID|1|mid' });
+await loadClass('C1', { force: true });
+ok(!colAt('MID|1|mid'), 'รายการที่ลบไปแล้วโผล่กลับมาตอนข้อมูลจากชีตมาทับ');
+api.queue.clear();
+
 console.log(`✅ การโหลดห้องเรียนผ่านครบ (${pass} ข้อ)`);

@@ -30,7 +30,7 @@ const { viewSummary } = __req("js/views/summary.js");
 const { viewReport } = __req("js/views/report.js");
 const { viewSettings } = __req("js/views/settings.js");
 const { viewHealth } = __req("js/views/health.js");
-const { APP_VERSION, NEEDS_SERVER, cmpVersion } = __req("js/version.js");
+const { APP_VERSION, NEEDS_SERVER, FEATURES, cmpVersion } = __req("js/version.js");
 
 const NAV = [
   { id: 'home',    ic: 'home',  label: 'หน้าแรก',   view: viewHome },
@@ -52,11 +52,14 @@ function topAlert() {
   const sv = api.serverInfo.version;
 
   if (api.serverInfo.seen && cmpVersion(sv, NEEDS_SERVER) < 0) {
+    /* บอกชื่อฟีเจอร์ที่พังจริงตามเวอร์ชันที่เจอ อย่าฝังชื่อฟีเจอร์เดียวไว้ตายตัว
+     * ของเดิมเขียน "ส่งช้า" ไว้เสมอ พอเพิ่มฟีเจอร์ใหม่ที่ต้องใช้โค้ดชีตใหม่
+     * ครูจะได้คำเตือนที่ไม่เกี่ยวกับสิ่งที่ตัวเองกำลังทำ แล้วกดปิดทิ้ง */
+    const missing = FEATURES.filter(f => cmpVersion(sv, f.since) < 0).map(f => f.name);
     return {
       level: 'err',
-      text: sv
-        ? `โค้ดในชีตเป็นเวอร์ชันเก่า (v${sv}) — คะแนน "ส่งช้า" จะเพี้ยน`
-        : 'โค้ดในชีตเป็นเวอร์ชันเก่า — คะแนน "ส่งช้า" จะถูกคิดเป็น 0'
+      text: `โค้ดในชีตเป็นเวอร์ชันเก่า${sv ? ` (v${sv})` : ''} — ` +
+        (missing.length ? `${missing.join(' · ')} จะไม่ถูกบันทึกลงชีต` : 'บางอย่างจะไม่ถูกบันทึกลงชีต')
     };
   }
   const sum = ['w_work1','w_quiz1','w_att1','w_mid','w_work2','w_quiz2','w_att2','w_fin']
@@ -1003,8 +1006,10 @@ async function flush() {
       failed.push({ ...o, error: (r && r.error) || 'เซิร์ฟเวอร์ตอบกลับไม่ครบ' });
     });
 
-    // งานที่ยังไม่ผ่านต้องกลับไปอยู่หน้าคิว เพื่อรักษาลำดับก่อน-หลังของการแก้ค่า
-    const retry = failed.map(({ error, sending, ...o }) => ({ ...o, tries: (o.tries || 0) + 1 }));
+    /* งานที่ยังไม่ผ่านต้องกลับไปอยู่หน้าคิว เพื่อรักษาลำดับก่อน-หลังของการแก้ค่า
+     * เก็บสาเหตุที่ชีตตอบมาติดไปด้วย — ถ้าทิ้ง หน้าตรวจสภาพจะบอกได้แค่ "ส่งไม่ผ่าน"
+     * โดยไม่มีทางรู้เลยว่าติดตรงไหน ซึ่งเป็นข้อมูลเดียวที่บอกได้ว่าต้องไปแก้ตรงไหน */
+    const retry = failed.map(({ error, sending, ...o }) => ({ ...o, tries: (o.tries || 0) + 1, lastError: error }));
     const sentIds = new Set(ops.map(o => o.id));
     const fresh = queue.all().filter(o => !sentIds.has(o.id));   // ของที่เพิ่งกดระหว่างรอคำตอบ
     queue.set([...retry, ...fresh]);
@@ -1609,7 +1614,9 @@ async function prefetchClasses() {
   let used = 0;
   (res.results || []).forEach((r, i) => {
     if (!r || !r.ok || !r.data || !api.storagePersistent()) return;
-    const cls = normalizeClass(r.data);
+    // ห้องอื่นก็มีงานค้างคิวได้ (ครูกรอกห้องนี้แล้วสลับไปห้องอื่นก่อนคิวส่งเสร็จ)
+    // ถ้าเก็บของดิบลงแคช พอสลับกลับมาจะเห็นของเก่าจนกว่าคิวจะส่งสำเร็จ
+    const cls = withPending(normalizeClass(r.data), ids[i]);
     used += JSON.stringify(cls).length;
     if (used > PREFETCH_BYTES) return;
     api.cache.set('class.' + ids[i], cls);
@@ -1655,19 +1662,65 @@ async function loadClass(classId, { force = false } = {}) {
  * ฝั่งชีตไม่จับ lock ตอนอ่านแล้ว (ดู 04_Api.gs) คำสั่งอ่านจึงแซงคำสั่งเขียน
  * ที่ยังส่งไม่ถึงได้ ถ้าเอาของที่อ่านมาทับตรง ๆ ช่องที่ครูเพิ่งกดจะหายไปจากจอ
  * ทั้งที่ยังอยู่ในคิวและกำลังจะถูกเขียนจริง — ครูจะกดซ้ำเพราะนึกว่าไม่ติด
+ *
+ * ใช้กับโครงสร้างด้วย (เพิ่ม/แก้รายการ) ไม่ใช่แค่ค่าในช่อง
+ * ไม่งั้นรายการที่เพิ่งเพิ่ม หรือเกณฑ์ผ่าน/คะแนนเต็มที่เพิ่งแก้ จะหายจากจอกลางคัน
+ * แล้วโผล่กลับมาเองตอนคิวส่งสำเร็จ — ครูจะนึกว่าตั้งเกณฑ์ผ่านไม่ได้
  */
 function withPending(cls, classId) {
   if (!cls) return cls;
+
+  let touchedColumns = false;
   for (const job of api.queue.all()) {
     const p = job.payload || {};
-    if (job.action !== 'setCells' || p.classId !== classId) continue;
-    for (const c of p.cells || []) {
-      if (!cls.values[c.key]) cls.values[c.key] = {};
-      if (c.value === '' || c.value === null || c.value === undefined) delete cls.values[c.key][c.sid];
-      else cls.values[c.key][c.sid] = c.value;
+    if (p.classId !== classId) continue;
+
+    if (job.action === 'setCells') {
+      for (const c of p.cells || []) {
+        if (!cls.values[c.key]) cls.values[c.key] = {};
+        if (c.value === '' || c.value === null || c.value === undefined) delete cls.values[c.key][c.sid];
+        else cls.values[c.key][c.sid] = c.value;
+      }
+      continue;
+    }
+
+    if (job.action === 'addColumn' || job.action === 'updateColumn') {
+      /* งานเก่าในคิวอาจมาจากแอปคนละเวอร์ชันแล้วรูปร่างไม่ครบ
+       * ตรงนี้ทำงานทุกครั้งที่เปิดห้อง ถ้าปล่อยให้โยน ห้องนั้นจะเปิดไม่ขึ้นถาวร
+       * (คิวอยู่ใน localStorage — ล้มแล้วล้มเลยจนกว่าครูจะล้างข้อมูลเว็บเอง) */
+      let spec = null;
+      try { if (job.action === 'addColumn') spec = makeColumnSpec(p); }
+      catch { continue; }
+      const key = spec ? spec.key : p.key;
+      if (!key) continue;
+      const hit = cls.columns.find(c => c.key === key);
+      if (hit) Object.assign(hit, columnPatchOf(p));
+      else if (spec) { const { payload, ...col } = spec; cls.columns.push(col); }
+      cls.values[key] = cls.values[key] || {};
+      touchedColumns = true;
+      continue;
+    }
+
+    if (job.action === 'deleteColumn') {
+      cls.columns = cls.columns.filter(c => c.key !== p.key);
+      delete cls.values[p.key];
+      touchedColumns = true;
     }
   }
+
+  if (touchedColumns) cls.columns = sortColumns(cls.columns.filter(c => c && c.key));
   return cls;
+}
+
+/**
+ * ส่วนที่คำสั่งค้างคิวสั่งเปลี่ยนจริง — เอาเฉพาะคีย์ที่ส่งมา
+ * ฝั่งชีตเก็บ pass เป็น '' เมื่อไม่ตั้งเกณฑ์ แต่ในเครื่องเก็บ null ให้เหมือนตอนอ่านกลับมา
+ */
+function columnPatchOf(p) {
+  const patch = {};
+  for (const k of ['label', 'max', 'desc']) if (p[k] !== undefined) patch[k] = p[k];
+  if (p.pass !== undefined) patch.pass = (p.pass === '' || p.pass === null) ? null : Number(p.pass);
+  return patch;
 }
 
 function persistClass() {
@@ -5623,7 +5676,7 @@ const { h, toast, modal } = __req("js/dom.js");
 const { state, emit, go, settings, sync } = __req("js/state.js");
 const api = __req("js/api.js");
 const { auth } = __req("js/auth.js");
-const { APP_VERSION, NEEDS_SERVER, cmpVersion, FEATURES } = __req("js/version.js");
+const { APP_VERSION, NEEDS_SERVER, SERVER_BUILT_FOR, cmpVersion, FEATURES } = __req("js/version.js");
 const { badCuts } = __req("js/score.js");
 
 /** ข้อความสรุปหัวหน้า — ใช้ทั้งแถบเข้ม (มือถือ) และแถบบริบท (PC) */
@@ -5735,14 +5788,21 @@ function runChecks() {
     } else if (cmp < 0) {
       const missing = FEATURES.filter(f => cmpVersion(sv, f.since) < 0);
       out.push({
-        level: 'err', title: `โค้ดในชีตเก่ากว่าหน้าเว็บ (v${sv} < v${NEEDS_SERVER})`,
+        level: 'err', title: `โค้ดในชีตเก่ากว่าที่หน้าเว็บต้องการ (v${sv} < v${NEEDS_SERVER})`,
         detail: 'ฟีเจอร์ที่จะเพี้ยน: ' + (missing.map(f => f.name).join(' · ') || '—'),
         fix: 'Deploy โค้ดใหม่ก่อนใช้ฟีเจอร์เหล่านี้',
         action: { label: 'ดูวิธีทีละขั้น', run: showUpdateSteps }
       });
-    } else if (cmp > 0) {
-      out.push({ level: 'warn', title: `โค้ดในชีตใหม่กว่าหน้าเว็บ (v${sv})`, detail: 'หน้าเว็บอาจยังไม่รองรับของใหม่',
+    } else if (cmpVersion(sv, SERVER_BUILT_FOR) > 0) {
+      // ชีตใหม่กว่าชุดที่หน้าเว็บนี้ถูก build มาคู่ — มักเป็นเพราะ Service Worker ยังคายหน้าเก่าไว้
+      out.push({ level: 'warn', title: `โค้ดในชีตใหม่กว่าหน้าเว็บ (v${sv} > v${SERVER_BUILT_FOR})`,
+        detail: 'หน้าเว็บอาจยังไม่รองรับของใหม่',
         fix: 'รีเฟรชหน้าเว็บ (Ctrl+Shift+R)' });
+    } else if (cmpVersion(sv, SERVER_BUILT_FOR) < 0) {
+      // ใช้งานได้ครบ แต่มีของใหม่รออยู่ — บอกไว้เฉย ๆ ไม่ต้องทำเป็นเรื่องด่วน
+      out.push({ level: 'ok', title: `โค้ดในชีตใช้งานได้ครบ (v${sv})`,
+        detail: `มีโค้ดชีตรุ่นใหม่กว่า (v${SERVER_BUILT_FOR}) จะอัปเมื่อไหร่ก็ได้`,
+        action: { label: 'ดูวิธีอัปเดต', run: showUpdateSteps } });
     } else {
       out.push({ level: 'ok', title: `โค้ดในชีตตรงกับหน้าเว็บ (v${sv})`, detail: 'ทุกฟีเจอร์ทำงานครบ' });
     }
@@ -5837,10 +5897,13 @@ function runChecks() {
   // 9) งานที่ส่งไม่ผ่านซ้ำ ๆ — ยังอยู่ในคิว แต่ครูควรรู้ว่าไม่ได้ไปถึงชีต
   const stuck = api.queue.stuck();
   if (stuck.length) {
+    // บอกสาเหตุที่ชีตตอบมาจริง — เดาเอาเองไม่ออกว่าเพราะอะไร และมักแก้ได้ทันทีถ้ารู้
+    const why = stuck.map(o => o.lastError).filter(Boolean)[0];
     out.push({
       level: 'err',
       title: `มี ${stuck.length} รายการส่งไม่ผ่านหลายรอบแล้ว`,
-      detail: 'ยังเก็บไว้ให้ครบ ไม่ได้หายไปไหน และระบบยังลองส่งใหม่ให้เรื่อย ๆ',
+      detail: 'ยังเก็บไว้ให้ครบ ไม่ได้หายไปไหน และระบบยังลองส่งใหม่ให้เรื่อย ๆ' +
+        (why ? ` · ชีตตอบกลับมาว่า: ${why}` : ''),
       fix: 'มักเป็นเพราะโค้ดในชีตเป็นเวอร์ชันเก่า หรือห้อง/คอลัมน์ถูกลบไปแล้ว — ตรวจ 2 อย่างนี้ก่อน',
       action: { label: '⟳ ลองส่งอีกครั้ง', run: () => sync({ loud: true }) }
     });
@@ -5956,10 +6019,19 @@ __exp(exports, { viewHealth });
  * ⚠️ เวลาแก้โค้ดที่กระทบทั้ง 2 ฝั่ง ให้บวกเลขนี้ และแก้ SERVER_VERSION
  *    ใน apps-script/00_Constants.gs ให้ตรงกันด้วย
  */
-const APP_VERSION = '3.7.1';
+const APP_VERSION = '3.7.2';
 
-/** เวอร์ชันต่ำสุดของฝั่งชีตที่หน้าเว็บนี้ทำงานด้วยได้ครบทุกฟีเจอร์ */
-const NEEDS_SERVER = '2.8.0';
+/* เลขเวอร์ชัน 2 ฝั่งเดินคนละสาย (หน้าเว็บ 3.x · โค้ดในชีต 2.x)
+ * จึงเทียบกันตรง ๆ ไม่ได้ ต้องเทียบกับ 2 ค่านี้เท่านั้น */
+
+/** เวอร์ชันต่ำสุดของฝั่งชีตที่หน้าเว็บนี้ทำงานด้วยได้ครบทุกฟีเจอร์
+ *  ⚠️ ต้องบวกทุกครั้งที่เพิ่มฟีเจอร์ที่ต้องเขียนข้อมูลรูปแบบใหม่ลงชีต ไม่งั้นชีตรุ่นเก่า
+ *     จะรับคำสั่งไว้เฉย ๆ แล้วทิ้งค่าที่ส่งไป โดยไม่มีอะไรฟ้อง */
+const NEEDS_SERVER = '2.13.2';
+
+/** เวอร์ชันฝั่งชีตที่มาคู่กับหน้าเว็บรุ่นนี้ (= SERVER_VERSION ใน 00_Constants.gs)
+ *  สูงกว่านี้ = ครู deploy โค้ดชีตใหม่กว่าหน้าเว็บที่เปิดอยู่ · ต่ำกว่า = ยังไม่ได้ deploy ของใหม่ */
+const SERVER_BUILT_FOR = '2.13.2';
 
 /** เทียบเวอร์ชันแบบ semver ง่าย ๆ — คืน -1 / 0 / 1 */
 function cmpVersion(a, b) {
@@ -5978,10 +6050,12 @@ const FEATURES = [
   { since: '2.2.0', name: 'รายละเอียดงาน', why: 'รายละเอียดจะไม่ถูกบันทึกลงชีต' },
   { since: '2.3.0', name: 'เข้าสู่ระบบด้วย Google', why: 'ต้องใช้โค้ดใหม่ในการตรวจบัญชี' },
   { since: '2.4.0', name: 'ช่องที่ยังไม่กรอกขึ้น "—"', why: 'ถ้าโค้ดเก่า ชีตจะยังให้คะแนนเข้าเรียนเต็มทั้งที่ยังไม่ได้เช็คชื่อ' },
-  { since: '2.6.0', name: 'หน้าให้นักเรียนดูผล', why: 'ต้องใช้โค้ดใหม่ (ไฟล์ 05_Student.gs) นักเรียนจะเปิดหน้าไม่ได้' }
+  { since: '2.6.0', name: 'หน้าให้นักเรียนดูผล', why: 'ต้องใช้โค้ดใหม่ (ไฟล์ 05_Student.gs) นักเรียนจะเปิดหน้าไม่ได้' },
+  { since: '2.13.0', name: 'เกณฑ์ผ่านรายข้อสอบ', why: 'ถ้าโค้ดเก่า เกณฑ์ที่ตั้งจะไม่ถูกเขียนลงชีต หน้าจอโชว์ไว้ชั่วคราวแล้วหายตอนเปิดห้องใหม่' },
+  { since: '2.13.2', name: 'ห้องที่รายชื่อมีแถวว่างคั่น', why: 'ถ้าโค้ดเก่า คะแนนสรุป/เกรด/ธงจะลงผิดคน และแก้รายชื่อทีเดียวคะแนนของคนใต้แถวว่างหายทั้งหมด' }
 ];
 
-__exp(exports, { APP_VERSION, NEEDS_SERVER, cmpVersion, FEATURES });
+__exp(exports, { APP_VERSION, NEEDS_SERVER, SERVER_BUILT_FOR, cmpVersion, FEATURES });
 
   };
 

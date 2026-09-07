@@ -280,7 +280,9 @@ async function prefetchClasses() {
   let used = 0;
   (res.results || []).forEach((r, i) => {
     if (!r || !r.ok || !r.data || !api.storagePersistent()) return;
-    const cls = normalizeClass(r.data);
+    // ห้องอื่นก็มีงานค้างคิวได้ (ครูกรอกห้องนี้แล้วสลับไปห้องอื่นก่อนคิวส่งเสร็จ)
+    // ถ้าเก็บของดิบลงแคช พอสลับกลับมาจะเห็นของเก่าจนกว่าคิวจะส่งสำเร็จ
+    const cls = withPending(normalizeClass(r.data), ids[i]);
     used += JSON.stringify(cls).length;
     if (used > PREFETCH_BYTES) return;
     api.cache.set('class.' + ids[i], cls);
@@ -326,19 +328,65 @@ export async function loadClass(classId, { force = false } = {}) {
  * ฝั่งชีตไม่จับ lock ตอนอ่านแล้ว (ดู 04_Api.gs) คำสั่งอ่านจึงแซงคำสั่งเขียน
  * ที่ยังส่งไม่ถึงได้ ถ้าเอาของที่อ่านมาทับตรง ๆ ช่องที่ครูเพิ่งกดจะหายไปจากจอ
  * ทั้งที่ยังอยู่ในคิวและกำลังจะถูกเขียนจริง — ครูจะกดซ้ำเพราะนึกว่าไม่ติด
+ *
+ * ใช้กับโครงสร้างด้วย (เพิ่ม/แก้รายการ) ไม่ใช่แค่ค่าในช่อง
+ * ไม่งั้นรายการที่เพิ่งเพิ่ม หรือเกณฑ์ผ่าน/คะแนนเต็มที่เพิ่งแก้ จะหายจากจอกลางคัน
+ * แล้วโผล่กลับมาเองตอนคิวส่งสำเร็จ — ครูจะนึกว่าตั้งเกณฑ์ผ่านไม่ได้
  */
 function withPending(cls, classId) {
   if (!cls) return cls;
+
+  let touchedColumns = false;
   for (const job of api.queue.all()) {
     const p = job.payload || {};
-    if (job.action !== 'setCells' || p.classId !== classId) continue;
-    for (const c of p.cells || []) {
-      if (!cls.values[c.key]) cls.values[c.key] = {};
-      if (c.value === '' || c.value === null || c.value === undefined) delete cls.values[c.key][c.sid];
-      else cls.values[c.key][c.sid] = c.value;
+    if (p.classId !== classId) continue;
+
+    if (job.action === 'setCells') {
+      for (const c of p.cells || []) {
+        if (!cls.values[c.key]) cls.values[c.key] = {};
+        if (c.value === '' || c.value === null || c.value === undefined) delete cls.values[c.key][c.sid];
+        else cls.values[c.key][c.sid] = c.value;
+      }
+      continue;
+    }
+
+    if (job.action === 'addColumn' || job.action === 'updateColumn') {
+      /* งานเก่าในคิวอาจมาจากแอปคนละเวอร์ชันแล้วรูปร่างไม่ครบ
+       * ตรงนี้ทำงานทุกครั้งที่เปิดห้อง ถ้าปล่อยให้โยน ห้องนั้นจะเปิดไม่ขึ้นถาวร
+       * (คิวอยู่ใน localStorage — ล้มแล้วล้มเลยจนกว่าครูจะล้างข้อมูลเว็บเอง) */
+      let spec = null;
+      try { if (job.action === 'addColumn') spec = makeColumnSpec(p); }
+      catch { continue; }
+      const key = spec ? spec.key : p.key;
+      if (!key) continue;
+      const hit = cls.columns.find(c => c.key === key);
+      if (hit) Object.assign(hit, columnPatchOf(p));
+      else if (spec) { const { payload, ...col } = spec; cls.columns.push(col); }
+      cls.values[key] = cls.values[key] || {};
+      touchedColumns = true;
+      continue;
+    }
+
+    if (job.action === 'deleteColumn') {
+      cls.columns = cls.columns.filter(c => c.key !== p.key);
+      delete cls.values[p.key];
+      touchedColumns = true;
     }
   }
+
+  if (touchedColumns) cls.columns = sortColumns(cls.columns.filter(c => c && c.key));
   return cls;
+}
+
+/**
+ * ส่วนที่คำสั่งค้างคิวสั่งเปลี่ยนจริง — เอาเฉพาะคีย์ที่ส่งมา
+ * ฝั่งชีตเก็บ pass เป็น '' เมื่อไม่ตั้งเกณฑ์ แต่ในเครื่องเก็บ null ให้เหมือนตอนอ่านกลับมา
+ */
+function columnPatchOf(p) {
+  const patch = {};
+  for (const k of ['label', 'max', 'desc']) if (p[k] !== undefined) patch[k] = p[k];
+  if (p.pass !== undefined) patch.pass = (p.pass === '' || p.pass === null) ? null : Number(p.pass);
+  return patch;
 }
 
 function persistClass() {

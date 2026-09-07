@@ -15,7 +15,7 @@ import { viewSummary }    from './views/summary.js';
 import { viewReport }     from './views/report.js';
 import { viewSettings }   from './views/settings.js';
 import { viewHealth }     from './views/health.js';
-import { APP_VERSION, NEEDS_SERVER, cmpVersion } from './version.js';
+import { APP_VERSION, NEEDS_SERVER, FEATURES, cmpVersion } from './version.js';
 
 const NAV = [
   { id: 'home',    ic: 'home',  label: 'หน้าแรก',   view: viewHome },
@@ -37,11 +37,14 @@ function topAlert() {
   const sv = api.serverInfo.version;
 
   if (api.serverInfo.seen && cmpVersion(sv, NEEDS_SERVER) < 0) {
+    /* บอกชื่อฟีเจอร์ที่พังจริงตามเวอร์ชันที่เจอ อย่าฝังชื่อฟีเจอร์เดียวไว้ตายตัว
+     * ของเดิมเขียน "ส่งช้า" ไว้เสมอ พอเพิ่มฟีเจอร์ใหม่ที่ต้องใช้โค้ดชีตใหม่
+     * ครูจะได้คำเตือนที่ไม่เกี่ยวกับสิ่งที่ตัวเองกำลังทำ แล้วกดปิดทิ้ง */
+    const missing = FEATURES.filter(f => cmpVersion(sv, f.since) < 0).map(f => f.name);
     return {
       level: 'err',
-      text: sv
-        ? `โค้ดในชีตเป็นเวอร์ชันเก่า (v${sv}) — คะแนน "ส่งช้า" จะเพี้ยน`
-        : 'โค้ดในชีตเป็นเวอร์ชันเก่า — คะแนน "ส่งช้า" จะถูกคิดเป็น 0'
+      text: `โค้ดในชีตเป็นเวอร์ชันเก่า${sv ? ` (v${sv})` : ''} — ` +
+        (missing.length ? `${missing.join(' · ')} จะไม่ถูกบันทึกลงชีต` : 'บางอย่างจะไม่ถูกบันทึกลงชีต')
     };
   }
   const sum = ['w_work1','w_quiz1','w_att1','w_mid','w_work2','w_quiz2','w_att2','w_fin']

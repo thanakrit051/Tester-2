@@ -376,25 +376,33 @@ function setStudents_(sh, students) {
   var old = studentsOf_(sh);
   var cols = columnsOf_(sh).filter(function (c) { return c.kind !== 'SUM'; });
 
-  // เก็บค่าเดิมไว้ตาม sid
+  /* เก็บค่าเดิมไว้ตาม sid
+   *
+   * ต้องหยิบจาก "แถวจริงของคนนั้น" ไม่ใช่ลำดับที่เท่าไหร่ในรายชื่อ
+   * รายชื่อมีแถวว่างคั่นกลางได้ (ครูลบชื่อคนที่ย้ายออกแต่ไม่ได้ลบแถว)
+   * ถ้าหยิบตามลำดับ คะแนนทุกคนใต้แถวว่างจะเลื่อนไปสวมของคนข้างบนทั้งห้อง */
   var keep = {};
+  var lastOldRow = old.length ? old[old.length - 1].row : R_DATA - 1;
   if (old.length && cols.length) {
     var lastCol = sh.getLastColumn();
-    var grid = sh.getRange(R_DATA, C_FIRST, old.length, lastCol - C_FIRST + 1).getValues();
-    old.forEach(function (s, i) {
+    var grid = sh.getRange(R_DATA, C_FIRST, lastOldRow - R_DATA + 1, lastCol - C_FIRST + 1).getValues();
+    old.forEach(function (s) {
       keep[s.sid] = {};
-      cols.forEach(function (c) { keep[s.sid][c.key] = grid[i][c.col - C_FIRST]; });
+      cols.forEach(function (c) { keep[s.sid][c.key] = grid[s.row - R_DATA][c.col - C_FIRST]; });
     });
   }
 
+  // ขยายชีตก่อนล้าง — ช่วงที่จะล้างต้องอยู่ในชีตจริงแล้ว ไม่งั้น getRange จะโยนขอบชีต
+  var need = R_DATA + students.length - 1;
+  if (need > sh.getMaxRows()) sh.insertRowsAfter(sh.getMaxRows(), need - sh.getMaxRows());
+
   // ล้างเฉพาะช่วงแถวที่เคยมีข้อมูลจริง — อย่ากวาดถึงท้ายชีต (ช้ามากเมื่อชีตมี 1000 แถว)
-  var clearRows = Math.max(old.length, students.length);
+  // นับถึงแถวสุดท้ายที่เคยมีคนอยู่ ไม่ใช่จำนวนคน — ไม่งั้นแถวว่างท้ายรายชื่อจะค้างของเก่าไว้
+  var clearRows = Math.max(lastOldRow - R_DATA + 1, students.length);
   if (clearRows > 0) {
     sh.getRange(R_DATA, 1, clearRows, Math.max(sh.getLastColumn(), 3)).clearContent();
   }
 
-  var need = R_DATA + students.length - 1;
-  if (need > sh.getMaxRows()) sh.insertRowsAfter(sh.getMaxRows(), need - sh.getMaxRows());
   if (!students.length) return;
 
   var rows = students.map(function (s, i) {

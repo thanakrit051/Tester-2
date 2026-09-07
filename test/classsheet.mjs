@@ -19,13 +19,15 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const gs = path.join(root, 'apps-script');
-const ctx = { console, SpreadsheetApp: {}, Utilities: {} };
+const ctx = { console, SpreadsheetApp: { BorderStyle: { SOLID: 1, SOLID_MEDIUM: 2 } }, Utilities: {} };
 vm.createContext(ctx);
 vm.runInContext(
   fs.readFileSync(path.join(gs, '00_Constants.gs'), 'utf8') + '\n' +
-  fs.readFileSync(path.join(gs, '02_ClassSheet.gs'), 'utf8'), ctx);
+  fs.readFileSync(path.join(gs, '02_ClassSheet.gs'), 'utf8') + '\n' +
+  fs.readFileSync(path.join(gs, '03_Score.gs'), 'utf8'), ctx);
 
 const R_META = 2, R_KEY = 4, R_LABEL = 5, R_MAX = 6, R_PASS = 7;
+const C_SID_ = 2;   // B เลขประจำตัว
 const PASS_MARK = 'เกณฑ์ผ่าน →';   // ต้องตรงกับ PASS_MARK_ ใน 02_ClassSheet.gs
 
 /* ── ชีตจำลอง ──────────────────────────────────────────────
@@ -66,6 +68,13 @@ function makeSheet(grid, notes, name = '5/1 · คณิตศาสตร์') 
       maxRows++;
       return this;
     },
+    insertRowsAfter(_row, n) {
+      for (let i = 0; i < n; i++) grid.push(Array(maxCols).fill(''));
+      maxRows += n;
+      return this;
+    },
+    setRowHeights: noop,
+    setColumnWidth: noop,
     getRange(r, c, nr = 1, nc = 1) {
       if (r < 1 || c < 1 || r + nr - 1 > maxRows || c + nc - 1 > maxCols) {
         throw new Error('ขอช่วงเกินขอบชีต: r=' + r + ' c=' + c + ' nr=' + nr + ' nc=' + nc);
@@ -92,7 +101,13 @@ function makeSheet(grid, notes, name = '5/1 · คณิตศาสตร์') 
           }
           return range;
         },
-        setValue(v) { return range.setValues([[v]]); }
+        setValue(v) { return range.setValues([[v]]); },
+        clearContent() { return range.setValues(grab(() => '')); },
+        merge: () => range,
+        breakApart: () => range,
+        clear: () => range,
+        setDataValidation: () => range,
+        setBorder: () => range
       };
       // รูปแบบ (สี ขนาด การจัดวาง) ไม่กระทบผลการอ่าน — รับแล้วส่งตัวเองกลับไปให้ต่อ .chain ได้
       ['setFontColor', 'setFontSize', 'setHorizontalAlignment', 'setVerticalAlignment',
@@ -277,6 +292,67 @@ for (const passRow of [true, false]) {
   eq('หลังอัป: หัวคอลัมน์ไม่หาย', after.columns.map(c => c.key), before.columns.map(c => c.key));
   eq('หลังอัป: มีแถวเกณฑ์ผ่าน (ยังว่างทุกช่อง)', after.columns.map(c => c.pass), [null, null]);
   eq('หลังอัป: ข้อมูลนักเรียนเริ่มแถว 8', sh.grid()[7][1], '50001');
+}
+
+// ── 5. รายชื่อมีแถวว่างคั่นกลาง → ต้องไม่มีอะไรไปสวมคนอื่น ──
+//
+// ครูลบชื่อคนที่ย้ายออกกลางเทอมแต่ไม่ได้ลบแถวทิ้ง — เจอบ่อยมากของจริง
+// ทั้ง studentsOf_ และ readClassBySheet_ ข้ามแถวเหล่านี้ เลขแถวจึงไม่ต่อเนื่องกัน
+// โค้ดที่ไล่เขียนติดกันลงไปจากแถวแรกจึงเหลื่อม — เงียบมาก ไม่มี error อะไรเลย
+{
+  const cols = [
+    { key: 'MID|1|mid',    label: 'กลางภาค', max: 20, pass: 10 },
+    { key: 'SUM|0|total',  label: 'รวม',      max: 100 }
+  ];
+  const students = [
+    { no: '1', sid: '60001', name: 'ก', vals: [18, ''] },
+    { no: '2', sid: '60002', name: 'ข', vals: [4, ''] }
+  ];
+  // holes: [1] = แทรกแถวว่างก่อนนักเรียนคนที่ 2
+  const { grid, notes } = build({ students, cols, holes: [1] });
+  const sh = makeSheet(grid, notes);
+
+  const rows = ctx.studentsOf_(sh);
+  eq('แถวจริงของแต่ละคน', rows.map(s => s.sid + '@' + s.row), ['60001@8', '60002@10']);
+
+  const block = ctx.summaryBlock_(ctx.computeClassScores_(ctx.readClassBySheet_(sh), ctx.scoreSettings_({})).rows, rows);
+  eq('บล็อกสรุปเริ่มที่แถวคนแรก', block.start, 8);
+  eq('บล็อกสรุปครอบถึงแถวคนสุดท้าย', block.height, 3);
+  eq('แถวว่างต้องเป็น null (ล้างทิ้ง ไม่ใช่ของคนถัดไป)',
+    block.rows.map(r => r === null ? null : r.sid), ['60001', null, '60002']);
+  eq('ธง "ไม่ผ่านเกณฑ์" ติดอยู่กับคนที่สอบตก',
+    block.rows.map(r => r === null ? null : r.failN), [0, null, 1]);
+}
+
+// ── 6. แก้รายชื่อในห้องที่มีแถวว่างคั่น → คะแนนต้องตามคนเดิม ──
+//
+// setStudents_ เก็บคะแนนเก่าไว้ตามเลขประจำตัวก่อนเขียนทับรายชื่อใหม่
+// ถ้าหยิบค่าตามลำดับแทนแถวจริง คะแนนทุกคนใต้แถวว่างจะเลื่อนไปสวมของคนข้างบนทั้งห้อง
+{
+  const cols = [
+    { key: 'WORK|1|w1', label: 'ใบงาน 1', max: 10 },
+    { key: 'MID|1|mid', label: 'กลางภาค', max: 20, pass: 10 }
+  ];
+  const students = [
+    { no: '1', sid: '70001', name: 'ก', vals: [8, 18] },
+    { no: '2', sid: '70002', name: 'ข', vals: ['x', 4] }
+  ];
+  const { grid, notes } = build({ students, cols, holes: [1] });
+  const sh = makeSheet(grid, notes);
+
+  ctx.setStudents_(sh, [
+    { no: '1', sid: '70001', name: 'ก' },
+    { no: '2', sid: '70002', name: 'ข' },
+    { no: '3', sid: '70003', name: 'ค' }
+  ]);
+  const after = ctx.readClassBySheet_(sh);
+
+  eq('แก้รายชื่อแล้วรายชื่อครบ', after.students.map(s => s.sid), ['70001', '70002', '70003']);
+  eq('คะแนนสอบไม่สลับคน', after.values['MID|1|mid'], { 70001: 18, 70002: 4 });
+  eq('คะแนนงานไม่สลับคน', after.values['WORK|1|w1'], { 70001: 8, 70002: 'x' });
+  eq('รายชื่อถูกเขียนใหม่ติดกัน ไม่เหลือแถวว่างคั่น',
+    [8, 9, 10].map(r => String(sh.grid()[r - 1][C_SID_ - 1])), ['70001', '70002', '70003']);
+  eq('เกณฑ์ผ่านยังอยู่ครบ', after.columns.map(c => c.pass), [null, 10]);
 }
 
 if (fail) {
