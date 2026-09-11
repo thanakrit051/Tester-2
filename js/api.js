@@ -163,10 +163,11 @@ function setBusy(delta) {
 export async function call(action, payload = {}, { quiet = false } = {}) {
   if (!conn.ready) throw new ApiError('ยังไม่ได้เชื่อมต่อกับ Google Sheet', 'NOCONN');
 
-  // ส่งข้อมูลยืนยันตัวตนไปทั้ง 2 แบบ ฝั่งเซิร์ฟเวอร์รับอันไหนก็ได้ที่ผ่าน
+  // ส่งข้อมูลยืนยันตัวตนไปทุกแบบที่มี ฝั่งเซิร์ฟเวอร์รับอันไหนก็ได้ที่ผ่าน
+  // (บัตรผ่านจากชีต → ID token ของ Google → รหัสลับ)
   if (!quiet) setBusy(1);
   let text;
-  try { text = await post({ key: conn.key, idToken: auth.token, action, payload }); }
+  try { text = await post({ key: conn.key, session: auth.session, idToken: auth.token, action, payload }); }
   finally { if (!quiet) setBusy(-1); }
 
   let body;
@@ -182,8 +183,15 @@ export async function call(action, payload = {}, { quiet = false } = {}) {
   serverInfo.version = body.version || '';
   serverInfo.seen = true;
   if (body.user) serverInfo.user = body.user;
+  if (body.session) auth.saveSession(body.session);   // ชีตออกบัตรผ่าน/ต่ออายุให้ (ชีตรุ่นก่อน 2.14.0 ไม่ส่งมา)
 
-  if (!body.ok) throw new ApiError(body.error || 'เกิดข้อผิดพลาด', body.code);
+  if (!body.ok) {
+    /* ชีตไม่รับบัตรผ่าน/token ที่ส่งไป → ทิ้งเลย ไม่งั้น conn.ready ยังเป็น true ตลอด
+     * แอปจะยิงของที่ใช้ไม่ได้ซ้ำไปเรื่อย ๆ และไม่มีวันพาครูไปหน้าเข้าสู่ระบบ
+     * (บัตรที่ถูกยกเลิกเพราะครูสร้างรหัสลับใหม่ ในเครื่องยังดูไม่หมดอายุไปอีกเป็นเดือน) */
+    if (body.code === 'AUTH' && MODE === 'remote') auth.expire();
+    throw new ApiError(body.error || 'เกิดข้อผิดพลาด', body.code);
+  }
   return body.data;
 }
 

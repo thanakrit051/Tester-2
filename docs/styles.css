@@ -86,6 +86,7 @@
   --amber-soft:  var(--late-soft);
   --red-soft:    var(--miss-soft);
   --purple-soft: #f0ecfa;
+  --on-purple:   #ffffff;
 
   /* ทรง */
   --r-1: 11px;
@@ -154,6 +155,7 @@
 
   --purple:      #a08ae0;
   --purple-soft: #221c33;
+  --on-purple:   #150f24;
 
   --sh-1: 0 1px 2px rgba(0,0,0,.5);
   --sh-2: 0 2px 6px -2px rgba(0,0,0,.5), 0 10px 26px -18px rgba(0,0,0,.8);
@@ -176,7 +178,7 @@
     --on-ok: #04150a; --on-late: #1d1201; --on-leave: #050d1f; --on-miss: #21060e;
     --warn-ink: #e0a43a;
     --ok-soft: #102a1a; --late-soft: #2c2110; --leave-soft: #131d33; --miss-soft: #2e1119;
-    --purple: #a08ae0; --purple-soft: #221c33;
+    --purple: #a08ae0; --purple-soft: #221c33; --on-purple: #150f24;
     --sh-1: 0 1px 2px rgba(0,0,0,.5);
     --sh-2: 0 2px 6px -2px rgba(0,0,0,.5), 0 10px 26px -18px rgba(0,0,0,.8);
     --sh-3: 0 18px 40px -24px rgba(0,0,0,.9);
@@ -432,6 +434,11 @@ select {
 .st-btn.ok[data-on="1"]   { background: var(--st-ok);   color: var(--on-ok); }
 .st-btn.late[data-on="1"] { background: var(--st-late); color: var(--on-late); }
 .st-btn.miss[data-on="1"] { background: var(--st-miss); color: var(--on-miss); }
+/* สอบซ่อม — สีม่วงแยกจากสถานะอื่นชัด ๆ · ตอนเปิดอยู่มีคะแนนครั้งแรกเป็นบรรทัดเล็กด้านล่าง */
+.st-btn.retake[data-on="1"] { background: var(--purple); color: var(--on-purple); }
+.st-btn.retake span,
+.st-btn.retake small { display: block; line-height: 1.2; }
+.st-btn.retake small { font-size: 11px; font-weight: 500; }
 
 .score-cell { display: flex; align-items: center; gap: 5px; flex: none; }
 .score-inp {
@@ -440,6 +447,8 @@ select {
 }
 .score-inp.filled { border-color: var(--accent); color: var(--accent-ink); }
 .score-inp.miss   { border-color: var(--st-miss); color: var(--st-miss); }
+/* คะแนนที่มาจากสอบซ่อม — อยู่ก่อน .below เพื่อให้ซ่อมแล้วยังไม่ถึงเกณฑ์ขึ้นสีแดงชนะ */
+.score-inp.retake { border-color: var(--purple); color: var(--purple); }
 /* ต่ำกว่าเกณฑ์ผ่าน — ต้องเห็นต่างจาก .filled ชัด ๆ ตั้งแต่ตอนกรอก
    ใช้พื้นหลังด้วย ไม่ใช่แค่ขอบ เพราะช่องนี้เล็กมากบนมือถือ */
 .score-inp.below  { border-color: var(--red); color: var(--red); background: var(--red-soft); }

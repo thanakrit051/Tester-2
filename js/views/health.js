@@ -151,8 +151,17 @@ function runChecks() {
       action: email ? null : { label: 'ทดสอบการเชื่อมต่อ', run: testConn }
     });
   } else if (auth.signedIn) {
-    out.push({ level: 'ok', title: 'เข้าสู่ระบบด้วยบัญชี Google', detail: auth.profile?.email || '',
-      fix: null });
+    const until = auth.sessionUntil;
+    out.push(until
+      ? { level: 'ok', title: 'เข้าสู่ระบบด้วยบัญชี Google', fix: null,
+          detail: `${auth.profile?.email || ''} · จำการเข้าสู่ระบบไว้ถึง ` +
+            `${new Date(until).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })} (ต่ออายุเองเมื่อใช้งาน)` }
+      /* มีแต่ ID token 1 ชั่วโมง = ชีตยังไม่ออกบัตรผ่านให้ ปิดเว็บแล้วเปิดใหม่จะเจอหน้าเข้าสู่ระบบบ่อย
+       * ต้องบอกตรงนี้ เพราะอาการนี้ดูเหมือนแอปพัง ทั้งที่แค่ยังไม่ได้ Deploy โค้ดชีตรุ่นใหม่ */
+      : { level: 'warn', title: 'เข้าสู่ระบบด้วย Google — แต่จำไว้แค่ 1 ชั่วโมง',
+          detail: auth.profile?.email || '',
+          fix: 'อัปโค้ดในชีตเป็น v2.14.0 ขึ้นไป แล้วปิดเว็บเปิดใหม่จะไม่ต้องกดเข้าสู่ระบบซ้ำ',
+          action: { label: 'ดูวิธีอัปเดต', run: showUpdateSteps } });
   } else if (api.conn.key) {
     out.push({
       level: 'warn', title: 'ยังใช้รหัสลับอยู่',

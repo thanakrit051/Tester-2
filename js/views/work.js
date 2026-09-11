@@ -2,7 +2,9 @@
 
 import { h, modal, toast, confirmBox, nf } from '../dom.js';
 import { state, emit, loadClass, ensureColumn, setCells, getCell, deleteColumn, updateColumn, settings, undoLastEdit } from '../state.js';
-import { BUCKETS, NOT_SUBMITTED, parseWork, formatWork, passMarkOf, passOf } from '../score.js';
+import { BUCKETS, NOT_SUBMITTED, RETAKE_KINDS, parseWork, formatWork, formatRetake, passMarkOf, passOf } from '../score.js';
+import { serverInfo } from '../api.js';
+import { serverSupports } from '../version.js';
 
 /** ปุ่ม "เลิกทำ" แปะท้าย toast — ใช้กับปุ่มที่แก้ทีเดียวหลายคน */
 const undoAction = () => ({
@@ -239,8 +241,12 @@ function listScreen() {
 
 function tally(col) {
   const vals = state.cls.values[col.key] || {};
-  const t = { ok: 0, late: 0, miss: 0, none: 0, total: state.cls.students.length };
-  for (const s of state.cls.students) t[parseWork(vals[s.sid]).status]++;
+  const t = { ok: 0, late: 0, miss: 0, none: 0, retake: 0, total: state.cls.students.length };
+  for (const s of state.cls.students) {
+    const w = parseWork(vals[s.sid]);
+    t[w.status]++;
+    if (w.retake) t.retake++;     // นับรวมใน ok ด้วย (สอบแล้ว) — ตัวนี้แค่บอกว่ามีกี่คนที่มาจากสอบซ่อม
+  }
   // งานส่ง: "ตรวจแล้ว" = ดูครบทุกคนแล้ว (รวมคนไม่ส่ง)
   // ข้อสอบ: "สอบแล้ว" = คนที่เข้าสอบจริง ไม่รวมคนที่ยังไม่ได้สอบ
   t.done = isExam(col) ? t.ok : t.total - t.none;
@@ -263,7 +269,8 @@ function itemRow(col) {
         h('div', { class: 'list-sub' },
           `เต็ม ${col.max} · ${words(col).done} ${t.done}/${t.total}`,
           t.late > 0 ? ` · ส่งช้า ${t.late}` : '',
-          t.miss > 0 ? ` · ${words(col).miss} ${t.miss}` : '')),
+          t.miss > 0 ? ` · ${words(col).miss} ${t.miss}` : '',
+          t.retake > 0 ? ` · สอบซ่อม ${t.retake}` : '')),
       t.none === 0
         ? h('span', { class: 'badge g' }, 'ครบ')
         : h('span', { class: 'badge a' }, `ค้าง ${t.none}`)
@@ -283,9 +290,23 @@ function lateScore(col) {
   return Math.max(0, Math.round(col.max * (1 - pct / 100) * 100) / 100);
 }
 
+/** ประเภทที่มีปุ่มสอบซ่อม (ดู RETAKE_KINDS ใน js/score.js) */
+const canRetake = (col) => !!col && RETAKE_KINDS.includes(col.kind);
+
+/** คะแนนครั้งแรกของช่องสอบซ่อม ในรูปที่อ่านรู้เรื่อง */
+const origText = (w) => (w.orig === null ? 'ขาดสอบ' : nf(w.orig));
+
+/** หน้าปุ่มสอบซ่อม — ตอนเปิดอยู่ต้องเห็นคะแนนเดิมบนปุ่มเลย ไม่ต้องกดเข้าไปดู */
+const retakeFace = (w) => (w.retake
+  ? [h('span', null, 'ซ่อมแล้ว'), h('small', null, 'เดิม ' + origText(w))]
+  : ['สอบซ่อม']);
+
 const statusBtnsOf = (col) => (isExam(col)
   ? [{ st: 'ok',   label: 'สอบแล้ว',  cls: 'ok',   title: 'สอบแล้ว — กรอกคะแนนที่ได้ในช่องขวา' },
-     { st: 'miss', label: 'ยังไม่สอบ', cls: 'miss', title: 'ยังไม่ได้สอบ / ขาดสอบ — คิดเป็น 0 คะแนน' }]
+     { st: 'miss', label: 'ยังไม่สอบ', cls: 'miss', title: 'ยังไม่ได้สอบ / ขาดสอบ — คิดเป็น 0 คะแนน' },
+     ...(canRetake(col)
+       ? [{ st: 'retake', label: 'สอบซ่อม', cls: 'retake', title: 'บันทึกคะแนนสอบซ่อม — ระบบเก็บคะแนนครั้งแรกไว้ให้ด้วย' }]
+       : [])]
   : [{ st: 'ok',   label: 'ส่ง',    cls: 'ok' },
      { st: 'late', label: 'ช้า',    cls: 'late' },
      { st: 'miss', label: 'ไม่ส่ง', cls: 'miss' }]);
@@ -300,18 +321,14 @@ const statusBtnsOf = (col) => (isExam(col)
  */
 function scoreRow(col, s, { head, nextInput } = {}) {
   const W = words(col);
-  const cur = parseWork(getCell(col.key, s.sid));
 
   // ต่ำกว่าเกณฑ์ผ่าน = ขึ้นสีแดงทันทีตอนกรอก ครูจะได้เห็นว่าใครต้องซ่อมโดยไม่ต้องไปเปิดรายงาน
   const mark = passMarkOf(col, settings());
-  const failCls = (raw) => passOf(col, raw, settings()) === false ? ' below' : '';
 
+  // ค่า · สี · ปุ่มที่ติด ตั้งใน paint() ที่เดียวท้ายฟังก์ชัน (ทั้งตอนสร้างและหลังแก้ทุกครั้ง)
   const inp = h('input', {
-    class: 'score-inp' + (cur.status === 'miss' ? ' miss' : (cur.status !== 'none' ? ' filled' : ''))
-      + failCls(getCell(col.key, s.sid)),
+    class: 'score-inp',
     type: 'number', inputmode: 'decimal', min: '0', max: String(col.max), step: 'any',
-    value: (cur.status === 'ok' || cur.status === 'late') ? String(cur.score) : '',
-    placeholder: cur.status === 'miss' ? W.missShort : '',
     onkeydown: (e) => {
       if (e.key !== 'Enter') return;
       e.preventDefault();
@@ -326,33 +343,59 @@ function scoreRow(col, s, { head, nextInput } = {}) {
       if (n > col.max) { toast(`เกินคะแนนเต็ม (${col.max})`, 'err'); n = col.max; }
       if (n < 0) n = 0;
       e.target.value = String(n);
+      const now = parseWork(getCell(col.key, s.sid));
+      // ช่องที่เป็นสอบซ่อม: พิมพ์แก้ = แก้คะแนนซ่อม คะแนนครั้งแรกต้องอยู่ที่เดิม
+      if (now.retake) return write(formatRetake(n, now.orig));
       // พิมพ์คะแนนเองแล้วยังคงสถานะ "ส่งช้า" ไว้ถ้าเคยตั้งไว้
-      apply(read() === 'late' ? 'late' : 'ok', n);
+      apply(now.status === 'late' ? 'late' : 'ok', n);
     }
   });
 
   const btns = statusBtnsOf(col).map(b => h('button', {
-    class: 'st-btn ' + b.cls, 'data-st': b.st, 'data-on': cur.status === b.st ? '1' : '0',
+    class: 'st-btn ' + b.cls, 'data-st': b.st,
     title: b.title || (b.st === 'late' ? `ส่งช้า (ได้ ${lateScore(col)}/${col.max})` : b.label),
-    onclick: () => apply(read() === b.st ? 'none' : b.st)
+    onclick: () => {
+      const now = parseWork(getCell(col.key, s.sid));
+      /* ช่องที่ซ่อมแล้ว กดปุ่มไหนก็เปิดกล่องสอบซ่อม ไม่เขียนทับทันที
+       * กด "สอบแล้ว" พลาดทีเดียว คะแนนครั้งแรกกับคะแนนซ่อมจะหายพร้อมกัน
+       * (ในกล่องมีปุ่มยกเลิกสอบซ่อมให้อยู่แล้ว ถ้าตั้งใจจะเอาออกจริง) */
+      if (b.st === 'retake' || now.retake) return openRetake(col, s, paint);
+      apply(now.status === b.st ? 'none' : b.st);
+    }
   }, b.label));
 
   const group = h('div', { class: 'st-group' }, btns);
-  const read = () => (btns.find(b => b.dataset.on === '1') || {}).dataset?.st || 'none';
+
+  function write(value) {
+    setCells([{ key: col.key, sid: s.sid, value }], { quiet: true });
+    paint();
+    refreshProgress(col);
+  }
 
   function apply(status, score) {
     let sc = score;
     if (status === 'ok'   && sc === undefined) sc = col.max;
     if (status === 'late' && sc === undefined) sc = lateScore(col);
-    setCells([{ key: col.key, sid: s.sid, value: formatWork(status, sc) }], { quiet: true });
+    write(formatWork(status, sc));
+  }
 
-    btns.forEach(b => { b.dataset.on = (b.dataset.st === status) ? '1' : '0'; });
-    inp.value = (status === 'ok' || status === 'late') ? String(sc) : '';
-    inp.placeholder = status === 'miss' ? W.missShort : '';
-    inp.classList.toggle('miss', status === 'miss');
-    inp.classList.toggle('filled', status === 'ok' || status === 'late');
-    inp.classList.toggle('below', passOf(col, formatWork(status, sc), settings()) === false);
-    refreshProgress(col);
+  /** วาดแถวนี้ให้ตรงกับค่าในช่องตอนนี้ — อ่านจาก state ทุกครั้ง ไม่จำสถานะไว้ในปุ่ม */
+  function paint() {
+    const raw = getCell(col.key, s.sid);
+    const w = parseWork(raw);
+    const st = w.retake ? 'retake' : w.status;
+    const scored = w.status === 'ok' || w.status === 'late';
+    btns.forEach(b => {
+      b.dataset.on = b.dataset.st === st ? '1' : '0';
+      if (b.dataset.st === 'retake') b.replaceChildren(...retakeFace(w));
+    });
+    inp.value = scored ? String(w.score) : '';
+    inp.placeholder = w.status === 'miss' ? W.missShort : '';
+    inp.title = w.retake ? `คะแนนสอบซ่อม · ครั้งแรก ${origText(w)}` : '';
+    inp.classList.toggle('miss', w.status === 'miss');
+    inp.classList.toggle('filled', scored);
+    inp.classList.toggle('retake', !!w.retake);
+    inp.classList.toggle('below', passOf(col, raw, settings()) === false);
   }
 
   // ฝั่งซ้าย+คะแนนบรรทัดบน · ปุ่มสถานะเต็มความกว้างบรรทัดล่าง
@@ -365,8 +408,81 @@ function scoreRow(col, s, { head, nextInput } = {}) {
           '/' + col.max + (mark === null ? '' : ` · ผ่าน ${mark}`)))),
     group
   );
+  paint();
   row.__input = inp;
   return row;
+}
+
+/**
+ * กล่องบันทึกคะแนนสอบซ่อม
+ *
+ * ช่องคะแนนครั้งแรกเติมค่าที่อยู่ในช่องตอนนี้ไว้ให้ แต่แก้ได้ — ครูบางคนพิมพ์คะแนนซ่อมทับลงช่องไปก่อน
+ * แล้วค่อยนึกได้ว่าต้องกดปุ่ม ถ้าล็อกไว้ คะแนนครั้งแรกที่ถูกทับไปแล้วจะไม่มีทางใส่คืน
+ *
+ * @param done วาดแถวที่กดมาใหม่ (ไม่วาดทั้งหน้า — ช่องที่ครูพิมพ์ค้างไว้แถวอื่นจะไม่หลุด)
+ */
+function openRetake(col, s, done) {
+  // ชีตรุ่นเก่าอ่าน "R15/6" ไม่ออก จะนับเป็นยังไม่ตรวจแล้วคะแนนสรุปของคนนี้หายจากชีต
+  if (!serverSupports('retake', serverInfo)) {
+    return toast('โค้ดในชีตยังเป็นรุ่นเก่า อ่านคะแนนสอบซ่อมไม่ออก — อัปโค้ดในชีตก่อน (⚙️ ตั้งค่า → ตรวจสภาพระบบ)', 'err', 7000);
+  }
+
+  const w = parseWork(getCell(col.key, s.sid));
+  const mark = passMarkOf(col, settings());
+  const first = w.retake ? w.orig : ((w.status === 'ok' || w.status === 'late') ? w.score : null);
+  const numInput = (value, placeholder) => h('input', {
+    type: 'number', inputmode: 'decimal', min: '0', max: String(col.max), step: 'any',
+    value: value === null ? '' : String(value), placeholder
+  });
+  const origIn = numInput(first, 'เว้นว่าง = ขาดสอบ');
+  const againIn = numInput(w.retake ? w.score : null, `0–${col.max}`);
+
+  /** อ่านช่องตัวเลข · ว่าง = null · นอกช่วงคะแนน = โยนข้อความให้ครูอ่าน */
+  const readNum = (el, what) => {
+    const v = el.value.trim();
+    if (v === '') return null;
+    const n = Number(v);
+    if (!isFinite(n) || n < 0 || n > col.max) throw new Error(`${what}ต้องอยู่ระหว่าง 0–${col.max}`);
+    return n;
+  };
+
+  const commit = (value, msg, close) => {
+    setCells([{ key: col.key, sid: s.sid, value }], { quiet: true });
+    close();
+    done();
+    refreshProgress(col);
+    toast(msg, 'ok', 2600, undoAction());
+  };
+
+  modal((close) => {
+    const save = h('button', { class: 'btn btn-block' }, 'บันทึกคะแนนสอบซ่อม');
+    save.onclick = () => {
+      let o, r;
+      try { o = readNum(origIn, 'คะแนนครั้งแรก'); r = readNum(againIn, 'คะแนนสอบซ่อม'); }
+      catch (e) { return toast(e.message, 'err'); }
+      if (r === null) return toast('กรอกคะแนนสอบซ่อมก่อน', 'err');
+      const short = mark !== null && r < mark ? ` · ยังไม่ถึงเกณฑ์ผ่าน ${nf(mark)}` : '';
+      commit(formatRetake(r, o), `บันทึกสอบซ่อมแล้ว · ${s.name || 'เลขที่ ' + s.no}${short}`, close);
+    };
+
+    return h('div', null,
+      h('h2', null, 'สอบซ่อม · ' + col.label),
+      h('div', { class: 'hint', style: { marginBottom: '12px' } },
+        `${s.no}. ${s.name || '—'} · เต็ม ${col.max}` + (mark === null ? '' : ` · เกณฑ์ผ่าน ${nf(mark)}`)),
+      h('div', { class: 'field' }, h('label', null, 'คะแนนครั้งแรก'), origIn,
+        h('div', { class: 'hint' },
+          'เก็บไว้ให้ดูเท่านั้น ไม่นำไปคิดคะแนน · ถ้าเผลอพิมพ์คะแนนซ่อมทับช่องไปแล้ว แก้ตรงนี้กลับเป็นคะแนนครั้งแรกได้')),
+      h('div', { class: 'field' }, h('label', null, 'คะแนนสอบซ่อม *'), againIn,
+        h('div', { class: 'hint' }, 'ใช้คะแนนนี้คิดคะแนนสรุปและเกรดตามที่กรอกจริง')),
+      save,
+      w.retake && h('button', {
+        class: 'btn btn-ghost btn-block', style: { marginTop: '8px' },
+        onclick: () => commit(w.orig === null ? NOT_SUBMITTED : String(w.orig),
+          'ยกเลิกสอบซ่อมแล้ว · กลับไปใช้คะแนนครั้งแรก', close)
+      }, `ยกเลิกสอบซ่อม · กลับไปใช้คะแนนครั้งแรก (${origText(w)})`)
+    );
+  });
+  setTimeout(() => { try { againIn.focus(); } catch (e) {} }, 60);
 }
 
 function gradeScreen(col) {
@@ -584,6 +700,7 @@ function progressText(col) {
   return `เต็ม ${col.max} · ${W.done} ${t.done}/${t.total}`
     + (t.late ? ` · ช้า ${t.late}` : '')
     + (t.miss ? ` · ${W.miss} ${t.miss}` : '')
+    + (t.retake ? ` · สอบซ่อม ${t.retake}` : '')
     + (scored.length ? ` · เฉลี่ย ${nf(avg, 1)}` : '');
 }
 
@@ -731,6 +848,13 @@ function openPaste(col) {
         const raw = lines[i];
         if (raw === '' || raw === '-') { cells.push({ key: col.key, sid: s.sid, value: '' }); return; }
         if (/^x$|^ไม่ส่ง$|^ขาดสอบ$|^ไม่ได้สอบ$/i.test(raw)) { cells.push({ key: col.key, sid: s.sid, value: NOT_SUBMITTED }); return; }
+        const rt = parseWork(raw);
+        if (rt.retake) {
+          if (!canRetake(col)) return;             // รายการนี้ไม่มีสอบซ่อม — ข้ามบรรทัดนี้ ไม่เดาให้
+          const clamp = (x) => Math.max(0, Math.min(col.max, x));
+          cells.push({ key: col.key, sid: s.sid, value: formatRetake(clamp(rt.score), rt.orig === null ? null : clamp(rt.orig)) });
+          return;
+        }
         const late = /^(l|ช้า)/i.test(raw);
         const n = Number(raw.replace(/^(l|ช้า)\s*/i, ''));
         if (isNaN(n)) return;
@@ -747,7 +871,8 @@ function openPaste(col) {
         `เรียงตามลำดับเลขที่ในรายชื่อ (${state.cls.students.length} คน)`,
         h('br'),
         exam
-          ? ['ตัวเลข = คะแนนที่สอบได้ · ', h('code', null, 'x'), ' = ยังไม่ได้สอบ · เว้นว่าง = ยังไม่กรอก']
+          ? ['ตัวเลข = คะแนนที่สอบได้ · ', h('code', null, 'x'), ' = ยังไม่ได้สอบ · เว้นว่าง = ยังไม่กรอก',
+             canRetake(col) && [' · ', h('code', null, 'R15/6'), ' = สอบซ่อมได้ 15 (ครั้งแรก 6)']]
           : ['ตัวเลข = ส่ง · ', h('code', null, 'L7'), ' = ส่งช้าได้ 7 · ',
              h('code', null, 'x'), ' = ไม่ส่ง · เว้นว่าง = ยังไม่ตรวจ']),
       ta, h('div', { style: { height: '10px' } }), save

@@ -156,8 +156,12 @@ function classReport() {
     .map(c => {
       const mark = passMarkOf(c, S);
       if (mark === null) return null;
-      const who = (cls.students || []).filter(st => passOf(c, (cls.values[c.key] || {})[st.sid], S) === false);
-      return who.length ? { col: c, mark, who } : null;
+      const V = cls.values[c.key] || {};
+      const who = (cls.students || []).filter(st => passOf(c, V[st.sid], S) === false);
+      // ซ่อมผ่านแล้วหลุดจาก who เอง (คิดด้วยคะแนนซ่อม) — แต่ครูยังอยากรู้ว่าตามเก็บไปได้กี่คนแล้ว
+      const fixed = (cls.students || [])
+        .filter(st => parseWork(V[st.sid]).retake && passOf(c, V[st.sid], S) === true).length;
+      return who.length ? { col: c, mark, who, fixed } : null;
     })
     .filter(Boolean);
 
@@ -228,19 +232,23 @@ function classReport() {
       h('div', { class: 'rep-head' },
         h('h3', null, `ไม่ผ่านเกณฑ์ · ${failGroups.length} รายการ`),
         h('span', null, 'กดชื่อเพื่อดูรายบุคคล')),
-      failGroups.map(({ col, mark, who }) => h('div', { class: 'fail-group' },
+      failGroups.map(({ col, mark, who, fixed }) => h('div', { class: 'fail-group' },
         h('div', { class: 'fail-head' },
           h('b', null, col.label),
-          h('span', null, `${bucketName(col)} · ผ่านที่ ${nf(mark)}/${nf(col.max)} · ไม่ผ่าน ${who.length} คน`)),
+          h('span', null, `${bucketName(col)} · ผ่านที่ ${nf(mark)}/${nf(col.max)} · ไม่ผ่าน ${who.length} คน`
+            + (fixed ? ` · ซ่อมผ่านแล้ว ${fixed} คน` : ''))),
         h('div', { class: 'fail-names' }, who.map(st => {
           const w = parseWork((cls.values[col.key] || {})[st.sid]);
+          const got = w.status === 'miss' ? (isExam(col) ? 'ยังไม่ได้สอบ' : 'ไม่ส่ง') : nf(w.score);
           return h('button', {
             class: 'fail-chip',
-            title: `${st.name} · ได้ ${w.status === 'miss' ? (isExam(col) ? 'ยังไม่ได้สอบ' : 'ไม่ส่ง') : nf(w.score)}`,
+            title: `${st.name} · ได้ ${got}`
+              + (w.retake ? ` (สอบซ่อมแล้ว · ครั้งแรก ${w.orig === null ? 'ขาดสอบ' : nf(w.orig)})` : ''),
             onclick: () => { ui.tab = 'student'; ui.sid = st.sid; emit(); }
           },
             h('span', null, `${st.no}. ${st.name || '—'}`),
-            h('b', null, w.status === 'miss' ? '—' : nf(w.score)));
+            // ซ่อมแล้วยังไม่ผ่าน — บอกไว้บนชิป ครูจะได้ไม่เรียกมาซ่อมซ้ำโดยไม่รู้ตัว
+            h('b', null, (w.retake ? 'ซ่อม ' : '') + (w.status === 'miss' ? '—' : nf(w.score))));
         }))
       ))
     ),

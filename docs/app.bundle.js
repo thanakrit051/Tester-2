@@ -516,13 +516,22 @@ window.addEventListener('appinstalled', () => { state.installPrompt = null; safe
       try {
         await bootAll();          // ยิงครั้งเดียวได้ทั้งตั้งค่า รายชื่อห้อง และห้องที่เปิดค้างไว้
       } catch (e) {
-        // เซสชันหมดอายุระหว่างยิงพอดี — ขอใหม่เงียบ ๆ แล้วลองอีกรอบ ก่อนจะไล่ให้ล็อกอินใหม่
-        if (e instanceof api.ApiError && e.code === 'AUTH' && await restoreSession({ timeout: 8000 })) {
-          try { await bootAll(); }
-          catch (e2) { if (!(e2 instanceof api.OfflineError)) toast(e2.message, 'err', 6000); }
-        } else if (e instanceof api.ApiError && (e.code === 'AUTH' || e.code === 'FORBIDDEN')) {
+        if (e instanceof api.ApiError && e.code === 'AUTH') {
+          /* ชีตไม่รับบัตรผ่าน/token ที่ถืออยู่ (api.call ทิ้งให้แล้ว) — ขอใหม่เงียบ ๆ ก่อน
+           *
+           * ห้ามเรียก auth.signOut() ตรงนี้ ของเดิมเรียก ซึ่งลบ profile และปิด auto-select
+           * ของ Google — การต่อเซสชันเงียบ ๆ จึงใช้ไม่ได้อีกเลยหลังจากนั้น
+           * และถ้าไม่ทิ้งของที่ใช้ไม่ได้ก่อน restoreSession จะเห็นว่า "ยังล็อกอินอยู่"
+           * แล้วตอบ true ทันทีโดยไม่ได้ขออะไรใหม่ ยิงซ้ำก็โดนปฏิเสธซ้ำ */
+          if (await restoreSession({ timeout: 8000 })) {
+            try { await bootAll(); }
+            catch (e2) { if (!(e2 instanceof api.OfflineError)) toast(e2.message, 'err', 6000); }
+          } else {
+            toast(e.message, 'err', 6000);
+          }
+        } else if (e instanceof api.ApiError && e.code === 'FORBIDDEN') {
           toast(e.message + ' — กรุณาเชื่อมต่อใหม่', 'err', 6000);
-          if (e.code === 'AUTH') auth.signOut(); else api.conn.clear();
+          api.conn.clear();
         }
       }
       sync();
@@ -902,10 +911,11 @@ function setBusy(delta) {
 async function call(action, payload = {}, { quiet = false } = {}) {
   if (!conn.ready) throw new ApiError('ยังไม่ได้เชื่อมต่อกับ Google Sheet', 'NOCONN');
 
-  // ส่งข้อมูลยืนยันตัวตนไปทั้ง 2 แบบ ฝั่งเซิร์ฟเวอร์รับอันไหนก็ได้ที่ผ่าน
+  // ส่งข้อมูลยืนยันตัวตนไปทุกแบบที่มี ฝั่งเซิร์ฟเวอร์รับอันไหนก็ได้ที่ผ่าน
+  // (บัตรผ่านจากชีต → ID token ของ Google → รหัสลับ)
   if (!quiet) setBusy(1);
   let text;
-  try { text = await post({ key: conn.key, idToken: auth.token, action, payload }); }
+  try { text = await post({ key: conn.key, session: auth.session, idToken: auth.token, action, payload }); }
   finally { if (!quiet) setBusy(-1); }
 
   let body;
@@ -921,8 +931,15 @@ async function call(action, payload = {}, { quiet = false } = {}) {
   serverInfo.version = body.version || '';
   serverInfo.seen = true;
   if (body.user) serverInfo.user = body.user;
+  if (body.session) auth.saveSession(body.session);   // ชีตออกบัตรผ่าน/ต่ออายุให้ (ชีตรุ่นก่อน 2.14.0 ไม่ส่งมา)
 
-  if (!body.ok) throw new ApiError(body.error || 'เกิดข้อผิดพลาด', body.code);
+  if (!body.ok) {
+    /* ชีตไม่รับบัตรผ่าน/token ที่ส่งไป → ทิ้งเลย ไม่งั้น conn.ready ยังเป็น true ตลอด
+     * แอปจะยิงของที่ใช้ไม่ได้ซ้ำไปเรื่อย ๆ และไม่มีวันพาครูไปหน้าเข้าสู่ระบบ
+     * (บัตรที่ถูกยกเลิกเพราะครูสร้างรหัสลับใหม่ ในเครื่องยังดูไม่หมดอายุไปอีกเป็นเดือน) */
+    if (body.code === 'AUTH' && MODE === 'remote') auth.expire();
+    throw new ApiError(body.error || 'เกิดข้อผิดพลาด', body.code);
+  }
   return body.data;
 }
 
@@ -1044,13 +1061,16 @@ __exp(exports, { storagePersistent, MODE, conn, cache, lastClass, ApiError, Offl
  * ตัวที่ยืนยันว่าเป็นเจ้าของจริงคือ ID token จาก Google ที่ฝั่ง Apps Script
  * เอาไปตรวจกับรายชื่ออีเมลที่อนุญาต
  *
+ * ตรวจผ่านครั้งแรกแล้ว ชีตจะออก "บัตรผ่าน" ของตัวเองให้ (อายุ 30 วัน ต่ออายุให้เองเมื่อใช้งาน)
+ * เพราะ ID token อายุแค่ 1 ชั่วโมง — ดูเหตุผลเต็มที่ issueSession_ ใน apps-script/04_Api.gs
+ *
  * ผลลัพธ์: เปลี่ยนเครื่องแล้วแค่ใส่ URL + กดเข้าสู่ระบบด้วย Google ก็ใช้ได้เลย
- * ไม่ต้องจำรหัสลับ
+ * ไม่ต้องจำรหัสลับ และปิดเว็บแล้วเปิดใหม่ไม่ต้องกดซ้ำ
  */
 
 const { store } = __req("js/storage.js");
 
-const LS = { token: 'ac.idtoken', profile: 'ac.profile', clientId: 'ac.clientid' };
+const LS = { token: 'ac.idtoken', session: 'ac.session', profile: 'ac.profile', clientId: 'ac.clientid' };
 
 /* เก็บผ่าน store — บางเบราว์เซอร์บล็อก localStorage ใน iframe ของ Google
  * ของเดิมกลืน error ทิ้ง ทำให้ token ที่เพิ่งได้มาหายทันที แล้ววนให้ล็อกอินซ้ำไม่จบ */
@@ -1063,26 +1083,36 @@ let gisReady = null;
 let refreshTimer = null;
 const listeners = new Set();
 
+/** อ่าน { token, exp } ที่เก็บไว้ — คืน '' ถ้าไม่มีหรือเหลืออายุไม่ถึง 1 นาที */
+function readStamped(key) {
+  const raw = lsGet(key);
+  if (!raw) return { token: '', exp: 0 };
+  try {
+    const { token, exp } = JSON.parse(raw);
+    if (!token || Date.now() > exp - 60_000) return { token: '', exp: 0 };
+    return { token, exp };
+  } catch { return { token: '', exp: 0 }; }
+}
+
 const auth = {
   get clientId() { return lsGet(LS.clientId) || ''; },
   set clientId(v) { lsSet(LS.clientId, String(v || '').trim()); },
 
-  get token() {
-    const raw = lsGet(LS.token);
-    if (!raw) return '';
-    try {
-      const { token, exp } = JSON.parse(raw);
-      if (!token || Date.now() > exp - 60_000) return '';   // เหลือน้อยกว่า 1 นาที ถือว่าหมดอายุ
-      return token;
-    } catch { return ''; }
-  },
+  /** ID token ของ Google (อายุ 1 ชั่วโมง) — ใช้แลกบัตรผ่านจากชีต */
+  get token() { return readStamped(LS.token).token; },
+
+  /** บัตรผ่านที่ชีตออกให้ (อายุ 30 วัน) — ตัวที่ทำให้ไม่ต้องล็อกอินใหม่ทุกครั้ง */
+  get session() { return readStamped(LS.session).token; },
+
+  /** บัตรผ่านใช้ได้ถึงเมื่อไหร่ (ms) · 0 = ไม่มีบัตร (โค้ดในชีตยังเก่า หรือยังไม่เคยล็อกอิน) */
+  get sessionUntil() { return readStamped(LS.session).exp; },
 
   get profile() {
     try { return JSON.parse(lsGet(LS.profile)) || null; }
     catch { return null; }
   },
 
-  get signedIn() { return !!this.token; },
+  get signedIn() { return !!(this.session || this.token); },
 
   save(token) {
     const p = decodeJwt(token);
@@ -1095,8 +1125,38 @@ const auth = {
     return profile;
   },
 
+  /**
+   * เก็บบัตรผ่านที่ชีตส่งกลับมากับคำตอบ
+   *
+   * ชีตต่ออายุให้วันละครั้ง ถ้าวาดจอใหม่ทุกครั้งที่ได้บัตร ช่องที่ครูกำลังพิมพ์คะแนน
+   * จะโดนวาดทับกลางคัน — จึงแจ้งเฉพาะตอนที่สถานะเปลี่ยนจาก "ยังไม่ได้ล็อกอิน" จริง ๆ
+   */
+  saveSession(s) {
+    const exp = Number(s && s.exp);
+    if (!s || typeof s.token !== 'string' || !s.token || !(exp > Date.now())) return;
+    const was = this.signedIn;
+    lsSet(LS.session, JSON.stringify({ token: s.token, exp }));
+    if (!was) listeners.forEach(fn => fn());
+  },
+
+  /**
+   * ชีตไม่รับบัตรผ่าน/token ที่ถืออยู่แล้ว (หมดอายุ · ครูสร้างรหัสลับใหม่) — ทิ้งเฉพาะตัวนั้น
+   *
+   * ต่างจาก signOut() ตรงที่ยังจำว่าเครื่องนี้เคยล็อกอินด้วยบัญชีไหน และไม่ปิด
+   * auto-select ของ Google — ของเดิมเรียก signOut() ตรงนี้ ซึ่งลบ profile ทิ้ง
+   * restoreSession จึงหมดทางต่อให้เงียบ ๆ ตั้งแต่ครั้งนั้นเป็นต้นไป ครูต้องกดเองทุกครั้ง
+   *
+   * ไม่วาดจอใหม่เอง — คนเรียกเป็นคนตัดสินว่าจะลองต่อเงียบ ๆ ก่อน หรือพาไปหน้าเข้าสู่ระบบ
+   */
+  expire() {
+    lsDel(LS.token);
+    lsDel(LS.session);
+    clearTimeout(refreshTimer);
+  },
+
   signOut() {
     lsDel(LS.token);
+    lsDel(LS.session);
     lsDel(LS.profile);
     clearTimeout(refreshTimer);
     try { window.google?.accounts?.id?.disableAutoSelect(); } catch {}
@@ -1117,7 +1177,13 @@ function decodeJwt(t) {
 function scheduleRefresh(expMs) {
   clearTimeout(refreshTimer);
   const wait = Math.max(30_000, expMs - Date.now() - 5 * 60_000);   // ต่ออายุก่อนหมด 5 นาที
-  refreshTimer = setTimeout(() => { silentSignIn().catch(() => {}); }, wait);
+  refreshTimer = setTimeout(() => {
+    /* มีบัตรผ่านจากชีตแล้ว ไม่ต้องขอ ID token ใหม่
+     * ถ้าขอ แล้ว Google ล็อกอินให้เองไม่ได้ (มีหลายบัญชี · Safari) กล่อง One Tap
+     * จะเด้งขึ้นมากวนกลางหน้าจอทุกชั่วโมงทั้งที่แอปใช้งานได้ปกติ */
+    if (auth.session) return;
+    silentSignIn().catch(() => {});
+  }, wait);
 }
 
 /** โหลดสคริปต์ Google Identity Services ครั้งเดียว */
@@ -1174,7 +1240,7 @@ async function renderSignInButton(el, { onSignedIn } = {}) {
   try { g.accounts.id.prompt(); } catch {}
 }
 
-/** พยายามต่ออายุ token เงียบ ๆ (ใช้ตอนใกล้หมดอายุ หรือโดนปฏิเสธ) */
+/** พยายามขอ ID token ใหม่เงียบ ๆ ผ่าน Google (ใช้ตอนไม่มีบัตรผ่านจากชีต) */
 function silentSignIn(timeout = 12_000) {
   return new Promise((resolve, reject) => {
     initGIS((token) => { auth.save(token); resolve(true); })
@@ -1189,15 +1255,14 @@ function silentSignIn(timeout = 12_000) {
 }
 
 /**
- * ต่อเซสชันให้เองตอนเปิดแอป — ครูจะได้ไม่ต้องกดเข้าสู่ระบบใหม่ทุกครั้ง
+ * ต่อเซสชันให้เองตอนเปิดแอป — ทางสำรองเมื่อไม่มีบัตรผ่านจากชีต
  *
- * ID token ของ Google อายุแค่ 1 ชั่วโมง ของเดิมมีแต่ตัวตั้งเวลาต่ออายุ
- * ซึ่งทำงานเฉพาะตอนแท็บเปิดค้างอยู่ พอปิดแท็บแล้วกลับมาเปิดใหม่วันรุ่งขึ้น
- * token หมดอายุไปแล้ว conn.ready จึงเป็น false = เด้งไปหน้าเข้าสู่ระบบทุกเช้า
- * ทั้งที่บัญชี Google ในเบราว์เซอร์ยังล็อกอินอยู่และเคยกดอนุญาตไปแล้ว
+ * ปกติบัตรผ่าน 30 วันพอแล้ว ตรงนี้ทำงานเฉพาะตอนที่ไม่มีบัตร:
+ * โค้ดในชีตยังเป็นรุ่นก่อน 2.14.0 · ไม่ได้เปิดแอปเกิน 30 วัน · หรือครูสร้างรหัสลับใหม่
  *
- * ขอใหม่เงียบ ๆ ก่อน (auto_select ทำให้ไม่มีอะไรเด้งขึ้นมาถ้าเคยอนุญาตแล้ว)
- * ถ้าไม่ได้ค่อยไปหน้าเข้าสู่ระบบตามเดิม
+ * อย่าพึ่งทางนี้เป็นหลัก — Google ล็อกอินให้เงียบ ๆ ไม่ได้ในหลายกรณีที่เจอบ่อย
+ * (Safari/iPhone บล็อกคุกกี้ที่ต้องใช้ · มีหลายบัญชีในเบราว์เซอร์ · พักไว้ 10 นาทีหลังครั้งก่อน)
+ * ซึ่งเป็นเหตุผลที่ครูยังเจอหน้าเข้าสู่ระบบแทบทุกครั้งในรุ่นที่มีแต่ทางนี้
  *
  * @param timeout อย่าตั้งนาน — ระหว่างนี้แอปยังค้างอยู่ที่หน้าโหลด
  * @returns true = ได้ token ใหม่แล้ว
@@ -2038,17 +2103,35 @@ const ATT_NAMES = { 'ม': 'มา', 'ส': 'สาย', 'ล': 'ลา', 'ข':
 const NOT_SUBMITTED = 'x';
 const LATE_PREFIX = 'L';   // ส่งช้า เก็บเป็น "L8" = ส่งช้า ได้ 8 คะแนน
 
+/* สอบซ่อม เก็บเป็น "R15/6" = ซ่อมได้ 15 · ครั้งแรกได้ 6 ("R15/x" = ครั้งแรกขาดสอบ)
+ * อยู่ในช่องเดียวกับคะแนนแบบเดียวกับ "L8" — คิวออฟไลน์ · เลิกทำ · แคช จึงใช้ของเดิมได้ทั้งหมด
+ * และคะแนนครั้งแรกไม่มีทางแยกหลุดจากคะแนนซ่อม (ถ้าเก็บคนละที่ ลบ/ย้ายคอลัมน์ทีเดียวก็หลงกันแล้ว) */
+const RETAKE_PREFIX = 'R';
+const RETAKE_RE = /^r\s*(\d+(?:\.\d+)?)\s*\/\s*(x|\d+(?:\.\d+)?)$/i;
+
+/** ประเภทที่มีปุ่มสอบซ่อม — ครูเลือกไว้ที่สอบเก็บคะแนนกับกลางภาค (อยากเพิ่มก็เติมตรงนี้ที่เดียว) */
+const RETAKE_KINDS = ['QUIZ', 'MID'];
+
 /**
  * อ่านค่าในช่องเช็คงาน/คะแนนสอบ
  *   ''    → none  ยังไม่ตรวจ
  *   'x'   → miss  ไม่ส่ง (0 คะแนน แต่นับในตัวหาร)
  *   'L8'  → late  ส่งช้า ได้ 8
  *   '8'   → ok    ส่งปกติ ได้ 8
+ *   'R15/6' → ok  สอบซ่อมได้ 15 · retake: true · orig: 6 (คะแนนครั้งแรก · 'R15/x' → orig null = ขาดสอบ)
+ *                 คิดคะแนนด้วย 15 ตามที่กรอกจริง — ครูเลือกไม่ตัดเพดานไว้ที่เกณฑ์ผ่าน
+ *
+ * ⚠️ ต้องตรงกับ parseWork_ ใน apps-script/00_Constants.gs เสมอ (test/parity.mjs คุมไว้)
  */
 function parseWork(raw) {
   const s = raw === undefined || raw === null ? '' : String(raw).trim();
   if (s === '') return { status: 'none', score: 0 };
   if (s.toLowerCase() === NOT_SUBMITTED) return { status: 'miss', score: 0 };
+  const rt = RETAKE_RE.exec(s);
+  if (rt) {
+    return { status: 'ok', score: Number(rt[1]), retake: true,
+      orig: rt[2].toLowerCase() === NOT_SUBMITTED ? null : Number(rt[2]) };
+  }
   const late = /^l/i.test(s);
   const n = Number(late ? s.slice(1) : s);
   if (isNaN(n)) return { status: 'none', score: 0 };
@@ -2099,6 +2182,12 @@ function formatWork(status, score) {
   if (status === 'none') return '';
   if (status === 'miss') return NOT_SUBMITTED;
   return (status === 'late' ? LATE_PREFIX : '') + String(score);
+}
+
+/** ประกอบค่าสอบซ่อมกลับไปเก็บในชีต · orig ว่าง/null = ครั้งแรกขาดสอบ */
+function formatRetake(score, orig) {
+  const first = orig === null || orig === undefined || orig === '' ? NOT_SUBMITTED : String(orig);
+  return RETAKE_PREFIX + String(score) + '/' + first;
 }
 
 const BUCKETS = [
@@ -2290,7 +2379,7 @@ function attStats(cls, colKey) {
   return out;
 }
 
-__exp(exports, { ATT_CODES, ATT_NAMES, NOT_SUBMITTED, parseWork, passMarkOf, passOf, formatWork, BUCKETS, settingsFrom, badCuts, bucketColumns, computeClass, attStats });
+__exp(exports, { ATT_CODES, ATT_NAMES, NOT_SUBMITTED, RETAKE_KINDS, parseWork, passMarkOf, passOf, formatWork, formatRetake, BUCKETS, settingsFrom, badCuts, bucketColumns, computeClass, attStats });
 
   };
 
@@ -3467,7 +3556,9 @@ __exp(exports, { viewAttendance });
 
 const { h, modal, toast, confirmBox, nf } = __req("js/dom.js");
 const { state, emit, loadClass, ensureColumn, setCells, getCell, deleteColumn, updateColumn, settings, undoLastEdit } = __req("js/state.js");
-const { BUCKETS, NOT_SUBMITTED, parseWork, formatWork, passMarkOf, passOf } = __req("js/score.js");
+const { BUCKETS, NOT_SUBMITTED, RETAKE_KINDS, parseWork, formatWork, formatRetake, passMarkOf, passOf } = __req("js/score.js");
+const { serverInfo } = __req("js/api.js");
+const { serverSupports } = __req("js/version.js");
 
 /** ปุ่ม "เลิกทำ" แปะท้าย toast — ใช้กับปุ่มที่แก้ทีเดียวหลายคน */
 const undoAction = () => ({
@@ -3704,8 +3795,12 @@ function listScreen() {
 
 function tally(col) {
   const vals = state.cls.values[col.key] || {};
-  const t = { ok: 0, late: 0, miss: 0, none: 0, total: state.cls.students.length };
-  for (const s of state.cls.students) t[parseWork(vals[s.sid]).status]++;
+  const t = { ok: 0, late: 0, miss: 0, none: 0, retake: 0, total: state.cls.students.length };
+  for (const s of state.cls.students) {
+    const w = parseWork(vals[s.sid]);
+    t[w.status]++;
+    if (w.retake) t.retake++;     // นับรวมใน ok ด้วย (สอบแล้ว) — ตัวนี้แค่บอกว่ามีกี่คนที่มาจากสอบซ่อม
+  }
   // งานส่ง: "ตรวจแล้ว" = ดูครบทุกคนแล้ว (รวมคนไม่ส่ง)
   // ข้อสอบ: "สอบแล้ว" = คนที่เข้าสอบจริง ไม่รวมคนที่ยังไม่ได้สอบ
   t.done = isExam(col) ? t.ok : t.total - t.none;
@@ -3728,7 +3823,8 @@ function itemRow(col) {
         h('div', { class: 'list-sub' },
           `เต็ม ${col.max} · ${words(col).done} ${t.done}/${t.total}`,
           t.late > 0 ? ` · ส่งช้า ${t.late}` : '',
-          t.miss > 0 ? ` · ${words(col).miss} ${t.miss}` : '')),
+          t.miss > 0 ? ` · ${words(col).miss} ${t.miss}` : '',
+          t.retake > 0 ? ` · สอบซ่อม ${t.retake}` : '')),
       t.none === 0
         ? h('span', { class: 'badge g' }, 'ครบ')
         : h('span', { class: 'badge a' }, `ค้าง ${t.none}`)
@@ -3748,9 +3844,23 @@ function lateScore(col) {
   return Math.max(0, Math.round(col.max * (1 - pct / 100) * 100) / 100);
 }
 
+/** ประเภทที่มีปุ่มสอบซ่อม (ดู RETAKE_KINDS ใน js/score.js) */
+const canRetake = (col) => !!col && RETAKE_KINDS.includes(col.kind);
+
+/** คะแนนครั้งแรกของช่องสอบซ่อม ในรูปที่อ่านรู้เรื่อง */
+const origText = (w) => (w.orig === null ? 'ขาดสอบ' : nf(w.orig));
+
+/** หน้าปุ่มสอบซ่อม — ตอนเปิดอยู่ต้องเห็นคะแนนเดิมบนปุ่มเลย ไม่ต้องกดเข้าไปดู */
+const retakeFace = (w) => (w.retake
+  ? [h('span', null, 'ซ่อมแล้ว'), h('small', null, 'เดิม ' + origText(w))]
+  : ['สอบซ่อม']);
+
 const statusBtnsOf = (col) => (isExam(col)
   ? [{ st: 'ok',   label: 'สอบแล้ว',  cls: 'ok',   title: 'สอบแล้ว — กรอกคะแนนที่ได้ในช่องขวา' },
-     { st: 'miss', label: 'ยังไม่สอบ', cls: 'miss', title: 'ยังไม่ได้สอบ / ขาดสอบ — คิดเป็น 0 คะแนน' }]
+     { st: 'miss', label: 'ยังไม่สอบ', cls: 'miss', title: 'ยังไม่ได้สอบ / ขาดสอบ — คิดเป็น 0 คะแนน' },
+     ...(canRetake(col)
+       ? [{ st: 'retake', label: 'สอบซ่อม', cls: 'retake', title: 'บันทึกคะแนนสอบซ่อม — ระบบเก็บคะแนนครั้งแรกไว้ให้ด้วย' }]
+       : [])]
   : [{ st: 'ok',   label: 'ส่ง',    cls: 'ok' },
      { st: 'late', label: 'ช้า',    cls: 'late' },
      { st: 'miss', label: 'ไม่ส่ง', cls: 'miss' }]);
@@ -3765,18 +3875,14 @@ const statusBtnsOf = (col) => (isExam(col)
  */
 function scoreRow(col, s, { head, nextInput } = {}) {
   const W = words(col);
-  const cur = parseWork(getCell(col.key, s.sid));
 
   // ต่ำกว่าเกณฑ์ผ่าน = ขึ้นสีแดงทันทีตอนกรอก ครูจะได้เห็นว่าใครต้องซ่อมโดยไม่ต้องไปเปิดรายงาน
   const mark = passMarkOf(col, settings());
-  const failCls = (raw) => passOf(col, raw, settings()) === false ? ' below' : '';
 
+  // ค่า · สี · ปุ่มที่ติด ตั้งใน paint() ที่เดียวท้ายฟังก์ชัน (ทั้งตอนสร้างและหลังแก้ทุกครั้ง)
   const inp = h('input', {
-    class: 'score-inp' + (cur.status === 'miss' ? ' miss' : (cur.status !== 'none' ? ' filled' : ''))
-      + failCls(getCell(col.key, s.sid)),
+    class: 'score-inp',
     type: 'number', inputmode: 'decimal', min: '0', max: String(col.max), step: 'any',
-    value: (cur.status === 'ok' || cur.status === 'late') ? String(cur.score) : '',
-    placeholder: cur.status === 'miss' ? W.missShort : '',
     onkeydown: (e) => {
       if (e.key !== 'Enter') return;
       e.preventDefault();
@@ -3791,33 +3897,59 @@ function scoreRow(col, s, { head, nextInput } = {}) {
       if (n > col.max) { toast(`เกินคะแนนเต็ม (${col.max})`, 'err'); n = col.max; }
       if (n < 0) n = 0;
       e.target.value = String(n);
+      const now = parseWork(getCell(col.key, s.sid));
+      // ช่องที่เป็นสอบซ่อม: พิมพ์แก้ = แก้คะแนนซ่อม คะแนนครั้งแรกต้องอยู่ที่เดิม
+      if (now.retake) return write(formatRetake(n, now.orig));
       // พิมพ์คะแนนเองแล้วยังคงสถานะ "ส่งช้า" ไว้ถ้าเคยตั้งไว้
-      apply(read() === 'late' ? 'late' : 'ok', n);
+      apply(now.status === 'late' ? 'late' : 'ok', n);
     }
   });
 
   const btns = statusBtnsOf(col).map(b => h('button', {
-    class: 'st-btn ' + b.cls, 'data-st': b.st, 'data-on': cur.status === b.st ? '1' : '0',
+    class: 'st-btn ' + b.cls, 'data-st': b.st,
     title: b.title || (b.st === 'late' ? `ส่งช้า (ได้ ${lateScore(col)}/${col.max})` : b.label),
-    onclick: () => apply(read() === b.st ? 'none' : b.st)
+    onclick: () => {
+      const now = parseWork(getCell(col.key, s.sid));
+      /* ช่องที่ซ่อมแล้ว กดปุ่มไหนก็เปิดกล่องสอบซ่อม ไม่เขียนทับทันที
+       * กด "สอบแล้ว" พลาดทีเดียว คะแนนครั้งแรกกับคะแนนซ่อมจะหายพร้อมกัน
+       * (ในกล่องมีปุ่มยกเลิกสอบซ่อมให้อยู่แล้ว ถ้าตั้งใจจะเอาออกจริง) */
+      if (b.st === 'retake' || now.retake) return openRetake(col, s, paint);
+      apply(now.status === b.st ? 'none' : b.st);
+    }
   }, b.label));
 
   const group = h('div', { class: 'st-group' }, btns);
-  const read = () => (btns.find(b => b.dataset.on === '1') || {}).dataset?.st || 'none';
+
+  function write(value) {
+    setCells([{ key: col.key, sid: s.sid, value }], { quiet: true });
+    paint();
+    refreshProgress(col);
+  }
 
   function apply(status, score) {
     let sc = score;
     if (status === 'ok'   && sc === undefined) sc = col.max;
     if (status === 'late' && sc === undefined) sc = lateScore(col);
-    setCells([{ key: col.key, sid: s.sid, value: formatWork(status, sc) }], { quiet: true });
+    write(formatWork(status, sc));
+  }
 
-    btns.forEach(b => { b.dataset.on = (b.dataset.st === status) ? '1' : '0'; });
-    inp.value = (status === 'ok' || status === 'late') ? String(sc) : '';
-    inp.placeholder = status === 'miss' ? W.missShort : '';
-    inp.classList.toggle('miss', status === 'miss');
-    inp.classList.toggle('filled', status === 'ok' || status === 'late');
-    inp.classList.toggle('below', passOf(col, formatWork(status, sc), settings()) === false);
-    refreshProgress(col);
+  /** วาดแถวนี้ให้ตรงกับค่าในช่องตอนนี้ — อ่านจาก state ทุกครั้ง ไม่จำสถานะไว้ในปุ่ม */
+  function paint() {
+    const raw = getCell(col.key, s.sid);
+    const w = parseWork(raw);
+    const st = w.retake ? 'retake' : w.status;
+    const scored = w.status === 'ok' || w.status === 'late';
+    btns.forEach(b => {
+      b.dataset.on = b.dataset.st === st ? '1' : '0';
+      if (b.dataset.st === 'retake') b.replaceChildren(...retakeFace(w));
+    });
+    inp.value = scored ? String(w.score) : '';
+    inp.placeholder = w.status === 'miss' ? W.missShort : '';
+    inp.title = w.retake ? `คะแนนสอบซ่อม · ครั้งแรก ${origText(w)}` : '';
+    inp.classList.toggle('miss', w.status === 'miss');
+    inp.classList.toggle('filled', scored);
+    inp.classList.toggle('retake', !!w.retake);
+    inp.classList.toggle('below', passOf(col, raw, settings()) === false);
   }
 
   // ฝั่งซ้าย+คะแนนบรรทัดบน · ปุ่มสถานะเต็มความกว้างบรรทัดล่าง
@@ -3830,8 +3962,81 @@ function scoreRow(col, s, { head, nextInput } = {}) {
           '/' + col.max + (mark === null ? '' : ` · ผ่าน ${mark}`)))),
     group
   );
+  paint();
   row.__input = inp;
   return row;
+}
+
+/**
+ * กล่องบันทึกคะแนนสอบซ่อม
+ *
+ * ช่องคะแนนครั้งแรกเติมค่าที่อยู่ในช่องตอนนี้ไว้ให้ แต่แก้ได้ — ครูบางคนพิมพ์คะแนนซ่อมทับลงช่องไปก่อน
+ * แล้วค่อยนึกได้ว่าต้องกดปุ่ม ถ้าล็อกไว้ คะแนนครั้งแรกที่ถูกทับไปแล้วจะไม่มีทางใส่คืน
+ *
+ * @param done วาดแถวที่กดมาใหม่ (ไม่วาดทั้งหน้า — ช่องที่ครูพิมพ์ค้างไว้แถวอื่นจะไม่หลุด)
+ */
+function openRetake(col, s, done) {
+  // ชีตรุ่นเก่าอ่าน "R15/6" ไม่ออก จะนับเป็นยังไม่ตรวจแล้วคะแนนสรุปของคนนี้หายจากชีต
+  if (!serverSupports('retake', serverInfo)) {
+    return toast('โค้ดในชีตยังเป็นรุ่นเก่า อ่านคะแนนสอบซ่อมไม่ออก — อัปโค้ดในชีตก่อน (⚙️ ตั้งค่า → ตรวจสภาพระบบ)', 'err', 7000);
+  }
+
+  const w = parseWork(getCell(col.key, s.sid));
+  const mark = passMarkOf(col, settings());
+  const first = w.retake ? w.orig : ((w.status === 'ok' || w.status === 'late') ? w.score : null);
+  const numInput = (value, placeholder) => h('input', {
+    type: 'number', inputmode: 'decimal', min: '0', max: String(col.max), step: 'any',
+    value: value === null ? '' : String(value), placeholder
+  });
+  const origIn = numInput(first, 'เว้นว่าง = ขาดสอบ');
+  const againIn = numInput(w.retake ? w.score : null, `0–${col.max}`);
+
+  /** อ่านช่องตัวเลข · ว่าง = null · นอกช่วงคะแนน = โยนข้อความให้ครูอ่าน */
+  const readNum = (el, what) => {
+    const v = el.value.trim();
+    if (v === '') return null;
+    const n = Number(v);
+    if (!isFinite(n) || n < 0 || n > col.max) throw new Error(`${what}ต้องอยู่ระหว่าง 0–${col.max}`);
+    return n;
+  };
+
+  const commit = (value, msg, close) => {
+    setCells([{ key: col.key, sid: s.sid, value }], { quiet: true });
+    close();
+    done();
+    refreshProgress(col);
+    toast(msg, 'ok', 2600, undoAction());
+  };
+
+  modal((close) => {
+    const save = h('button', { class: 'btn btn-block' }, 'บันทึกคะแนนสอบซ่อม');
+    save.onclick = () => {
+      let o, r;
+      try { o = readNum(origIn, 'คะแนนครั้งแรก'); r = readNum(againIn, 'คะแนนสอบซ่อม'); }
+      catch (e) { return toast(e.message, 'err'); }
+      if (r === null) return toast('กรอกคะแนนสอบซ่อมก่อน', 'err');
+      const short = mark !== null && r < mark ? ` · ยังไม่ถึงเกณฑ์ผ่าน ${nf(mark)}` : '';
+      commit(formatRetake(r, o), `บันทึกสอบซ่อมแล้ว · ${s.name || 'เลขที่ ' + s.no}${short}`, close);
+    };
+
+    return h('div', null,
+      h('h2', null, 'สอบซ่อม · ' + col.label),
+      h('div', { class: 'hint', style: { marginBottom: '12px' } },
+        `${s.no}. ${s.name || '—'} · เต็ม ${col.max}` + (mark === null ? '' : ` · เกณฑ์ผ่าน ${nf(mark)}`)),
+      h('div', { class: 'field' }, h('label', null, 'คะแนนครั้งแรก'), origIn,
+        h('div', { class: 'hint' },
+          'เก็บไว้ให้ดูเท่านั้น ไม่นำไปคิดคะแนน · ถ้าเผลอพิมพ์คะแนนซ่อมทับช่องไปแล้ว แก้ตรงนี้กลับเป็นคะแนนครั้งแรกได้')),
+      h('div', { class: 'field' }, h('label', null, 'คะแนนสอบซ่อม *'), againIn,
+        h('div', { class: 'hint' }, 'ใช้คะแนนนี้คิดคะแนนสรุปและเกรดตามที่กรอกจริง')),
+      save,
+      w.retake && h('button', {
+        class: 'btn btn-ghost btn-block', style: { marginTop: '8px' },
+        onclick: () => commit(w.orig === null ? NOT_SUBMITTED : String(w.orig),
+          'ยกเลิกสอบซ่อมแล้ว · กลับไปใช้คะแนนครั้งแรก', close)
+      }, `ยกเลิกสอบซ่อม · กลับไปใช้คะแนนครั้งแรก (${origText(w)})`)
+    );
+  });
+  setTimeout(() => { try { againIn.focus(); } catch (e) {} }, 60);
 }
 
 function gradeScreen(col) {
@@ -4049,6 +4254,7 @@ function progressText(col) {
   return `เต็ม ${col.max} · ${W.done} ${t.done}/${t.total}`
     + (t.late ? ` · ช้า ${t.late}` : '')
     + (t.miss ? ` · ${W.miss} ${t.miss}` : '')
+    + (t.retake ? ` · สอบซ่อม ${t.retake}` : '')
     + (scored.length ? ` · เฉลี่ย ${nf(avg, 1)}` : '');
 }
 
@@ -4196,6 +4402,13 @@ function openPaste(col) {
         const raw = lines[i];
         if (raw === '' || raw === '-') { cells.push({ key: col.key, sid: s.sid, value: '' }); return; }
         if (/^x$|^ไม่ส่ง$|^ขาดสอบ$|^ไม่ได้สอบ$/i.test(raw)) { cells.push({ key: col.key, sid: s.sid, value: NOT_SUBMITTED }); return; }
+        const rt = parseWork(raw);
+        if (rt.retake) {
+          if (!canRetake(col)) return;             // รายการนี้ไม่มีสอบซ่อม — ข้ามบรรทัดนี้ ไม่เดาให้
+          const clamp = (x) => Math.max(0, Math.min(col.max, x));
+          cells.push({ key: col.key, sid: s.sid, value: formatRetake(clamp(rt.score), rt.orig === null ? null : clamp(rt.orig)) });
+          return;
+        }
         const late = /^(l|ช้า)/i.test(raw);
         const n = Number(raw.replace(/^(l|ช้า)\s*/i, ''));
         if (isNaN(n)) return;
@@ -4212,7 +4425,8 @@ function openPaste(col) {
         `เรียงตามลำดับเลขที่ในรายชื่อ (${state.cls.students.length} คน)`,
         h('br'),
         exam
-          ? ['ตัวเลข = คะแนนที่สอบได้ · ', h('code', null, 'x'), ' = ยังไม่ได้สอบ · เว้นว่าง = ยังไม่กรอก']
+          ? ['ตัวเลข = คะแนนที่สอบได้ · ', h('code', null, 'x'), ' = ยังไม่ได้สอบ · เว้นว่าง = ยังไม่กรอก',
+             canRetake(col) && [' · ', h('code', null, 'R15/6'), ' = สอบซ่อมได้ 15 (ครั้งแรก 6)']]
           : ['ตัวเลข = ส่ง · ', h('code', null, 'L7'), ' = ส่งช้าได้ 7 · ',
              h('code', null, 'x'), ' = ไม่ส่ง · เว้นว่าง = ยังไม่ตรวจ']),
       ta, h('div', { style: { height: '10px' } }), save
@@ -4221,6 +4435,68 @@ function openPaste(col) {
 }
 
 __exp(exports, { viewWork });
+
+  };
+
+  __defs["js/version.js"] = function (exports, __req) {
+/* เวอร์ชันของแอป — ใช้ตรวจว่าโค้ดในชีตกับหน้าเว็บตรงกันไหม
+ *
+ * ⚠️ เวลาแก้โค้ดที่กระทบทั้ง 2 ฝั่ง ให้บวกเลขนี้ และแก้ SERVER_VERSION
+ *    ใน apps-script/00_Constants.gs ให้ตรงกันด้วย
+ */
+const APP_VERSION = '3.8.0';
+
+/* เลขเวอร์ชัน 2 ฝั่งเดินคนละสาย (หน้าเว็บ 3.x · โค้ดในชีต 2.x)
+ * จึงเทียบกันตรง ๆ ไม่ได้ ต้องเทียบกับ 2 ค่านี้เท่านั้น */
+
+/** เวอร์ชันต่ำสุดของฝั่งชีตที่หน้าเว็บนี้ทำงานด้วยได้ครบทุกฟีเจอร์
+ *  ⚠️ ต้องบวกทุกครั้งที่เพิ่มฟีเจอร์ที่ต้องเขียนข้อมูลรูปแบบใหม่ลงชีต ไม่งั้นชีตรุ่นเก่า
+ *     จะรับคำสั่งไว้เฉย ๆ แล้วทิ้งค่าที่ส่งไป โดยไม่มีอะไรฟ้อง */
+const NEEDS_SERVER = '2.14.0';
+
+/** เวอร์ชันฝั่งชีตที่มาคู่กับหน้าเว็บรุ่นนี้ (= SERVER_VERSION ใน 00_Constants.gs)
+ *  สูงกว่านี้ = ครู deploy โค้ดชีตใหม่กว่าหน้าเว็บที่เปิดอยู่ · ต่ำกว่า = ยังไม่ได้ deploy ของใหม่ */
+const SERVER_BUILT_FOR = '2.14.0';
+
+/** เทียบเวอร์ชันแบบ semver ง่าย ๆ — คืน -1 / 0 / 1 */
+function cmpVersion(a, b) {
+  const pa = String(a || '0').split('.').map(Number);
+  const pb = String(b || '0').split('.').map(Number);
+  for (let i = 0; i < 3; i++) {
+    const x = pa[i] || 0, y = pb[i] || 0;
+    if (x !== y) return x < y ? -1 : 1;
+  }
+  return 0;
+}
+
+/** ฟีเจอร์ที่ต้องใช้โค้ดฝั่งชีตเวอร์ชันไหน — ใช้เตือนแบบเจาะจง */
+const FEATURES = [
+  { since: '2.2.0', name: 'ปุ่ม "ส่งช้า"', why: 'ถ้าโค้ดเก่า คะแนนงานที่กดส่งช้าจะถูกคิดเป็น 0 ในชีต' },
+  { since: '2.2.0', name: 'รายละเอียดงาน', why: 'รายละเอียดจะไม่ถูกบันทึกลงชีต' },
+  { since: '2.3.0', name: 'เข้าสู่ระบบด้วย Google', why: 'ต้องใช้โค้ดใหม่ในการตรวจบัญชี' },
+  { since: '2.4.0', name: 'ช่องที่ยังไม่กรอกขึ้น "—"', why: 'ถ้าโค้ดเก่า ชีตจะยังให้คะแนนเข้าเรียนเต็มทั้งที่ยังไม่ได้เช็คชื่อ' },
+  { since: '2.6.0', name: 'หน้าให้นักเรียนดูผล', why: 'ต้องใช้โค้ดใหม่ (ไฟล์ 05_Student.gs) นักเรียนจะเปิดหน้าไม่ได้' },
+  { since: '2.13.0', name: 'เกณฑ์ผ่านรายข้อสอบ', why: 'ถ้าโค้ดเก่า เกณฑ์ที่ตั้งจะไม่ถูกเขียนลงชีต หน้าจอโชว์ไว้ชั่วคราวแล้วหายตอนเปิดห้องใหม่' },
+  { since: '2.13.2', name: 'ห้องที่รายชื่อมีแถวว่างคั่น', why: 'ถ้าโค้ดเก่า คะแนนสรุป/เกรด/ธงจะลงผิดคน และแก้รายชื่อทีเดียวคะแนนของคนใต้แถวว่างหายทั้งหมด' },
+  /* จำการเข้าสู่ระบบ 30 วัน (2.14.0) ไม่อยู่ในรายการนี้โดยตั้งใจ — แถบเตือนอ่านรายการนี้ว่า
+   * "จะไม่ถูกบันทึกลงชีต" ซึ่งไม่จริงกับเรื่องล็อกอิน หน้าตรวจสภาพเตือนเรื่องนั้นแยกไว้แล้ว */
+  { id: 'retake', since: '2.14.0', name: 'คะแนนสอบซ่อม',
+    why: 'ถ้าโค้ดเก่า ชีตอ่านคะแนนสอบซ่อมไม่ออก จะนับช่องนั้นเป็นยังไม่ตรวจ คะแนนสรุปของคนนั้นหายไปจากชีต' }
+];
+
+/**
+ * โค้ดในชีตที่คุยอยู่รองรับฟีเจอร์นี้แล้วหรือยัง
+ *
+ * ใช้กันก่อนเขียนข้อมูลรูปแบบใหม่ — แถบเตือนบนสุดบอกได้แค่ว่าเก่า แต่ไม่ได้ห้าม
+ * ยังไม่เคยคุยกับชีตรอบนี้ (ออฟไลน์) = ปล่อยผ่าน ไม่งั้นกรอกคะแนนหน้าห้องที่ไม่มีเน็ตไม่ได้
+ */
+function serverSupports(id, info) {
+  const f = FEATURES.find(x => x.id === id);
+  if (!f || !info || !info.seen) return true;
+  return cmpVersion(info.version, f.since) >= 0;
+}
+
+__exp(exports, { APP_VERSION, NEEDS_SERVER, SERVER_BUILT_FOR, cmpVersion, FEATURES, serverSupports });
 
   };
 
@@ -4701,8 +4977,12 @@ function classReport() {
     .map(c => {
       const mark = passMarkOf(c, S);
       if (mark === null) return null;
-      const who = (cls.students || []).filter(st => passOf(c, (cls.values[c.key] || {})[st.sid], S) === false);
-      return who.length ? { col: c, mark, who } : null;
+      const V = cls.values[c.key] || {};
+      const who = (cls.students || []).filter(st => passOf(c, V[st.sid], S) === false);
+      // ซ่อมผ่านแล้วหลุดจาก who เอง (คิดด้วยคะแนนซ่อม) — แต่ครูยังอยากรู้ว่าตามเก็บไปได้กี่คนแล้ว
+      const fixed = (cls.students || [])
+        .filter(st => parseWork(V[st.sid]).retake && passOf(c, V[st.sid], S) === true).length;
+      return who.length ? { col: c, mark, who, fixed } : null;
     })
     .filter(Boolean);
 
@@ -4773,19 +5053,23 @@ function classReport() {
       h('div', { class: 'rep-head' },
         h('h3', null, `ไม่ผ่านเกณฑ์ · ${failGroups.length} รายการ`),
         h('span', null, 'กดชื่อเพื่อดูรายบุคคล')),
-      failGroups.map(({ col, mark, who }) => h('div', { class: 'fail-group' },
+      failGroups.map(({ col, mark, who, fixed }) => h('div', { class: 'fail-group' },
         h('div', { class: 'fail-head' },
           h('b', null, col.label),
-          h('span', null, `${bucketName(col)} · ผ่านที่ ${nf(mark)}/${nf(col.max)} · ไม่ผ่าน ${who.length} คน`)),
+          h('span', null, `${bucketName(col)} · ผ่านที่ ${nf(mark)}/${nf(col.max)} · ไม่ผ่าน ${who.length} คน`
+            + (fixed ? ` · ซ่อมผ่านแล้ว ${fixed} คน` : ''))),
         h('div', { class: 'fail-names' }, who.map(st => {
           const w = parseWork((cls.values[col.key] || {})[st.sid]);
+          const got = w.status === 'miss' ? (isExam(col) ? 'ยังไม่ได้สอบ' : 'ไม่ส่ง') : nf(w.score);
           return h('button', {
             class: 'fail-chip',
-            title: `${st.name} · ได้ ${w.status === 'miss' ? (isExam(col) ? 'ยังไม่ได้สอบ' : 'ไม่ส่ง') : nf(w.score)}`,
+            title: `${st.name} · ได้ ${got}`
+              + (w.retake ? ` (สอบซ่อมแล้ว · ครั้งแรก ${w.orig === null ? 'ขาดสอบ' : nf(w.orig)})` : ''),
             onclick: () => { ui.tab = 'student'; ui.sid = st.sid; emit(); }
           },
             h('span', null, `${st.no}. ${st.name || '—'}`),
-            h('b', null, w.status === 'miss' ? '—' : nf(w.score)));
+            // ซ่อมแล้วยังไม่ผ่าน — บอกไว้บนชิป ครูจะได้ไม่เรียกมาซ่อมซ้ำโดยไม่รู้ตัว
+            h('b', null, (w.retake ? 'ซ่อม ' : '') + (w.status === 'miss' ? '—' : nf(w.score))));
         }))
       ))
     ),
@@ -5820,8 +6104,17 @@ function runChecks() {
       action: email ? null : { label: 'ทดสอบการเชื่อมต่อ', run: testConn }
     });
   } else if (auth.signedIn) {
-    out.push({ level: 'ok', title: 'เข้าสู่ระบบด้วยบัญชี Google', detail: auth.profile?.email || '',
-      fix: null });
+    const until = auth.sessionUntil;
+    out.push(until
+      ? { level: 'ok', title: 'เข้าสู่ระบบด้วยบัญชี Google', fix: null,
+          detail: `${auth.profile?.email || ''} · จำการเข้าสู่ระบบไว้ถึง ` +
+            `${new Date(until).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })} (ต่ออายุเองเมื่อใช้งาน)` }
+      /* มีแต่ ID token 1 ชั่วโมง = ชีตยังไม่ออกบัตรผ่านให้ ปิดเว็บแล้วเปิดใหม่จะเจอหน้าเข้าสู่ระบบบ่อย
+       * ต้องบอกตรงนี้ เพราะอาการนี้ดูเหมือนแอปพัง ทั้งที่แค่ยังไม่ได้ Deploy โค้ดชีตรุ่นใหม่ */
+      : { level: 'warn', title: 'เข้าสู่ระบบด้วย Google — แต่จำไว้แค่ 1 ชั่วโมง',
+          detail: auth.profile?.email || '',
+          fix: 'อัปโค้ดในชีตเป็น v2.14.0 ขึ้นไป แล้วปิดเว็บเปิดใหม่จะไม่ต้องกดเข้าสู่ระบบซ้ำ',
+          action: { label: 'ดูวิธีอัปเดต', run: showUpdateSteps } });
   } else if (api.conn.key) {
     out.push({
       level: 'warn', title: 'ยังใช้รหัสลับอยู่',
@@ -6010,52 +6303,6 @@ function showUpdateSteps() {
 }
 
 __exp(exports, { viewHealth });
-
-  };
-
-  __defs["js/version.js"] = function (exports, __req) {
-/* เวอร์ชันของแอป — ใช้ตรวจว่าโค้ดในชีตกับหน้าเว็บตรงกันไหม
- *
- * ⚠️ เวลาแก้โค้ดที่กระทบทั้ง 2 ฝั่ง ให้บวกเลขนี้ และแก้ SERVER_VERSION
- *    ใน apps-script/00_Constants.gs ให้ตรงกันด้วย
- */
-const APP_VERSION = '3.7.2';
-
-/* เลขเวอร์ชัน 2 ฝั่งเดินคนละสาย (หน้าเว็บ 3.x · โค้ดในชีต 2.x)
- * จึงเทียบกันตรง ๆ ไม่ได้ ต้องเทียบกับ 2 ค่านี้เท่านั้น */
-
-/** เวอร์ชันต่ำสุดของฝั่งชีตที่หน้าเว็บนี้ทำงานด้วยได้ครบทุกฟีเจอร์
- *  ⚠️ ต้องบวกทุกครั้งที่เพิ่มฟีเจอร์ที่ต้องเขียนข้อมูลรูปแบบใหม่ลงชีต ไม่งั้นชีตรุ่นเก่า
- *     จะรับคำสั่งไว้เฉย ๆ แล้วทิ้งค่าที่ส่งไป โดยไม่มีอะไรฟ้อง */
-const NEEDS_SERVER = '2.13.2';
-
-/** เวอร์ชันฝั่งชีตที่มาคู่กับหน้าเว็บรุ่นนี้ (= SERVER_VERSION ใน 00_Constants.gs)
- *  สูงกว่านี้ = ครู deploy โค้ดชีตใหม่กว่าหน้าเว็บที่เปิดอยู่ · ต่ำกว่า = ยังไม่ได้ deploy ของใหม่ */
-const SERVER_BUILT_FOR = '2.13.2';
-
-/** เทียบเวอร์ชันแบบ semver ง่าย ๆ — คืน -1 / 0 / 1 */
-function cmpVersion(a, b) {
-  const pa = String(a || '0').split('.').map(Number);
-  const pb = String(b || '0').split('.').map(Number);
-  for (let i = 0; i < 3; i++) {
-    const x = pa[i] || 0, y = pb[i] || 0;
-    if (x !== y) return x < y ? -1 : 1;
-  }
-  return 0;
-}
-
-/** ฟีเจอร์ที่ต้องใช้โค้ดฝั่งชีตเวอร์ชันไหน — ใช้เตือนแบบเจาะจง */
-const FEATURES = [
-  { since: '2.2.0', name: 'ปุ่ม "ส่งช้า"', why: 'ถ้าโค้ดเก่า คะแนนงานที่กดส่งช้าจะถูกคิดเป็น 0 ในชีต' },
-  { since: '2.2.0', name: 'รายละเอียดงาน', why: 'รายละเอียดจะไม่ถูกบันทึกลงชีต' },
-  { since: '2.3.0', name: 'เข้าสู่ระบบด้วย Google', why: 'ต้องใช้โค้ดใหม่ในการตรวจบัญชี' },
-  { since: '2.4.0', name: 'ช่องที่ยังไม่กรอกขึ้น "—"', why: 'ถ้าโค้ดเก่า ชีตจะยังให้คะแนนเข้าเรียนเต็มทั้งที่ยังไม่ได้เช็คชื่อ' },
-  { since: '2.6.0', name: 'หน้าให้นักเรียนดูผล', why: 'ต้องใช้โค้ดใหม่ (ไฟล์ 05_Student.gs) นักเรียนจะเปิดหน้าไม่ได้' },
-  { since: '2.13.0', name: 'เกณฑ์ผ่านรายข้อสอบ', why: 'ถ้าโค้ดเก่า เกณฑ์ที่ตั้งจะไม่ถูกเขียนลงชีต หน้าจอโชว์ไว้ชั่วคราวแล้วหายตอนเปิดห้องใหม่' },
-  { since: '2.13.2', name: 'ห้องที่รายชื่อมีแถวว่างคั่น', why: 'ถ้าโค้ดเก่า คะแนนสรุป/เกรด/ธงจะลงผิดคน และแก้รายชื่อทีเดียวคะแนนของคนใต้แถวว่างหายทั้งหมด' }
-];
-
-__exp(exports, { APP_VERSION, NEEDS_SERVER, SERVER_BUILT_FOR, cmpVersion, FEATURES });
 
   };
 

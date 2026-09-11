@@ -6,7 +6,7 @@
 // ── เวอร์ชัน ────────────────────────────────────────────────
 // ⚠️ ต้องตรงกับ APP_VERSION ใน js/version.js
 //    ถ้าเลขไม่ตรง หน้าเว็บจะขึ้นแถบเตือนให้ผู้ใช้อัปเดต/Deploy ใหม่
-var SERVER_VERSION = '2.13.2';
+var SERVER_VERSION = '2.14.0';
 
 // ── ชื่อแท็บระบบ ────────────────────────────────────────────
 var SHEET_CONFIG  = '⚙️ ตั้งค่า';
@@ -68,14 +68,21 @@ var ATT_NAMES = { 'ม': 'มา', 'ส': 'สาย', 'ล': 'ลา', 'ข': '
 
 // ── รหัสสถานะการส่งงาน (บันทึกคู่กับคะแนนในเซลล์เดียว) ─────
 //   เซลล์ว่าง = ยังไม่ตรวจ | 'x' = ไม่ส่ง | '8' = ส่ง ได้ 8 | 'L8' = ส่งช้า ได้ 8
+//   'R15/6' = สอบซ่อมได้ 15 · ครั้งแรกได้ 6 ('R15/x' = ครั้งแรกขาดสอบ) — คิดคะแนนด้วย 15
 var NOT_SUBMITTED = 'x';
 var LATE_PREFIX   = 'L';
+var RETAKE_RE_    = /^r\s*(\d+(?:\.\d+)?)\s*\/\s*(x|\d+(?:\.\d+)?)$/i;
 
-/** อ่านค่าในช่องเช็คงาน — ต้องตรงกับ parseWork ใน js/score.js */
+/** อ่านค่าในช่องเช็คงาน — ต้องตรงกับ parseWork ใน js/score.js (test/parity.mjs คุมไว้) */
 function parseWork_(raw) {
   var s = (raw === undefined || raw === null) ? '' : String(raw).trim();
   if (s === '') return { status: 'none', score: 0 };
   if (s.toLowerCase() === NOT_SUBMITTED) return { status: 'miss', score: 0 };
+  var rt = RETAKE_RE_.exec(s);
+  if (rt) {
+    return { status: 'ok', score: Number(rt[1]), retake: true,
+      orig: rt[2].toLowerCase() === NOT_SUBMITTED ? null : Number(rt[2]) };
+  }
   var late = /^l/i.test(s);
   var n = Number(late ? s.slice(1) : s);
   if (isNaN(n)) return { status: 'none', score: 0 };

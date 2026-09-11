@@ -113,6 +113,7 @@
   --amber-soft:  var(--late-soft);
   --red-soft:    var(--miss-soft);
   --purple-soft: #f0ecfa;
+  --on-purple:   #ffffff;
 
   /* ทรง */
   --r-1: 11px;
@@ -181,6 +182,7 @@
 
   --purple:      #a08ae0;
   --purple-soft: #221c33;
+  --on-purple:   #150f24;
 
   --sh-1: 0 1px 2px rgba(0,0,0,.5);
   --sh-2: 0 2px 6px -2px rgba(0,0,0,.5), 0 10px 26px -18px rgba(0,0,0,.8);
@@ -203,7 +205,7 @@
     --on-ok: #04150a; --on-late: #1d1201; --on-leave: #050d1f; --on-miss: #21060e;
     --warn-ink: #e0a43a;
     --ok-soft: #102a1a; --late-soft: #2c2110; --leave-soft: #131d33; --miss-soft: #2e1119;
-    --purple: #a08ae0; --purple-soft: #221c33;
+    --purple: #a08ae0; --purple-soft: #221c33; --on-purple: #150f24;
     --sh-1: 0 1px 2px rgba(0,0,0,.5);
     --sh-2: 0 2px 6px -2px rgba(0,0,0,.5), 0 10px 26px -18px rgba(0,0,0,.8);
     --sh-3: 0 18px 40px -24px rgba(0,0,0,.9);
@@ -459,6 +461,11 @@ select {
 .st-btn.ok[data-on="1"]   { background: var(--st-ok);   color: var(--on-ok); }
 .st-btn.late[data-on="1"] { background: var(--st-late); color: var(--on-late); }
 .st-btn.miss[data-on="1"] { background: var(--st-miss); color: var(--on-miss); }
+/* สอบซ่อม — สีม่วงแยกจากสถานะอื่นชัด ๆ · ตอนเปิดอยู่มีคะแนนครั้งแรกเป็นบรรทัดเล็กด้านล่าง */
+.st-btn.retake[data-on="1"] { background: var(--purple); color: var(--on-purple); }
+.st-btn.retake span,
+.st-btn.retake small { display: block; line-height: 1.2; }
+.st-btn.retake small { font-size: 11px; font-weight: 500; }
 
 .score-cell { display: flex; align-items: center; gap: 5px; flex: none; }
 .score-inp {
@@ -467,6 +474,8 @@ select {
 }
 .score-inp.filled { border-color: var(--accent); color: var(--accent-ink); }
 .score-inp.miss   { border-color: var(--st-miss); color: var(--st-miss); }
+/* คะแนนที่มาจากสอบซ่อม — อยู่ก่อน .below เพื่อให้ซ่อมแล้วยังไม่ถึงเกณฑ์ขึ้นสีแดงชนะ */
+.score-inp.retake { border-color: var(--purple); color: var(--purple); }
 /* ต่ำกว่าเกณฑ์ผ่าน — ต้องเห็นต่างจาก .filled ชัด ๆ ตั้งแต่ตอนกรอก
    ใช้พื้นหลังด้วย ไม่ใช่แค่ขอบ เพราะช่องนี้เล็กมากบนมือถือ */
 .score-inp.below  { border-color: var(--red); color: var(--red); background: var(--red-soft); }
@@ -1612,6 +1621,7 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
 }
 .pass-tag.ok  { background: var(--ok-soft, rgba(45,160,90,.14)); color: var(--st-ok); }
 .pass-tag.bad { background: var(--red-soft); color: var(--st-miss); }
+.pass-tag.retake { background: var(--purple-soft); color: var(--purple); margin-right: 6px; }
 .srow-tag {
   flex: none; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums;
   color: var(--st-ok);
@@ -1662,7 +1672,7 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
 <div id="boot" class="boot">
   <div class="boot-mark">A<span>✓</span></div>
   <div class="boot-title">ผลการเรียนของฉัน</div>
-  <div class="boot-ver">v3.7.2</div>
+  <div class="boot-ver">v3.8.0</div>
   <div class="boot-spin"></div>
 </div>
 
@@ -1905,6 +1915,13 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
     return null;
   }
 
+  /** ป้ายสอบซ่อม — บอกคะแนนครั้งแรกไว้ด้วย (ครูเลือกให้นักเรียนเห็น) */
+  function retakeTag(it) {
+    if (!it.retake) return null;
+    var first = it.orig === null || it.orig === undefined ? 'ขาดสอบ' : nf(it.orig) + '/' + nf(it.max);
+    return h('span', { class: 'pass-tag retake' }, 'สอบซ่อม · ครั้งแรก ' + first);
+  }
+
   function workCard(c) {
     var list = c.items.filter(function (it) { return !it.exam; });
     if (!list.length) return null;
@@ -1949,6 +1966,7 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
             h('div', { class: 'srow-sub' },
               got ? (it.phase === 1 ? 'ก่อนกลางภาค' : 'หลังกลางภาค')
                   : LABEL.exam[it.status]),
+            retakeTag(it),
             passTag(it)),
           h('div', { class: 'srow-tag ' + (big ? 'accent' : 'ok') },
             got ? nf(it.score) + '/' + nf(it.max) : '—/' + nf(it.max)));

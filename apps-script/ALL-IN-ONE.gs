@@ -23,7 +23,7 @@
 // ── เวอร์ชัน ────────────────────────────────────────────────
 // ⚠️ ต้องตรงกับ APP_VERSION ใน js/version.js
 //    ถ้าเลขไม่ตรง หน้าเว็บจะขึ้นแถบเตือนให้ผู้ใช้อัปเดต/Deploy ใหม่
-var SERVER_VERSION = '2.13.2';
+var SERVER_VERSION = '2.14.0';
 
 // ── ชื่อแท็บระบบ ────────────────────────────────────────────
 var SHEET_CONFIG  = '⚙️ ตั้งค่า';
@@ -85,14 +85,21 @@ var ATT_NAMES = { 'ม': 'มา', 'ส': 'สาย', 'ล': 'ลา', 'ข': '
 
 // ── รหัสสถานะการส่งงาน (บันทึกคู่กับคะแนนในเซลล์เดียว) ─────
 //   เซลล์ว่าง = ยังไม่ตรวจ | 'x' = ไม่ส่ง | '8' = ส่ง ได้ 8 | 'L8' = ส่งช้า ได้ 8
+//   'R15/6' = สอบซ่อมได้ 15 · ครั้งแรกได้ 6 ('R15/x' = ครั้งแรกขาดสอบ) — คิดคะแนนด้วย 15
 var NOT_SUBMITTED = 'x';
 var LATE_PREFIX   = 'L';
+var RETAKE_RE_    = /^r\s*(\d+(?:\.\d+)?)\s*\/\s*(x|\d+(?:\.\d+)?)$/i;
 
-/** อ่านค่าในช่องเช็คงาน — ต้องตรงกับ parseWork ใน js/score.js */
+/** อ่านค่าในช่องเช็คงาน — ต้องตรงกับ parseWork ใน js/score.js (test/parity.mjs คุมไว้) */
 function parseWork_(raw) {
   var s = (raw === undefined || raw === null) ? '' : String(raw).trim();
   if (s === '') return { status: 'none', score: 0 };
   if (s.toLowerCase() === NOT_SUBMITTED) return { status: 'miss', score: 0 };
+  var rt = RETAKE_RE_.exec(s);
+  if (rt) {
+    return { status: 'ok', score: Number(rt[1]), retake: true,
+      orig: rt[2].toLowerCase() === NOT_SUBMITTED ? null : Number(rt[2]) };
+  }
   var late = /^l/i.test(s);
   var n = Number(late ? s.slice(1) : s);
   if (isNaN(n)) return { status: 'none', score: 0 };
@@ -286,7 +293,10 @@ function regenerateApiKey() {
   SpreadsheetApp.flush();
   ensureHelpSheet_(ss_());
   try {
-    SpreadsheetApp.getUi().alert('รหัสลับใหม่:\n\n' + k + '\n\nอย่าลืมไปอัปเดตในเว็บแอปด้วย');
+    // บัตรผ่านของแอปเซ็นด้วยรหัสลับ (ดู issueSession_ ใน 04_Api.gs) — เปลี่ยนรหัส = ทุกเครื่องหลุดพร้อมกัน
+    SpreadsheetApp.getUi().alert('รหัสลับใหม่:\n\n' + k + '\n\nอย่าลืมไปอัปเดตในเว็บแอปด้วย\n\n' +
+      'ทุกเครื่องที่เข้าสู่ระบบด้วย Google ไว้จะต้องเข้าสู่ระบบใหม่ ' +
+      '(ใช้เป็นวิธี "ออกจากระบบทุกเครื่อง" ได้ เช่นตอนทำมือถือหาย)');
   } catch (e) {}
   return k;
 }
@@ -485,6 +495,8 @@ function ensureHelpSheet_(ss) {
     ['เว้นว่าง', 'ไม่ตรวจเกณฑ์ของรายการนั้น (หรือใช้ค่าตั้งต้น pass_default_pct ถ้าตั้งไว้)'],
     ['ได้อะไร', 'คนที่ต่ำกว่าเกณฑ์จะขึ้นสีแดงในแอป · โผล่ในรายชื่อคนต้องซ่อม · ติดหมายเหตุในบล็อกสรุป'],
     ['', 'ช่องที่ครูยังไม่ตรวจจะไม่ถือว่าไม่ผ่าน ส่วน "ไม่ส่ง" (x) นับเป็น 0 = ไม่ผ่าน'],
+    ['สอบซ่อม', 'ในแอปกดปุ่ม "สอบซ่อม" (สอบเก็บคะแนน · กลางภาค) · ในชีตเก็บเป็น R15/6 = ซ่อมได้ 15 ครั้งแรกได้ 6'],
+    ['', 'R15/x = ครั้งแรกขาดสอบ · คิดคะแนนด้วยคะแนนซ่อมตามที่กรอก · ซ่อมผ่านแล้วหลุดจากรายชื่อคนต้องซ่อมเอง'],
     [''],
     ['⚠️ แถวที่ 2 และแถวที่ 4 ถูกซ่อนไว้ เป็นข้อมูลระบบ อย่าลบหรือแก้'],
     [''],
@@ -1599,6 +1611,74 @@ function isAllowedEmail_(email, cfg) {
   return raw.toLowerCase().split(/[,\s;]+/).filter(String).indexOf(email) >= 0;
 }
 
+// ── บัตรผ่านของแอป (จำการเข้าสู่ระบบ) ─────────────────────────
+
+/**
+ * ทำไมต้องออกบัตรเอง แทนที่จะใช้ ID token ของ Google ตรง ๆ
+ *
+ * ID token อายุแค่ 1 ชั่วโมง ปิดเว็บแล้วเปิดใหม่จึงต้องให้ Google ล็อกอินให้เงียบ ๆ
+ * ซึ่งล้มบ่อยในชีวิตจริง — Safari/iPhone บล็อกคุกกี้ที่มันต้องใช้ · มีหลายบัญชี Google
+ * ในเบราว์เซอร์ก็เลือกให้เองไม่ได้ · Google พักการล็อกอินอัตโนมัติ 10 นาทีหลังครั้งก่อน
+ * ผลคือครูเจอหน้าเข้าสู่ระบบแทบทุกครั้งที่เปิดเว็บ
+ *
+ * ตรวจ ID token ผ่านครั้งเดียว ชีตจึงออกบัตรของตัวเองให้ อายุ SESSION_DAYS_ วัน
+ * และออกใบใหม่ให้เมื่อใบที่ถืออยู่เก่ากว่า 1 วัน = เปิดแอปอย่างน้อยเดือนละครั้งไม่ต้องล็อกอินอีก
+ *
+ * รูปแบบ:  v1.<หมดอายุ ms>.<อีเมล base64>.<ลายเซ็น HMAC-SHA256>
+ * กุญแจเซ็นมาจาก apiKey — คนที่รู้ apiKey เข้าได้ทุกอย่างอยู่แล้ว จึงไม่ได้เปิดช่องใหม่ และได้ 2 อย่างฟรี
+ *   · เอาอีเมลออกจาก allowed_emails = บัตรของคนนั้นใช้ไม่ได้ทันที (ตรวจทุกคำขอ)
+ *   · สร้างรหัสลับใหม่ = บัตรทุกใบทุกเครื่องใช้ไม่ได้ (ออกจากระบบทุกเครื่อง)
+ */
+var SESSION_DAYS_ = 30;
+var DAY_MS_ = 24 * 60 * 60 * 1000;
+
+function sessionSig_(body, cfg) {
+  return Utilities.base64EncodeWebSafe(
+    Utilities.computeHmacSha256Signature(body, 'assigncheck-session:' + String(cfg.apiKey)));
+}
+
+/** ออกบัตรผ่านให้อีเมลนี้ — คืน { token, exp } ให้หน้าเว็บเก็บไว้ */
+function issueSession_(email, cfg) {
+  var exp = Date.now() + SESSION_DAYS_ * DAY_MS_;
+  var body = 'v1.' + exp + '.' + Utilities.base64EncodeWebSafe(String(email).toLowerCase());
+  return { token: body + '.' + sessionSig_(body, cfg), exp: exp };
+}
+
+/** ใบที่ถืออยู่ออกมาเกิน 1 วันแล้ว — ถึงเวลาต่ออายุ */
+function sessionDue_(exp) {
+  return exp - Date.now() < (SESSION_DAYS_ - 1) * DAY_MS_;
+}
+
+/**
+ * ตรวจบัตรผ่าน — ทำในเครื่องล้วน ๆ ไม่ต้องยิงไปถาม Google จึงเร็วกว่าตรวจ ID token
+ * @returns {{email, exp}} หรือ null ถ้าบัตรใช้ไม่ได้ (ปลอม · หมดอายุ · รหัสลับเปลี่ยน)
+ * @throws ถ้าบัตรแท้แต่อีเมลไม่มีสิทธิ์แล้ว — หน้าเว็บจะได้รู้ว่าล็อกอินใหม่ด้วยบัญชีเดิมก็ไม่ช่วย
+ */
+function verifySession_(token, cfg) {
+  var parts = String(token || '').split('.');
+  if (parts.length !== 4 || parts[0] !== 'v1') return null;
+  if (!sameText_(parts[3], sessionSig_(parts.slice(0, 3).join('.'), cfg))) return null;
+
+  var exp = Number(parts[1]);
+  if (!(exp > Date.now())) return null;
+
+  var email;
+  try { email = Utilities.newBlob(Utilities.base64DecodeWebSafe(parts[2])).getDataAsString(); }
+  catch (e) { return null; }
+  if (!email) return null;
+  if (!isAllowedEmail_(email, cfg)) throw new Error('บัญชี ' + email + ' ไม่มีสิทธิ์ใช้ไฟล์นี้');
+  return { email: email, exp: exp };
+}
+
+/** เทียบข้อความโดยใช้เวลาเท่ากันทุกกรณี — กันการเดาลายเซ็นทีละตัวจากเวลาที่ตอบ */
+function sameText_(a, b) {
+  a = String(a); b = String(b);
+  if (a.length !== b.length) return false;
+  var diff = 0;
+  for (var i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
 /**
  * ทางเข้าสำหรับหน้าเว็บที่ Apps Script เสิร์ฟเอง (google.script.run)
  * ผู้ใช้ผ่านหน้าล็อกอินของ Google มาแล้ว จึงรู้อีเมลได้เลย ไม่ต้องใช้รหัสลับ
@@ -1649,11 +1729,13 @@ function handle_(req, embedded) {
     }
   }
 
-  // ผ่านได้ 3 ทาง เรียงตามความสะดวก
+  // ผ่านได้ 4 ทาง เรียงตามความสะดวก
   //   1) เปิดจากหน้าเว็บที่ Apps Script เสิร์ฟเอง — Google ล็อกอินให้แล้ว
-  //   2) ID token จาก Google Sign-In (กรณีเปิดจากโฮสต์ภายนอก)
-  //   3) รหัสลับ (วิธีสำรอง)
+  //   2) บัตรผ่านที่ชีตออกให้เอง (ตรวจในเครื่อง ไม่ต้องยิงออกเน็ต)
+  //   3) ID token จาก Google Sign-In — ผ่านแล้วออกบัตรผ่านให้
+  //   4) รหัสลับ (วิธีสำรอง)
   var user;
+  var session = null;   // บัตรผ่านใบใหม่ที่จะส่งกลับไปให้หน้าเว็บเก็บ (ถ้ามี)
 
   if (embedded) {
     var email = activeEmail_();
@@ -1669,14 +1751,21 @@ function handle_(req, embedded) {
     user = { email: email, name: email };
   } else {
     try {
-      user = verifyIdToken_(req.idToken, cfg);
+      var held = verifySession_(req.session, cfg);
+      if (held) {
+        user = { email: held.email, name: held.email };
+        if (sessionDue_(held.exp)) session = issueSession_(held.email, cfg);
+      } else {
+        user = verifyIdToken_(req.idToken, cfg);
+        if (user) session = issueSession_(user.email, cfg);
+      }
     } catch (err) {
       return json_({ ok: false, error: String(err.message || err), code: 'FORBIDDEN' });
     }
     if (!user && String(req.key || '') !== String(cfg.apiKey)) {
       return json_({
         ok: false, code: 'AUTH',
-        error: req.idToken ? 'เซสชัน Google หมดอายุ กรุณาเข้าสู่ระบบใหม่' : 'ยังไม่ได้เข้าสู่ระบบ'
+        error: (req.session || req.idToken) ? 'เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่' : 'ยังไม่ได้เข้าสู่ระบบ'
       });
     }
   }
@@ -1694,7 +1783,7 @@ function handle_(req, embedded) {
    * แลกกับการที่ค่าที่อ่านได้อาจเก่ากว่าคำสั่งเขียนที่ยังส่งไม่ถึงเสี้ยววินาที
    * ฝั่งเว็บกันไว้แล้วด้วยการทับค่าที่ยังค้างคิวลงไป (withPending ใน js/state.js)
    */
-  if (readOnlyReq_(action, pl)) return run_(action, pl, cfg, user);
+  if (readOnlyReq_(action, pl)) return run_(action, pl, cfg, user, session);
 
   var lock = LockService.getScriptLock();
   try {
@@ -1704,7 +1793,7 @@ function handle_(req, embedded) {
   }
 
   try {
-    return run_(action, pl, cfg, user);
+    return run_(action, pl, cfg, user, session);
   } finally {
     lock.releaseLock();
   }
@@ -1726,9 +1815,11 @@ function readOnlyReq_(action, p) {
   return true;
 }
 
-function run_(action, pl, cfg, user) {
+function run_(action, pl, cfg, user, session) {
   try {
-    return json_({ ok: true, data: dispatch_(action, pl, cfg), user: user, version: SERVER_VERSION });
+    var out = { ok: true, data: dispatch_(action, pl, cfg), user: user, version: SERVER_VERSION };
+    if (session) out.session = session;
+    return json_(out);
   } catch (err) {
     console.error(err);
     return json_({ ok: false, error: String(err && err.message ? err.message : err) });
@@ -2102,6 +2193,10 @@ function studentClassView_(data, r, st, byBucket, S) {
         max: c.max == null ? 0 : c.max,
         status: w.status,
         score: w.status === 'ok' || w.status === 'late' ? w.score : null,
+        // สอบซ่อม: score คือคะแนนซ่อม (ใช้คิดจริง) · orig คือคะแนนครั้งแรก (null = ขาดสอบ)
+        // ครูเลือกให้นักเรียนเห็นทั้งคู่ — ถามเรื่องคะแนนเมื่อไหร่ก็อธิบายจากหน้าเดียวกันได้
+        retake: !!w.retake,
+        orig: w.retake ? w.orig : null,
         // เกณฑ์ผ่านของชิ้นนี้ · null = ครูไม่ได้ตั้งเกณฑ์ไว้ จึงไม่ต้องบอกว่าผ่าน/ไม่ผ่าน
         pass: mark,
         passed: passOf_(c, raw, S)

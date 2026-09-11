@@ -4,13 +4,16 @@
  * ตัวที่ยืนยันว่าเป็นเจ้าของจริงคือ ID token จาก Google ที่ฝั่ง Apps Script
  * เอาไปตรวจกับรายชื่ออีเมลที่อนุญาต
  *
+ * ตรวจผ่านครั้งแรกแล้ว ชีตจะออก "บัตรผ่าน" ของตัวเองให้ (อายุ 30 วัน ต่ออายุให้เองเมื่อใช้งาน)
+ * เพราะ ID token อายุแค่ 1 ชั่วโมง — ดูเหตุผลเต็มที่ issueSession_ ใน apps-script/04_Api.gs
+ *
  * ผลลัพธ์: เปลี่ยนเครื่องแล้วแค่ใส่ URL + กดเข้าสู่ระบบด้วย Google ก็ใช้ได้เลย
- * ไม่ต้องจำรหัสลับ
+ * ไม่ต้องจำรหัสลับ และปิดเว็บแล้วเปิดใหม่ไม่ต้องกดซ้ำ
  */
 
 import { store } from './storage.js';
 
-const LS = { token: 'ac.idtoken', profile: 'ac.profile', clientId: 'ac.clientid' };
+const LS = { token: 'ac.idtoken', session: 'ac.session', profile: 'ac.profile', clientId: 'ac.clientid' };
 
 /* เก็บผ่าน store — บางเบราว์เซอร์บล็อก localStorage ใน iframe ของ Google
  * ของเดิมกลืน error ทิ้ง ทำให้ token ที่เพิ่งได้มาหายทันที แล้ววนให้ล็อกอินซ้ำไม่จบ */
@@ -23,26 +26,36 @@ let gisReady = null;
 let refreshTimer = null;
 const listeners = new Set();
 
+/** อ่าน { token, exp } ที่เก็บไว้ — คืน '' ถ้าไม่มีหรือเหลืออายุไม่ถึง 1 นาที */
+function readStamped(key) {
+  const raw = lsGet(key);
+  if (!raw) return { token: '', exp: 0 };
+  try {
+    const { token, exp } = JSON.parse(raw);
+    if (!token || Date.now() > exp - 60_000) return { token: '', exp: 0 };
+    return { token, exp };
+  } catch { return { token: '', exp: 0 }; }
+}
+
 export const auth = {
   get clientId() { return lsGet(LS.clientId) || ''; },
   set clientId(v) { lsSet(LS.clientId, String(v || '').trim()); },
 
-  get token() {
-    const raw = lsGet(LS.token);
-    if (!raw) return '';
-    try {
-      const { token, exp } = JSON.parse(raw);
-      if (!token || Date.now() > exp - 60_000) return '';   // เหลือน้อยกว่า 1 นาที ถือว่าหมดอายุ
-      return token;
-    } catch { return ''; }
-  },
+  /** ID token ของ Google (อายุ 1 ชั่วโมง) — ใช้แลกบัตรผ่านจากชีต */
+  get token() { return readStamped(LS.token).token; },
+
+  /** บัตรผ่านที่ชีตออกให้ (อายุ 30 วัน) — ตัวที่ทำให้ไม่ต้องล็อกอินใหม่ทุกครั้ง */
+  get session() { return readStamped(LS.session).token; },
+
+  /** บัตรผ่านใช้ได้ถึงเมื่อไหร่ (ms) · 0 = ไม่มีบัตร (โค้ดในชีตยังเก่า หรือยังไม่เคยล็อกอิน) */
+  get sessionUntil() { return readStamped(LS.session).exp; },
 
   get profile() {
     try { return JSON.parse(lsGet(LS.profile)) || null; }
     catch { return null; }
   },
 
-  get signedIn() { return !!this.token; },
+  get signedIn() { return !!(this.session || this.token); },
 
   save(token) {
     const p = decodeJwt(token);
@@ -55,8 +68,38 @@ export const auth = {
     return profile;
   },
 
+  /**
+   * เก็บบัตรผ่านที่ชีตส่งกลับมากับคำตอบ
+   *
+   * ชีตต่ออายุให้วันละครั้ง ถ้าวาดจอใหม่ทุกครั้งที่ได้บัตร ช่องที่ครูกำลังพิมพ์คะแนน
+   * จะโดนวาดทับกลางคัน — จึงแจ้งเฉพาะตอนที่สถานะเปลี่ยนจาก "ยังไม่ได้ล็อกอิน" จริง ๆ
+   */
+  saveSession(s) {
+    const exp = Number(s && s.exp);
+    if (!s || typeof s.token !== 'string' || !s.token || !(exp > Date.now())) return;
+    const was = this.signedIn;
+    lsSet(LS.session, JSON.stringify({ token: s.token, exp }));
+    if (!was) listeners.forEach(fn => fn());
+  },
+
+  /**
+   * ชีตไม่รับบัตรผ่าน/token ที่ถืออยู่แล้ว (หมดอายุ · ครูสร้างรหัสลับใหม่) — ทิ้งเฉพาะตัวนั้น
+   *
+   * ต่างจาก signOut() ตรงที่ยังจำว่าเครื่องนี้เคยล็อกอินด้วยบัญชีไหน และไม่ปิด
+   * auto-select ของ Google — ของเดิมเรียก signOut() ตรงนี้ ซึ่งลบ profile ทิ้ง
+   * restoreSession จึงหมดทางต่อให้เงียบ ๆ ตั้งแต่ครั้งนั้นเป็นต้นไป ครูต้องกดเองทุกครั้ง
+   *
+   * ไม่วาดจอใหม่เอง — คนเรียกเป็นคนตัดสินว่าจะลองต่อเงียบ ๆ ก่อน หรือพาไปหน้าเข้าสู่ระบบ
+   */
+  expire() {
+    lsDel(LS.token);
+    lsDel(LS.session);
+    clearTimeout(refreshTimer);
+  },
+
   signOut() {
     lsDel(LS.token);
+    lsDel(LS.session);
     lsDel(LS.profile);
     clearTimeout(refreshTimer);
     try { window.google?.accounts?.id?.disableAutoSelect(); } catch {}
@@ -77,7 +120,13 @@ function decodeJwt(t) {
 function scheduleRefresh(expMs) {
   clearTimeout(refreshTimer);
   const wait = Math.max(30_000, expMs - Date.now() - 5 * 60_000);   // ต่ออายุก่อนหมด 5 นาที
-  refreshTimer = setTimeout(() => { silentSignIn().catch(() => {}); }, wait);
+  refreshTimer = setTimeout(() => {
+    /* มีบัตรผ่านจากชีตแล้ว ไม่ต้องขอ ID token ใหม่
+     * ถ้าขอ แล้ว Google ล็อกอินให้เองไม่ได้ (มีหลายบัญชี · Safari) กล่อง One Tap
+     * จะเด้งขึ้นมากวนกลางหน้าจอทุกชั่วโมงทั้งที่แอปใช้งานได้ปกติ */
+    if (auth.session) return;
+    silentSignIn().catch(() => {});
+  }, wait);
 }
 
 /** โหลดสคริปต์ Google Identity Services ครั้งเดียว */
@@ -134,7 +183,7 @@ export async function renderSignInButton(el, { onSignedIn } = {}) {
   try { g.accounts.id.prompt(); } catch {}
 }
 
-/** พยายามต่ออายุ token เงียบ ๆ (ใช้ตอนใกล้หมดอายุ หรือโดนปฏิเสธ) */
+/** พยายามขอ ID token ใหม่เงียบ ๆ ผ่าน Google (ใช้ตอนไม่มีบัตรผ่านจากชีต) */
 function silentSignIn(timeout = 12_000) {
   return new Promise((resolve, reject) => {
     initGIS((token) => { auth.save(token); resolve(true); })
@@ -149,15 +198,14 @@ function silentSignIn(timeout = 12_000) {
 }
 
 /**
- * ต่อเซสชันให้เองตอนเปิดแอป — ครูจะได้ไม่ต้องกดเข้าสู่ระบบใหม่ทุกครั้ง
+ * ต่อเซสชันให้เองตอนเปิดแอป — ทางสำรองเมื่อไม่มีบัตรผ่านจากชีต
  *
- * ID token ของ Google อายุแค่ 1 ชั่วโมง ของเดิมมีแต่ตัวตั้งเวลาต่ออายุ
- * ซึ่งทำงานเฉพาะตอนแท็บเปิดค้างอยู่ พอปิดแท็บแล้วกลับมาเปิดใหม่วันรุ่งขึ้น
- * token หมดอายุไปแล้ว conn.ready จึงเป็น false = เด้งไปหน้าเข้าสู่ระบบทุกเช้า
- * ทั้งที่บัญชี Google ในเบราว์เซอร์ยังล็อกอินอยู่และเคยกดอนุญาตไปแล้ว
+ * ปกติบัตรผ่าน 30 วันพอแล้ว ตรงนี้ทำงานเฉพาะตอนที่ไม่มีบัตร:
+ * โค้ดในชีตยังเป็นรุ่นก่อน 2.14.0 · ไม่ได้เปิดแอปเกิน 30 วัน · หรือครูสร้างรหัสลับใหม่
  *
- * ขอใหม่เงียบ ๆ ก่อน (auto_select ทำให้ไม่มีอะไรเด้งขึ้นมาถ้าเคยอนุญาตแล้ว)
- * ถ้าไม่ได้ค่อยไปหน้าเข้าสู่ระบบตามเดิม
+ * อย่าพึ่งทางนี้เป็นหลัก — Google ล็อกอินให้เงียบ ๆ ไม่ได้ในหลายกรณีที่เจอบ่อย
+ * (Safari/iPhone บล็อกคุกกี้ที่ต้องใช้ · มีหลายบัญชีในเบราว์เซอร์ · พักไว้ 10 นาทีหลังครั้งก่อน)
+ * ซึ่งเป็นเหตุผลที่ครูยังเจอหน้าเข้าสู่ระบบแทบทุกครั้งในรุ่นที่มีแต่ทางนี้
  *
  * @param timeout อย่าตั้งนาน — ระหว่างนี้แอปยังค้างอยู่ที่หน้าโหลด
  * @returns true = ได้ token ใหม่แล้ว

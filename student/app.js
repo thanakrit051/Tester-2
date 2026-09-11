@@ -233,6 +233,13 @@
     return null;
   }
 
+  /** ป้ายสอบซ่อม — บอกคะแนนครั้งแรกไว้ด้วย (ครูเลือกให้นักเรียนเห็น) */
+  function retakeTag(it) {
+    if (!it.retake) return null;
+    var first = it.orig === null || it.orig === undefined ? 'ขาดสอบ' : nf(it.orig) + '/' + nf(it.max);
+    return h('span', { class: 'pass-tag retake' }, 'สอบซ่อม · ครั้งแรก ' + first);
+  }
+
   function workCard(c) {
     var list = c.items.filter(function (it) { return !it.exam; });
     if (!list.length) return null;
@@ -277,6 +284,7 @@
             h('div', { class: 'srow-sub' },
               got ? (it.phase === 1 ? 'ก่อนกลางภาค' : 'หลังกลางภาค')
                   : LABEL.exam[it.status]),
+            retakeTag(it),
             passTag(it)),
           h('div', { class: 'srow-tag ' + (big ? 'accent' : 'ok') },
             got ? nf(it.score) + '/' + nf(it.max) : '—/' + nf(it.max)));

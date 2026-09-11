@@ -9,17 +9,35 @@ export const ATT_NAMES = { 'ม': 'มา', 'ส': 'สาย', 'ล': 'ลา',
 export const NOT_SUBMITTED = 'x';
 const LATE_PREFIX = 'L';   // ส่งช้า เก็บเป็น "L8" = ส่งช้า ได้ 8 คะแนน
 
+/* สอบซ่อม เก็บเป็น "R15/6" = ซ่อมได้ 15 · ครั้งแรกได้ 6 ("R15/x" = ครั้งแรกขาดสอบ)
+ * อยู่ในช่องเดียวกับคะแนนแบบเดียวกับ "L8" — คิวออฟไลน์ · เลิกทำ · แคช จึงใช้ของเดิมได้ทั้งหมด
+ * และคะแนนครั้งแรกไม่มีทางแยกหลุดจากคะแนนซ่อม (ถ้าเก็บคนละที่ ลบ/ย้ายคอลัมน์ทีเดียวก็หลงกันแล้ว) */
+const RETAKE_PREFIX = 'R';
+const RETAKE_RE = /^r\s*(\d+(?:\.\d+)?)\s*\/\s*(x|\d+(?:\.\d+)?)$/i;
+
+/** ประเภทที่มีปุ่มสอบซ่อม — ครูเลือกไว้ที่สอบเก็บคะแนนกับกลางภาค (อยากเพิ่มก็เติมตรงนี้ที่เดียว) */
+export const RETAKE_KINDS = ['QUIZ', 'MID'];
+
 /**
  * อ่านค่าในช่องเช็คงาน/คะแนนสอบ
  *   ''    → none  ยังไม่ตรวจ
  *   'x'   → miss  ไม่ส่ง (0 คะแนน แต่นับในตัวหาร)
  *   'L8'  → late  ส่งช้า ได้ 8
  *   '8'   → ok    ส่งปกติ ได้ 8
+ *   'R15/6' → ok  สอบซ่อมได้ 15 · retake: true · orig: 6 (คะแนนครั้งแรก · 'R15/x' → orig null = ขาดสอบ)
+ *                 คิดคะแนนด้วย 15 ตามที่กรอกจริง — ครูเลือกไม่ตัดเพดานไว้ที่เกณฑ์ผ่าน
+ *
+ * ⚠️ ต้องตรงกับ parseWork_ ใน apps-script/00_Constants.gs เสมอ (test/parity.mjs คุมไว้)
  */
 export function parseWork(raw) {
   const s = raw === undefined || raw === null ? '' : String(raw).trim();
   if (s === '') return { status: 'none', score: 0 };
   if (s.toLowerCase() === NOT_SUBMITTED) return { status: 'miss', score: 0 };
+  const rt = RETAKE_RE.exec(s);
+  if (rt) {
+    return { status: 'ok', score: Number(rt[1]), retake: true,
+      orig: rt[2].toLowerCase() === NOT_SUBMITTED ? null : Number(rt[2]) };
+  }
   const late = /^l/i.test(s);
   const n = Number(late ? s.slice(1) : s);
   if (isNaN(n)) return { status: 'none', score: 0 };
@@ -70,6 +88,12 @@ export function formatWork(status, score) {
   if (status === 'none') return '';
   if (status === 'miss') return NOT_SUBMITTED;
   return (status === 'late' ? LATE_PREFIX : '') + String(score);
+}
+
+/** ประกอบค่าสอบซ่อมกลับไปเก็บในชีต · orig ว่าง/null = ครั้งแรกขาดสอบ */
+export function formatRetake(score, orig) {
+  const first = orig === null || orig === undefined || orig === '' ? NOT_SUBMITTED : String(orig);
+  return RETAKE_PREFIX + String(score) + '/' + first;
 }
 
 export const BUCKETS = [

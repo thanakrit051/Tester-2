@@ -501,13 +501,22 @@ window.addEventListener('appinstalled', () => { state.installPrompt = null; safe
       try {
         await bootAll();          // ยิงครั้งเดียวได้ทั้งตั้งค่า รายชื่อห้อง และห้องที่เปิดค้างไว้
       } catch (e) {
-        // เซสชันหมดอายุระหว่างยิงพอดี — ขอใหม่เงียบ ๆ แล้วลองอีกรอบ ก่อนจะไล่ให้ล็อกอินใหม่
-        if (e instanceof api.ApiError && e.code === 'AUTH' && await restoreSession({ timeout: 8000 })) {
-          try { await bootAll(); }
-          catch (e2) { if (!(e2 instanceof api.OfflineError)) toast(e2.message, 'err', 6000); }
-        } else if (e instanceof api.ApiError && (e.code === 'AUTH' || e.code === 'FORBIDDEN')) {
+        if (e instanceof api.ApiError && e.code === 'AUTH') {
+          /* ชีตไม่รับบัตรผ่าน/token ที่ถืออยู่ (api.call ทิ้งให้แล้ว) — ขอใหม่เงียบ ๆ ก่อน
+           *
+           * ห้ามเรียก auth.signOut() ตรงนี้ ของเดิมเรียก ซึ่งลบ profile และปิด auto-select
+           * ของ Google — การต่อเซสชันเงียบ ๆ จึงใช้ไม่ได้อีกเลยหลังจากนั้น
+           * และถ้าไม่ทิ้งของที่ใช้ไม่ได้ก่อน restoreSession จะเห็นว่า "ยังล็อกอินอยู่"
+           * แล้วตอบ true ทันทีโดยไม่ได้ขออะไรใหม่ ยิงซ้ำก็โดนปฏิเสธซ้ำ */
+          if (await restoreSession({ timeout: 8000 })) {
+            try { await bootAll(); }
+            catch (e2) { if (!(e2 instanceof api.OfflineError)) toast(e2.message, 'err', 6000); }
+          } else {
+            toast(e.message, 'err', 6000);
+          }
+        } else if (e instanceof api.ApiError && e.code === 'FORBIDDEN') {
           toast(e.message + ' — กรุณาเชื่อมต่อใหม่', 'err', 6000);
-          if (e.code === 'AUTH') auth.signOut(); else api.conn.clear();
+          api.conn.clear();
         }
       }
       sync();

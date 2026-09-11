@@ -9,7 +9,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { computeClass, settingsFrom } from '../js/score.js';
+import { computeClass, settingsFrom, parseWork, formatRetake } from '../js/score.js';
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const gs = path.join(root, 'apps-script');
@@ -71,6 +71,8 @@ for (const pass_default_pct of ['', 50]) {
       else if (x < 0.28) values[c.key][st.sid] = 'L' + Math.round(x * c.max * 100) / 100; // ส่งช้า
       else if (x < 0.32) values[c.key][st.sid] = 'l' + Math.round(x * c.max * 100) / 100; // ส่งช้า (ตัวเล็ก)
       else if (x < 0.34) values[c.key][st.sid] = String(Math.round(x * c.max)) ;         // ตัวเลขเป็นสตริง
+      else if (x < 0.37) values[c.key][st.sid] = 'R' + Math.round(x * c.max * 100) / 100 + '/' + Math.round(x * c.max / 3); // สอบซ่อม
+      else if (x < 0.39) values[c.key][st.sid] = 'r ' + Math.round(x * c.max * 100) / 100 + ' / x';                    // ซ่อม · ครั้งแรกขาดสอบ
       else values[c.key][st.sid] = Math.round(x * c.max * 100) / 100;
     }
   }
@@ -159,6 +161,59 @@ for (const pass_default_pct of ['', 50]) {
       console.log(`❌ [เกณฑ์เกรด: ${name}] คนที่ได้ 0 ทุกช่องกลับได้เกรด ${a[0].grade}`);
     }
   }
+}
+
+// ── คะแนนสอบซ่อม "R15/6" = ซ่อมได้ 15 · ครั้งแรก 6 ──────────
+// 2 ฝั่งต้องอ่านเหมือนกันทุกตัว ถ้าชีตอ่านไม่ออกจะนับเป็น "ยังไม่ตรวจ" แล้วคะแนนสรุปหายเงียบ ๆ
+{
+  const CASES = [
+    ['R15/6',            { status: 'ok',   score: 15,  retake: true, orig: 6 }],
+    ['r 7.5 / x',        { status: 'ok',   score: 7.5, retake: true, orig: null }],
+    ['R0/0',             { status: 'ok',   score: 0,   retake: true, orig: 0 }],
+    [formatRetake(12, null), { status: 'ok', score: 12, retake: true, orig: null }],
+    [formatRetake(9.5, 4),   { status: 'ok', score: 9.5, retake: true, orig: 4 }],
+    ['R15',              { status: 'none', score: 0 }],
+    ['R/6',              { status: 'none', score: 0 }],
+    ['L8',               { status: 'late', score: 8 }]
+  ];
+  for (const [raw, want] of CASES) {
+    for (const [side, got] of [['js', parseWork(raw)], ['gs', ctx.parseWork_(raw)]]) {
+      for (const k of ['status', 'score', 'retake', 'orig']) {
+        checked++;
+        if (String(got[k]) !== String(want[k])) {
+          fails++;
+          console.log(`❌ [สอบซ่อม ${side}] "${raw}".${k}: ได้ ${got[k]} ควรเป็น ${want[k]}`);
+        }
+      }
+    }
+  }
+
+  // คิดคะแนนด้วยคะแนนซ่อมตามที่กรอก (ไม่ตัดเพดานที่เกณฑ์ผ่าน) และซ่อมผ่านแล้วต้องหลุดจากรายชื่อคนไม่ผ่าน
+  // ควิซ 1: เต็ม 15 ผ่าน 7.5 → น้ำหนัก quiz1 = 10
+  const students = [
+    { no: '1', sid: 'A', name: 'ซ่อมผ่าน' },
+    { no: '2', sid: 'B', name: 'ซ่อมแล้วยังไม่ผ่าน' },
+    { no: '3', sid: 'C', name: 'ครั้งแรกขาดสอบ ซ่อมได้เต็ม' }
+  ];
+  const cls = { students, columns, values: { 'QUIZ|1|q1': { A: 'R12/5', B: 'R6/3', C: 'R15/x' } } };
+  const cfg = { ...baseCfg, pass_default_pct: '' };
+  const a = computeClass(cls, settingsFrom(cfg));
+  const b = ctx.computeClassScores_(cls, ctx.scoreSettings_(cfg)).rows;
+  const expect = [
+    { quiz1: 8,  failN: 0 },
+    { quiz1: 4,  failN: 1 },
+    { quiz1: 10, failN: 0 }
+  ];
+  a.forEach((row, i) => {
+    for (const k of Object.keys(expect[i])) {
+      checked++;
+      if (row[k] !== expect[i][k]) { fails++; console.log(`❌ [สอบซ่อม] ${row.name}.${k}: ได้ ${row[k]} ควรเป็น ${expect[i][k]}`); }
+    }
+    for (const k of FIELDS) {
+      checked++;
+      if (String(row[k]) !== String(b[i][k])) { fails++; console.log(`ไม่ตรง [สอบซ่อม] ${row.name}.${k}: js=${row[k]} gs=${b[i][k]}`); }
+    }
+  });
 }
 
 if (fails) { console.log(`❌ ไม่ตรง ${fails} จุด จาก ${checked}`); process.exit(1); }

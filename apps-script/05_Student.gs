@@ -128,6 +128,10 @@ function studentClassView_(data, r, st, byBucket, S) {
         max: c.max == null ? 0 : c.max,
         status: w.status,
         score: w.status === 'ok' || w.status === 'late' ? w.score : null,
+        // สอบซ่อม: score คือคะแนนซ่อม (ใช้คิดจริง) · orig คือคะแนนครั้งแรก (null = ขาดสอบ)
+        // ครูเลือกให้นักเรียนเห็นทั้งคู่ — ถามเรื่องคะแนนเมื่อไหร่ก็อธิบายจากหน้าเดียวกันได้
+        retake: !!w.retake,
+        orig: w.retake ? w.orig : null,
         // เกณฑ์ผ่านของชิ้นนี้ · null = ครูไม่ได้ตั้งเกณฑ์ไว้ จึงไม่ต้องบอกว่าผ่าน/ไม่ผ่าน
         pass: mark,
         passed: passOf_(c, raw, S)

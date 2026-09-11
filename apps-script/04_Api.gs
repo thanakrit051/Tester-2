@@ -153,6 +153,74 @@ function isAllowedEmail_(email, cfg) {
   return raw.toLowerCase().split(/[,\s;]+/).filter(String).indexOf(email) >= 0;
 }
 
+// ── บัตรผ่านของแอป (จำการเข้าสู่ระบบ) ─────────────────────────
+
+/**
+ * ทำไมต้องออกบัตรเอง แทนที่จะใช้ ID token ของ Google ตรง ๆ
+ *
+ * ID token อายุแค่ 1 ชั่วโมง ปิดเว็บแล้วเปิดใหม่จึงต้องให้ Google ล็อกอินให้เงียบ ๆ
+ * ซึ่งล้มบ่อยในชีวิตจริง — Safari/iPhone บล็อกคุกกี้ที่มันต้องใช้ · มีหลายบัญชี Google
+ * ในเบราว์เซอร์ก็เลือกให้เองไม่ได้ · Google พักการล็อกอินอัตโนมัติ 10 นาทีหลังครั้งก่อน
+ * ผลคือครูเจอหน้าเข้าสู่ระบบแทบทุกครั้งที่เปิดเว็บ
+ *
+ * ตรวจ ID token ผ่านครั้งเดียว ชีตจึงออกบัตรของตัวเองให้ อายุ SESSION_DAYS_ วัน
+ * และออกใบใหม่ให้เมื่อใบที่ถืออยู่เก่ากว่า 1 วัน = เปิดแอปอย่างน้อยเดือนละครั้งไม่ต้องล็อกอินอีก
+ *
+ * รูปแบบ:  v1.<หมดอายุ ms>.<อีเมล base64>.<ลายเซ็น HMAC-SHA256>
+ * กุญแจเซ็นมาจาก apiKey — คนที่รู้ apiKey เข้าได้ทุกอย่างอยู่แล้ว จึงไม่ได้เปิดช่องใหม่ และได้ 2 อย่างฟรี
+ *   · เอาอีเมลออกจาก allowed_emails = บัตรของคนนั้นใช้ไม่ได้ทันที (ตรวจทุกคำขอ)
+ *   · สร้างรหัสลับใหม่ = บัตรทุกใบทุกเครื่องใช้ไม่ได้ (ออกจากระบบทุกเครื่อง)
+ */
+var SESSION_DAYS_ = 30;
+var DAY_MS_ = 24 * 60 * 60 * 1000;
+
+function sessionSig_(body, cfg) {
+  return Utilities.base64EncodeWebSafe(
+    Utilities.computeHmacSha256Signature(body, 'assigncheck-session:' + String(cfg.apiKey)));
+}
+
+/** ออกบัตรผ่านให้อีเมลนี้ — คืน { token, exp } ให้หน้าเว็บเก็บไว้ */
+function issueSession_(email, cfg) {
+  var exp = Date.now() + SESSION_DAYS_ * DAY_MS_;
+  var body = 'v1.' + exp + '.' + Utilities.base64EncodeWebSafe(String(email).toLowerCase());
+  return { token: body + '.' + sessionSig_(body, cfg), exp: exp };
+}
+
+/** ใบที่ถืออยู่ออกมาเกิน 1 วันแล้ว — ถึงเวลาต่ออายุ */
+function sessionDue_(exp) {
+  return exp - Date.now() < (SESSION_DAYS_ - 1) * DAY_MS_;
+}
+
+/**
+ * ตรวจบัตรผ่าน — ทำในเครื่องล้วน ๆ ไม่ต้องยิงไปถาม Google จึงเร็วกว่าตรวจ ID token
+ * @returns {{email, exp}} หรือ null ถ้าบัตรใช้ไม่ได้ (ปลอม · หมดอายุ · รหัสลับเปลี่ยน)
+ * @throws ถ้าบัตรแท้แต่อีเมลไม่มีสิทธิ์แล้ว — หน้าเว็บจะได้รู้ว่าล็อกอินใหม่ด้วยบัญชีเดิมก็ไม่ช่วย
+ */
+function verifySession_(token, cfg) {
+  var parts = String(token || '').split('.');
+  if (parts.length !== 4 || parts[0] !== 'v1') return null;
+  if (!sameText_(parts[3], sessionSig_(parts.slice(0, 3).join('.'), cfg))) return null;
+
+  var exp = Number(parts[1]);
+  if (!(exp > Date.now())) return null;
+
+  var email;
+  try { email = Utilities.newBlob(Utilities.base64DecodeWebSafe(parts[2])).getDataAsString(); }
+  catch (e) { return null; }
+  if (!email) return null;
+  if (!isAllowedEmail_(email, cfg)) throw new Error('บัญชี ' + email + ' ไม่มีสิทธิ์ใช้ไฟล์นี้');
+  return { email: email, exp: exp };
+}
+
+/** เทียบข้อความโดยใช้เวลาเท่ากันทุกกรณี — กันการเดาลายเซ็นทีละตัวจากเวลาที่ตอบ */
+function sameText_(a, b) {
+  a = String(a); b = String(b);
+  if (a.length !== b.length) return false;
+  var diff = 0;
+  for (var i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
 /**
  * ทางเข้าสำหรับหน้าเว็บที่ Apps Script เสิร์ฟเอง (google.script.run)
  * ผู้ใช้ผ่านหน้าล็อกอินของ Google มาแล้ว จึงรู้อีเมลได้เลย ไม่ต้องใช้รหัสลับ
@@ -203,11 +271,13 @@ function handle_(req, embedded) {
     }
   }
 
-  // ผ่านได้ 3 ทาง เรียงตามความสะดวก
+  // ผ่านได้ 4 ทาง เรียงตามความสะดวก
   //   1) เปิดจากหน้าเว็บที่ Apps Script เสิร์ฟเอง — Google ล็อกอินให้แล้ว
-  //   2) ID token จาก Google Sign-In (กรณีเปิดจากโฮสต์ภายนอก)
-  //   3) รหัสลับ (วิธีสำรอง)
+  //   2) บัตรผ่านที่ชีตออกให้เอง (ตรวจในเครื่อง ไม่ต้องยิงออกเน็ต)
+  //   3) ID token จาก Google Sign-In — ผ่านแล้วออกบัตรผ่านให้
+  //   4) รหัสลับ (วิธีสำรอง)
   var user;
+  var session = null;   // บัตรผ่านใบใหม่ที่จะส่งกลับไปให้หน้าเว็บเก็บ (ถ้ามี)
 
   if (embedded) {
     var email = activeEmail_();
@@ -223,14 +293,21 @@ function handle_(req, embedded) {
     user = { email: email, name: email };
   } else {
     try {
-      user = verifyIdToken_(req.idToken, cfg);
+      var held = verifySession_(req.session, cfg);
+      if (held) {
+        user = { email: held.email, name: held.email };
+        if (sessionDue_(held.exp)) session = issueSession_(held.email, cfg);
+      } else {
+        user = verifyIdToken_(req.idToken, cfg);
+        if (user) session = issueSession_(user.email, cfg);
+      }
     } catch (err) {
       return json_({ ok: false, error: String(err.message || err), code: 'FORBIDDEN' });
     }
     if (!user && String(req.key || '') !== String(cfg.apiKey)) {
       return json_({
         ok: false, code: 'AUTH',
-        error: req.idToken ? 'เซสชัน Google หมดอายุ กรุณาเข้าสู่ระบบใหม่' : 'ยังไม่ได้เข้าสู่ระบบ'
+        error: (req.session || req.idToken) ? 'เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่' : 'ยังไม่ได้เข้าสู่ระบบ'
       });
     }
   }
@@ -248,7 +325,7 @@ function handle_(req, embedded) {
    * แลกกับการที่ค่าที่อ่านได้อาจเก่ากว่าคำสั่งเขียนที่ยังส่งไม่ถึงเสี้ยววินาที
    * ฝั่งเว็บกันไว้แล้วด้วยการทับค่าที่ยังค้างคิวลงไป (withPending ใน js/state.js)
    */
-  if (readOnlyReq_(action, pl)) return run_(action, pl, cfg, user);
+  if (readOnlyReq_(action, pl)) return run_(action, pl, cfg, user, session);
 
   var lock = LockService.getScriptLock();
   try {
@@ -258,7 +335,7 @@ function handle_(req, embedded) {
   }
 
   try {
-    return run_(action, pl, cfg, user);
+    return run_(action, pl, cfg, user, session);
   } finally {
     lock.releaseLock();
   }
@@ -280,9 +357,11 @@ function readOnlyReq_(action, p) {
   return true;
 }
 
-function run_(action, pl, cfg, user) {
+function run_(action, pl, cfg, user, session) {
   try {
-    return json_({ ok: true, data: dispatch_(action, pl, cfg), user: user, version: SERVER_VERSION });
+    var out = { ok: true, data: dispatch_(action, pl, cfg), user: user, version: SERVER_VERSION };
+    if (session) out.session = session;
+    return json_(out);
   } catch (err) {
     console.error(err);
     return json_({ ok: false, error: String(err && err.message ? err.message : err) });
