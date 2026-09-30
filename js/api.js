@@ -269,9 +269,20 @@ export async function flush() {
     // (พลาดรอบเดียวเพราะชีตติดล็อกชั่วคราว ก็เสียข้อมูลแล้ว)
     const okIds = new Set();
     const failed = [];
+    const dropped = [];   // [{ classId, n }] ช่องที่ชีตรับคำสั่งแต่หาที่เขียนไม่เจอ
     ops.forEach((o, i) => {
       const r = results[i];
-      if (r && r.ok) { okIds.add(o.id); return; }
+      if (r && r.ok) {
+        okIds.add(o.id);
+        // setCells ตอบจำนวนช่องที่เขียนลงจริง — น้อยกว่าที่ส่งไป = มีช่องตกหล่นเงียบ ๆ
+        // (ช่องที่ซ้ำกันถูกรวมไว้ตั้งแต่ตอนต่อคิวแล้ว จำนวนจึงเทียบกันตรง ๆ ได้)
+        const w = r.data && r.data.written;
+        const want = ((o.payload && o.payload.cells) || []).length;
+        if (o.action === 'setCells' && typeof w === 'number' && w < want) {
+          dropped.push({ classId: o.payload.classId, n: want - w });
+        }
+        return;
+      }
       failed.push({ ...o, error: (r && r.error) || 'เซิร์ฟเวอร์ตอบกลับไม่ครบ' });
     });
 
@@ -283,7 +294,7 @@ export async function flush() {
     const fresh = queue.all().filter(o => !sentIds.has(o.id));   // ของที่เพิ่งกดระหว่างรอคำตอบ
     queue.set([...retry, ...fresh]);
 
-    return { sent: okIds.size, failed };
+    return { sent: okIds.size, failed, dropped };
   } catch (e) {
     queue.mark(ops.map(o => o.id), false);   // ส่งไม่สำเร็จ ให้กลับไปรวมกับของใหม่ได้ตามเดิม
     throw e;

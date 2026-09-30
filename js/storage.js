@@ -33,11 +33,15 @@ function fallback(why) {
  * พื้นที่เต็ม — แคชสร้างใหม่ได้จากชีต แต่คิวที่รอส่งสร้างใหม่ไม่ได้
  * จึงทิ้งแคชเพื่อเปิดทางให้คิวก่อน ค่อยยอมถอยไปหน่วยความจำเป็นทางสุดท้าย
  */
+/* รายชื่อห้อง + ตั้งค่า ก้อนเล็กนิดเดียว แต่ถ้าหายหน้าแรกจะว่างเปล่าตอนเปิดแอปครั้งถัดไป
+ * (ครูเห็น "ห้องหาย" ทุกครั้งที่เน็ตช้า) — ทิ้งข้อมูลห้องก้อนใหญ่ ๆ ก็ได้ที่คืนมาพอแล้ว */
+const KEEP = 'ac.cache.bootstrap';
+
 function dropCache(exceptKey) {
   let dropped = false;
   try {
     for (const k of Object.keys(localStorage)) {
-      if (k.startsWith('ac.cache.') && k !== exceptKey) { localStorage.removeItem(k); dropped = true; }
+      if (k.startsWith('ac.cache.') && k !== exceptKey && k !== KEEP) { localStorage.removeItem(k); dropped = true; }
     }
   } catch (e) { return false; }
   return dropped;

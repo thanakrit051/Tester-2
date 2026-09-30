@@ -23,7 +23,7 @@
 // ── เวอร์ชัน ────────────────────────────────────────────────
 // ⚠️ ต้องตรงกับ APP_VERSION ใน js/version.js
 //    ถ้าเลขไม่ตรง หน้าเว็บจะขึ้นแถบเตือนให้ผู้ใช้อัปเดต/Deploy ใหม่
-var SERVER_VERSION = '2.14.0';
+var SERVER_VERSION = '2.15.0';
 
 // ── ชื่อแท็บระบบ ────────────────────────────────────────────
 var SHEET_CONFIG  = '⚙️ ตั้งค่า';
@@ -1799,6 +1799,9 @@ function handle_(req, embedded) {
   }
 }
 
+/** คำสั่งใน batch ที่ทำให้คะแนนสรุปเปลี่ยน (updateColumn/deleteColumn คำนวณเองอยู่แล้ว) */
+var RECALC_AFTER_ = { setCells: true, setStudents: true, addColumn: true };
+
 /** คำสั่งที่ไม่แตะข้อมูลในชีตเลย */
 var READ_ONLY_ACTIONS_ = { ping: true, bootstrap: true, getClass: true };
 
@@ -1953,12 +1956,28 @@ function dispatch_(action, p, cfg) {
      */
     case 'batch': {
       var results = [];
+      var dirty = {};   // ห้องที่คะแนน/รายชื่อเปลี่ยนในก้อนนี้ → ต้องเขียนบล็อกสรุปใหม่
       (p.ops || []).forEach(function (op, i) {
         try {
           results.push({ i: i, ok: true, data: dispatch_(op.action, op.payload || {}, cfg) });
+          var cid = op.payload && op.payload.classId;
+          if (cid && RECALC_AFTER_[op.action]) dirty[cid] = true;
         } catch (err) {
           results.push({ i: i, ok: false, error: String(err && err.message ? err.message : err) });
         }
+      });
+
+      /* เขียนบล็อกสรุปในชีตให้ตรงกับที่แอปเห็น
+       *
+       * แอปคำนวณสรุปเองในเครื่อง แต่ของเดิมไม่เคยสั่งให้ชีตคำนวณตามเลย
+       * บล็อกสรุปในชีตจึงว่างเปล่า/ค้างค่าเก่า จนกว่าครูจะไปกด "💾 บันทึกลงชีต"
+       * ในหน้าสรุปเอง ซึ่งแทบไม่มีใครรู้ว่าต้องกด
+       *
+       * ทำครั้งเดียวต่อห้องต่อก้อน (คิวรวมการกดหลายครั้งเป็นก้อนเดียวอยู่แล้ว)
+       * คำนวณพลาดต้องไม่ทำให้งานที่เขียนสำเร็จแล้วถูกนับว่าล้มเหลว
+       * ไม่งั้นแอปจะส่งคะแนนชุดเดิมซ้ำไม่รู้จบ */
+      Object.keys(dirty).forEach(function (cid) {
+        try { recalcClass_(cid); } catch (err) { console.error('recalc ' + cid, err); }
       });
       return { results: results };
     }
@@ -2204,6 +2223,12 @@ function studentClassView_(data, r, st, byBucket, S) {
     });
   });
 
+  // ถือว่าจบภาคเรียนเมื่อครูกรอกคะแนนปลายภาคของคนนี้แล้ว (เกณฑ์เดียวกับธง "เสี่ยงติด 0")
+  // หน้าสรุปผลใช้บอกนักเรียนว่าเกรดที่เห็นยังเปลี่ยนได้อีกไหม
+  var termDone = (byBucket.fin || []).some(function (c) {
+    return String((V[c.key] || {})[st.sid] || '').trim() !== '';
+  });
+
   return {
     subject: data.meta.subject || '',
     subjectCode: data.meta.subjectCode || '',
@@ -2214,6 +2239,11 @@ function studentClassView_(data, r, st, byBucket, S) {
     earned: Math.round(earned * 100) / 100,
     outOf: Math.round(outOf * 100) / 100,
     fullTotal: 100,
+    // คะแนนรวมทั้งภาคเรียนกับเกรด — ตัวเดียวกับที่ครูเห็นในบล็อกสรุปของชีต
+    // (ต้องเป็นค่าที่ปัดเศษตามตั้งค่าแล้ว ไม่งั้นนักเรียนเห็นคนละเลขกับใบ SGS)
+    total: r.total,
+    letter: r.grade,
+    termDone: termDone,
     att: {
       present: att['ม'], late: att['ส'], leave: att['ล'], absent: att['ข'],
       checked: att.checked, pct: r.pct, minPct: S.minPct,

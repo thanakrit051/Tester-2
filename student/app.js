@@ -141,12 +141,26 @@
   //
   // ดีไซน์วางหน้านี้เป็น "วิชาละหนึ่งหน้า" — แถบเข้มบอกว่ากำลังดูวิชาไหน
   // ได้คะแนนสะสมเท่าไหร่ แล้วค่อยไล่รายการงานกับคะแนนสอบข้างล่าง
-  var VIEW = { data: null, cur: 0 };
+  //
+  // mode: 'subject' = ดูทีละวิชา (หน้าเดิม) · 'summary' = สรุปคะแนนรวม+เกรดทุกวิชาในหน้าเดียว
+  var VIEW = { data: null, cur: 0, mode: 'subject' };
 
   function show(d) {
     VIEW.data = d;
     if (VIEW.cur >= d.classes.length) VIEW.cur = 0;
     draw();
+  }
+
+  /** ปุ่มสลับ รายวิชา / สรุปผล — อยู่ตำแหน่งเดียวกันทั้ง 2 หน้า กดสลับไปมาได้ทันที */
+  function modeSwitch() {
+    return h('div', { class: 'seg stu-seg', role: 'tablist' },
+      [['subject', 'รายวิชา'], ['summary', 'สรุปผลภาคเรียน']].map(function (m) {
+        return h('button', {
+          role: 'tab', 'aria-selected': VIEW.mode === m[0] ? 'true' : 'false',
+          'data-on': VIEW.mode === m[0] ? '1' : '0',
+          onclick: function () { VIEW.mode = m[0]; draw(); }
+        }, m[1]);
+      }));
   }
 
   function draw() {
@@ -156,11 +170,13 @@
         h('div', { class: 'card empty' }, 'ยังไม่มีรายวิชาที่บันทึกไว้')));
       return;
     }
+    if (VIEW.mode === 'summary') { drawSummary(d); return; }
     var c = d.classes[VIEW.cur];
 
     root.replaceChildren(
       hero(d, c),
       h('div', { class: 'stu-wrap' },
+        modeSwitch(),
         d.classes.length > 1 && h('div', { class: 'chips' },
           d.classes.map(function (x, i) {
             return h('button', {
@@ -180,6 +196,140 @@
           'ข้อมูลอัปเดตตามที่ครูบันทึกไว้ · ถ้าคะแนนไม่ตรง แจ้งครูประจำวิชา')
       ));
     window.scrollTo({ top: 0 });
+  }
+
+  // ── หน้าสรุปผลภาคเรียน ──────────────────────────────────
+  //
+  // นักเรียนอยากรู้ 2 อย่าง: "ได้รวมเท่าไหร่จาก 100" กับ "ได้เกรดอะไร"
+  // หน้ารายวิชาตอบแค่คะแนนสะสมเทียบกับที่ตรวจแล้ว ต้องกดทีละวิชาแล้วบวกเอง
+  //
+  // ระหว่างภาคเรียน คะแนนรวมยังไม่ถึง 100 เกรดที่คิดจากคะแนนตอนนั้นจึงต่ำกว่าจริงเสมอ
+  // ต้องบอกให้ชัดว่ายังเปลี่ยนได้ และยังมีคะแนนรอเก็บอีกเท่าไหร่ ไม่งั้นเด็กตกใจเปล่า ๆ
+
+  /** คะแนนรวม /100 — โค้ดในชีตรุ่นก่อน 2.15.0 ไม่ส่ง total มา ก็รวม 8 ช่องเอง (ต่างกันแค่การปัดเศษ) */
+  function totalOf(c) {
+    if (typeof c.total === 'number') return c.total;
+    var t = 0;
+    c.buckets.forEach(function (b) { if (b.has) t += Number(b.score) || 0; });
+    return Math.round(t * 100) / 100;
+  }
+
+  /** สีของเกรด: ดี · น่าห่วง · ตก/มส */
+  function letterTone(g) {
+    if (g === 'มส' || g === '0') return 'bad';
+    var n = Number(g);
+    if (isNaN(n)) return 'dim';
+    return n <= 1.5 ? 'warn' : 'ok';
+  }
+
+  function phaseSum(c, phase) {
+    var got = 0, max = 0, any = false;
+    c.buckets.forEach(function (b) {
+      if (b.phase !== phase) return;
+      max += Number(b.max) || 0;
+      if (b.has) { got += Number(b.score) || 0; any = true; }
+    });
+    return { got: Math.round(got * 100) / 100, max: max, any: any };
+  }
+
+  function drawSummary(d) {
+    var list = d.classes;
+    var done = list.filter(function (c) { return c.termDone; }).length;
+    var risk = list.filter(function (c) {
+      return c.letter === 'มส' || c.letter === '0' || (c.att && c.att.risk);
+    }).length;
+
+    root.replaceChildren(
+      h('div', { class: 'stu-hero' },
+        h('div', { class: 'hero-row' },
+          h('div', { style: { flex: '1', minWidth: '0' } },
+            h('div', { class: 'hero-kick' }, 'สรุปผลการเรียน · ' + list.length + ' วิชา'),
+            h('div', { class: 'hero-name' }, d.name || '—')),
+          h('button', { class: 'hero-out', onclick: function () { gate(); } }, 'ออก')),
+        h('div', { class: 'hero-mini' },
+          mini('รายวิชา', String(list.length)),
+          mini('จบภาคเรียนแล้ว', done + '/' + list.length),
+          mini('ต้องระวัง', risk ? risk + ' วิชา' : 'ไม่มี'))),
+
+      h('div', { class: 'stu-wrap' },
+        modeSwitch(),
+        list.map(function (c, i) { return summaryCard(c, i); }),
+        h('div', { class: 'tip' },
+          'คะแนนรวมเต็ม 100 ต่อวิชา · เกรดคิดตามเกณฑ์ที่ครูตั้งไว้' +
+          (done < list.length ? ' · วิชาที่ยังไม่จบภาคเรียน เกรดยังเปลี่ยนได้' : '') +
+          ' · กดที่วิชาเพื่อดูรายละเอียด')
+      ));
+    window.scrollTo({ top: 0 });
+  }
+
+  function summaryCard(c, i) {
+    var total = totalOf(c);
+    var hasLetter = c.letter !== undefined && c.letter !== null && c.letter !== '';
+    var noData = !(c.outOf > 0);
+    var letter = noData || !hasLetter ? '—' : String(c.letter);
+    var tone = noData || !hasLetter ? 'dim' : letterTone(letter);
+
+    // แถบ 100 คะแนน: ได้แล้ว · ไม่ได้ (ตรวจแล้วแต่ไม่ได้คะแนน) · ยังไม่ได้เก็บ
+    var outOf = Math.min(100, Number(c.outOf) || 0);
+    var got = Math.max(0, Math.min(outOf, total));
+    var lost = Math.max(0, outOf - got);
+    var left = Math.max(0, 100 - outOf);
+    var p1 = phaseSum(c, 1), p2 = phaseSum(c, 2);
+
+    var note;
+    if (noData) note = h('div', { class: 'sum-note' }, 'ครูยังไม่ได้กรอกคะแนนในวิชานี้');
+    else if (letter === 'มส') {
+      note = h('div', { class: 'sum-note bad' },
+        'มส — เวลาเรียน ' + c.att.pct + '% ต่ำกว่าเกณฑ์ ' + c.att.minPct + '% รีบคุยกับครูผู้สอน');
+    } else if (!c.termDone) {
+      note = h('div', { class: 'sum-note' },
+        'ยังไม่จบภาคเรียน · ยังมีคะแนนรอเก็บอีก ' + nf(left) + ' คะแนน — เกรดนี้คิดจากคะแนนตอนนี้ เปลี่ยนได้อีก');
+    } else if (c.pending > 0) {
+      note = h('div', { class: 'sum-note warn' },
+        'ครูยังตรวจไม่ครบ ' + c.pending + ' รายการ — คะแนนและเกรดอาจเปลี่ยนได้');
+    } else {
+      note = h('div', { class: 'sum-note ok' }, 'จบภาคเรียนแล้ว');
+    }
+
+    return h('button', {
+      class: 'card sum-card',
+      onclick: function () { VIEW.cur = i; VIEW.mode = 'subject'; draw(); }
+    },
+      h('div', { class: 'sum-top' },
+        h('div', { style: { flex: '1', minWidth: '0' } },
+          h('div', { class: 'sum-subj' }, c.subject || '—'),
+          h('div', { class: 'sum-code' },
+            [c.subjectCode, [c.grade, c.room].filter(Boolean).join('/')].filter(Boolean).join(' · ') || ' ')),
+        h('div', { class: 'sum-grade ' + tone },
+          h('span', null, 'เกรด'),
+          h('b', null, letter))),
+
+      h('div', { class: 'sum-total' },
+        h('b', { class: 'tnum' }, noData ? '—' : nf(total)),
+        h('span', null, '/100 คะแนน')),
+
+      !noData && h('div', {
+        class: 'sum-bar', role: 'img',
+        'aria-label': 'ได้ ' + nf(got) + ' · ไม่ได้ ' + nf(lost) + ' · ยังไม่เก็บ ' + nf(left) + ' จาก 100'
+      },
+        got > 0 && h('i', { class: 'got', style: { width: got + '%' } }),
+        lost > 0 && h('i', { class: 'lost', style: { width: lost + '%' } }),
+        left > 0 && h('i', { class: 'left', style: { width: left + '%' } })),
+      !noData && h('div', { class: 'sum-legend' },
+        h('span', null, h('i', { class: 'got' }), 'ได้ ' + nf(got)),
+        lost > 0 && h('span', null, h('i', { class: 'lost' }), 'ไม่ได้ ' + nf(lost)),
+        left > 0 && h('span', null, h('i', { class: 'left' }), 'ยังไม่เก็บ ' + nf(left))),
+
+      !noData && h('div', { class: 'sum-phases' },
+        h('div', null, h('span', null, 'ก่อนกลางภาค'),
+          h('b', { class: 'tnum' }, p1.any ? nf(p1.got) + '/' + nf(p1.max) : '—')),
+        h('div', null, h('span', null, 'หลังกลางภาค'),
+          h('b', { class: 'tnum' }, p2.any ? nf(p2.got) + '/' + nf(p2.max) : '—'))),
+
+      note,
+      !noData && !hasLetter && h('div', { class: 'sum-note' },
+        'ระบบของครูยังไม่ได้อัปเดต จึงยังแสดงเกรดไม่ได้ (คะแนนรวมถูกต้อง)')
+    );
   }
 
   /** แถบเข้มบนสุด — วิชา ชื่อ คะแนนสะสม และสรุป 3 ก้อน */

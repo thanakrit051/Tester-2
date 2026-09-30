@@ -1067,6 +1067,47 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
 .fail-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fail-chip b { font-variant-numeric: tabular-nums; flex: none; }
 
+/* สีชิปตามกลุ่มในแท็บ "ตามงาน" — ตั้งต้นเป็นแดง (ไม่ส่ง/ไม่ผ่าน) */
+.fail-chip.warn { background: var(--late-soft); color: var(--warn-ink); }
+.fail-chip.dim  { background: var(--surface-2); color: var(--ink-2); }
+.fail-head b.tone-bad  { color: var(--st-miss); }
+.fail-head b.tone-warn { color: var(--warn-ink); }
+.fail-head b.tone-dim  { color: var(--ink-2); }
+
+/* ── ข้อมูลจากชีตเมื่อไหร่ (หน้ารายงาน) ── */
+.rep-fresh {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  font-size: 12px; color: var(--ink-3); margin: -4px 2px 12px;
+}
+.rep-fresh > span { flex: 1; min-width: 0; }
+.rep-fresh-btn {
+  flex: none; padding: 5px 11px; border-radius: 999px; font-size: 12.5px; font-weight: 600;
+  background: var(--surface); color: var(--accent-ink); box-shadow: var(--sh-1);
+}
+.rep-fresh-btn:hover { background: var(--accent-soft); }
+.rep-fresh-btn:disabled { opacity: .5; }
+
+/* แถวการส่งงานรายชิ้นกดได้ → ไปแท็บตามงาน */
+.multi-btn { display: block; width: calc(100% + 12px); text-align: left; border-radius: 10px; padding: 4px 6px; margin: 0 -6px 8px; }
+.multi-btn:hover { background: var(--surface-2); }
+
+/* ── ยอดค้างรวม (หน้าภาพรวม) ── */
+.owe-card { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; }
+.owe-card:hover { box-shadow: var(--sh-2); }
+.owe-body { flex: 1; min-width: 0; }
+.owe-body > b { font-size: 14px; }
+.owe-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
+.owe-tags span { font-size: 12.5px; font-weight: 600; padding: 3px 10px; border-radius: 999px; }
+.owe-tags .bad { background: var(--miss-soft); color: var(--st-miss); }
+.owe-tags .dim { background: var(--surface-2); color: var(--ink-2); }
+.owe-go { flex: none; font-size: 13px; font-weight: 600; color: var(--accent-ink); }
+
+/* ── แท็บตามงาน ── */
+.follow-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+.follow-card .rep-head { align-items: center; margin-bottom: 2px; }
+.follow-meta { font-size: 12px; color: var(--ink-3); margin-bottom: 8px; }
+.follow-empty { font-size: 13px; color: var(--ink-2); padding: 6px 0 2px; }
+
 .watch-row {
   display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
   padding: 10px 12px; border-radius: 12px; background: var(--surface-2);
@@ -1652,6 +1693,63 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
 .rule span.t-warn { color: var(--st-late); }
 .rule span.t-dim  { color: var(--ink-3); }
 
+/* ── สลับ รายวิชา / สรุปผลภาคเรียน ────────────────────────── */
+.stu-seg { margin-bottom: 12px; background: var(--surface); box-shadow: var(--sh-1); }
+
+/* ── หน้าสรุปผลภาคเรียน ───────────────────────────────────── */
+.sum-card { display: block; width: 100%; text-align: left; }
+.sum-card:hover { box-shadow: var(--sh-2); }
+.sum-top { display: flex; align-items: flex-start; gap: 12px; }
+.sum-subj {
+  font-size: 15px; font-weight: 700; color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.sum-code { font-size: 12px; color: var(--ink-2); margin-top: 1px; }
+.sum-grade {
+  flex: none; min-width: 64px; padding: 6px 10px 8px; border-radius: 14px; text-align: center;
+  background: var(--surface-2); color: var(--ink-2);
+}
+.sum-grade span { display: block; font-size: 11px; font-weight: 600; }
+.sum-grade b { display: block; font-size: 26px; line-height: 1.05; font-weight: 700; color: var(--ink); }
+.sum-grade.ok   { background: var(--ok-soft); }
+.sum-grade.ok b { color: var(--st-ok); }
+.sum-grade.warn { background: var(--late-soft); }
+.sum-grade.warn b { color: var(--warn-ink); }
+.sum-grade.bad  { background: var(--miss-soft); }
+.sum-grade.bad b, .sum-grade.bad span { color: var(--st-miss); }
+
+.sum-total { display: flex; align-items: baseline; gap: 6px; margin-top: 8px; }
+.sum-total b { font-size: 30px; font-weight: 700; color: var(--ink); line-height: 1.1; letter-spacing: -.5px; }
+.sum-total span { font-size: 13px; color: var(--ink-2); }
+
+.sum-bar {
+  display: flex; height: 10px; border-radius: 99px; overflow: hidden;
+  background: var(--surface-3); margin-top: 10px; gap: 2px;
+}
+.sum-bar i { display: block; height: 100%; }
+.sum-bar i.got,  .sum-legend i.got  { background: var(--accent); }
+.sum-bar i.lost, .sum-legend i.lost { background: var(--st-miss); opacity: .55; }
+.sum-bar i.left, .sum-legend i.left { background: var(--st-none); }
+.sum-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 7px; font-size: 11.5px; color: var(--ink-2); }
+.sum-legend span { display: inline-flex; align-items: center; gap: 5px; font-variant-numeric: tabular-nums; }
+.sum-legend i { width: 9px; height: 9px; border-radius: 3px; display: inline-block; }
+
+.sum-phases { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+.sum-phases > div {
+  background: var(--surface-2); border-radius: 10px; padding: 8px 11px;
+  display: flex; align-items: baseline; gap: 6px;
+}
+.sum-phases span { flex: 1; font-size: 12px; color: var(--ink-2); }
+.sum-phases b { font-size: 14px; font-weight: 700; color: var(--ink); }
+
+.sum-note {
+  margin-top: 10px; font-size: 12.5px; line-height: 1.55; color: var(--ink-2);
+  padding: 8px 11px; border-radius: 10px; background: var(--surface-2);
+}
+.sum-note.ok   { background: var(--ok-soft);   color: var(--st-ok); font-weight: 600; }
+.sum-note.warn { background: var(--late-soft); color: var(--warn-ink); font-weight: 600; }
+.sum-note.bad  { background: var(--miss-soft); color: var(--st-miss); font-weight: 600; }
+
 @media (min-width: 760px) {
   .stu-hero { padding: 22px 24px; }
   .stu-hero > * { max-width: 620px; margin-left: auto; margin-right: auto; }
@@ -1672,7 +1770,7 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
 <div id="boot" class="boot">
   <div class="boot-mark">A<span>✓</span></div>
   <div class="boot-title">ผลการเรียนของฉัน</div>
-  <div class="boot-ver">v3.8.0</div>
+  <div class="boot-ver">v3.9.0</div>
   <div class="boot-spin"></div>
 </div>
 
@@ -1823,12 +1921,26 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
   //
   // ดีไซน์วางหน้านี้เป็น "วิชาละหนึ่งหน้า" — แถบเข้มบอกว่ากำลังดูวิชาไหน
   // ได้คะแนนสะสมเท่าไหร่ แล้วค่อยไล่รายการงานกับคะแนนสอบข้างล่าง
-  var VIEW = { data: null, cur: 0 };
+  //
+  // mode: 'subject' = ดูทีละวิชา (หน้าเดิม) · 'summary' = สรุปคะแนนรวม+เกรดทุกวิชาในหน้าเดียว
+  var VIEW = { data: null, cur: 0, mode: 'subject' };
 
   function show(d) {
     VIEW.data = d;
     if (VIEW.cur >= d.classes.length) VIEW.cur = 0;
     draw();
+  }
+
+  /** ปุ่มสลับ รายวิชา / สรุปผล — อยู่ตำแหน่งเดียวกันทั้ง 2 หน้า กดสลับไปมาได้ทันที */
+  function modeSwitch() {
+    return h('div', { class: 'seg stu-seg', role: 'tablist' },
+      [['subject', 'รายวิชา'], ['summary', 'สรุปผลภาคเรียน']].map(function (m) {
+        return h('button', {
+          role: 'tab', 'aria-selected': VIEW.mode === m[0] ? 'true' : 'false',
+          'data-on': VIEW.mode === m[0] ? '1' : '0',
+          onclick: function () { VIEW.mode = m[0]; draw(); }
+        }, m[1]);
+      }));
   }
 
   function draw() {
@@ -1838,11 +1950,13 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
         h('div', { class: 'card empty' }, 'ยังไม่มีรายวิชาที่บันทึกไว้')));
       return;
     }
+    if (VIEW.mode === 'summary') { drawSummary(d); return; }
     var c = d.classes[VIEW.cur];
 
     root.replaceChildren(
       hero(d, c),
       h('div', { class: 'stu-wrap' },
+        modeSwitch(),
         d.classes.length > 1 && h('div', { class: 'chips' },
           d.classes.map(function (x, i) {
             return h('button', {
@@ -1862,6 +1976,140 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
           'ข้อมูลอัปเดตตามที่ครูบันทึกไว้ · ถ้าคะแนนไม่ตรง แจ้งครูประจำวิชา')
       ));
     window.scrollTo({ top: 0 });
+  }
+
+  // ── หน้าสรุปผลภาคเรียน ──────────────────────────────────
+  //
+  // นักเรียนอยากรู้ 2 อย่าง: "ได้รวมเท่าไหร่จาก 100" กับ "ได้เกรดอะไร"
+  // หน้ารายวิชาตอบแค่คะแนนสะสมเทียบกับที่ตรวจแล้ว ต้องกดทีละวิชาแล้วบวกเอง
+  //
+  // ระหว่างภาคเรียน คะแนนรวมยังไม่ถึง 100 เกรดที่คิดจากคะแนนตอนนั้นจึงต่ำกว่าจริงเสมอ
+  // ต้องบอกให้ชัดว่ายังเปลี่ยนได้ และยังมีคะแนนรอเก็บอีกเท่าไหร่ ไม่งั้นเด็กตกใจเปล่า ๆ
+
+  /** คะแนนรวม /100 — โค้ดในชีตรุ่นก่อน 2.15.0 ไม่ส่ง total มา ก็รวม 8 ช่องเอง (ต่างกันแค่การปัดเศษ) */
+  function totalOf(c) {
+    if (typeof c.total === 'number') return c.total;
+    var t = 0;
+    c.buckets.forEach(function (b) { if (b.has) t += Number(b.score) || 0; });
+    return Math.round(t * 100) / 100;
+  }
+
+  /** สีของเกรด: ดี · น่าห่วง · ตก/มส */
+  function letterTone(g) {
+    if (g === 'มส' || g === '0') return 'bad';
+    var n = Number(g);
+    if (isNaN(n)) return 'dim';
+    return n <= 1.5 ? 'warn' : 'ok';
+  }
+
+  function phaseSum(c, phase) {
+    var got = 0, max = 0, any = false;
+    c.buckets.forEach(function (b) {
+      if (b.phase !== phase) return;
+      max += Number(b.max) || 0;
+      if (b.has) { got += Number(b.score) || 0; any = true; }
+    });
+    return { got: Math.round(got * 100) / 100, max: max, any: any };
+  }
+
+  function drawSummary(d) {
+    var list = d.classes;
+    var done = list.filter(function (c) { return c.termDone; }).length;
+    var risk = list.filter(function (c) {
+      return c.letter === 'มส' || c.letter === '0' || (c.att && c.att.risk);
+    }).length;
+
+    root.replaceChildren(
+      h('div', { class: 'stu-hero' },
+        h('div', { class: 'hero-row' },
+          h('div', { style: { flex: '1', minWidth: '0' } },
+            h('div', { class: 'hero-kick' }, 'สรุปผลการเรียน · ' + list.length + ' วิชา'),
+            h('div', { class: 'hero-name' }, d.name || '—')),
+          h('button', { class: 'hero-out', onclick: function () { gate(); } }, 'ออก')),
+        h('div', { class: 'hero-mini' },
+          mini('รายวิชา', String(list.length)),
+          mini('จบภาคเรียนแล้ว', done + '/' + list.length),
+          mini('ต้องระวัง', risk ? risk + ' วิชา' : 'ไม่มี'))),
+
+      h('div', { class: 'stu-wrap' },
+        modeSwitch(),
+        list.map(function (c, i) { return summaryCard(c, i); }),
+        h('div', { class: 'tip' },
+          'คะแนนรวมเต็ม 100 ต่อวิชา · เกรดคิดตามเกณฑ์ที่ครูตั้งไว้' +
+          (done < list.length ? ' · วิชาที่ยังไม่จบภาคเรียน เกรดยังเปลี่ยนได้' : '') +
+          ' · กดที่วิชาเพื่อดูรายละเอียด')
+      ));
+    window.scrollTo({ top: 0 });
+  }
+
+  function summaryCard(c, i) {
+    var total = totalOf(c);
+    var hasLetter = c.letter !== undefined && c.letter !== null && c.letter !== '';
+    var noData = !(c.outOf > 0);
+    var letter = noData || !hasLetter ? '—' : String(c.letter);
+    var tone = noData || !hasLetter ? 'dim' : letterTone(letter);
+
+    // แถบ 100 คะแนน: ได้แล้ว · ไม่ได้ (ตรวจแล้วแต่ไม่ได้คะแนน) · ยังไม่ได้เก็บ
+    var outOf = Math.min(100, Number(c.outOf) || 0);
+    var got = Math.max(0, Math.min(outOf, total));
+    var lost = Math.max(0, outOf - got);
+    var left = Math.max(0, 100 - outOf);
+    var p1 = phaseSum(c, 1), p2 = phaseSum(c, 2);
+
+    var note;
+    if (noData) note = h('div', { class: 'sum-note' }, 'ครูยังไม่ได้กรอกคะแนนในวิชานี้');
+    else if (letter === 'มส') {
+      note = h('div', { class: 'sum-note bad' },
+        'มส — เวลาเรียน ' + c.att.pct + '% ต่ำกว่าเกณฑ์ ' + c.att.minPct + '% รีบคุยกับครูผู้สอน');
+    } else if (!c.termDone) {
+      note = h('div', { class: 'sum-note' },
+        'ยังไม่จบภาคเรียน · ยังมีคะแนนรอเก็บอีก ' + nf(left) + ' คะแนน — เกรดนี้คิดจากคะแนนตอนนี้ เปลี่ยนได้อีก');
+    } else if (c.pending > 0) {
+      note = h('div', { class: 'sum-note warn' },
+        'ครูยังตรวจไม่ครบ ' + c.pending + ' รายการ — คะแนนและเกรดอาจเปลี่ยนได้');
+    } else {
+      note = h('div', { class: 'sum-note ok' }, 'จบภาคเรียนแล้ว');
+    }
+
+    return h('button', {
+      class: 'card sum-card',
+      onclick: function () { VIEW.cur = i; VIEW.mode = 'subject'; draw(); }
+    },
+      h('div', { class: 'sum-top' },
+        h('div', { style: { flex: '1', minWidth: '0' } },
+          h('div', { class: 'sum-subj' }, c.subject || '—'),
+          h('div', { class: 'sum-code' },
+            [c.subjectCode, [c.grade, c.room].filter(Boolean).join('/')].filter(Boolean).join(' · ') || ' ')),
+        h('div', { class: 'sum-grade ' + tone },
+          h('span', null, 'เกรด'),
+          h('b', null, letter))),
+
+      h('div', { class: 'sum-total' },
+        h('b', { class: 'tnum' }, noData ? '—' : nf(total)),
+        h('span', null, '/100 คะแนน')),
+
+      !noData && h('div', {
+        class: 'sum-bar', role: 'img',
+        'aria-label': 'ได้ ' + nf(got) + ' · ไม่ได้ ' + nf(lost) + ' · ยังไม่เก็บ ' + nf(left) + ' จาก 100'
+      },
+        got > 0 && h('i', { class: 'got', style: { width: got + '%' } }),
+        lost > 0 && h('i', { class: 'lost', style: { width: lost + '%' } }),
+        left > 0 && h('i', { class: 'left', style: { width: left + '%' } })),
+      !noData && h('div', { class: 'sum-legend' },
+        h('span', null, h('i', { class: 'got' }), 'ได้ ' + nf(got)),
+        lost > 0 && h('span', null, h('i', { class: 'lost' }), 'ไม่ได้ ' + nf(lost)),
+        left > 0 && h('span', null, h('i', { class: 'left' }), 'ยังไม่เก็บ ' + nf(left))),
+
+      !noData && h('div', { class: 'sum-phases' },
+        h('div', null, h('span', null, 'ก่อนกลางภาค'),
+          h('b', { class: 'tnum' }, p1.any ? nf(p1.got) + '/' + nf(p1.max) : '—')),
+        h('div', null, h('span', null, 'หลังกลางภาค'),
+          h('b', { class: 'tnum' }, p2.any ? nf(p2.got) + '/' + nf(p2.max) : '—'))),
+
+      note,
+      !noData && !hasLetter && h('div', { class: 'sum-note' },
+        'ระบบของครูยังไม่ได้อัปเดต จึงยังแสดงเกรดไม่ได้ (คะแนนรวมถูกต้อง)')
+    );
   }
 
   /** แถบเข้มบนสุด — วิชา ชื่อ คะแนนสะสม และสรุป 3 ก้อน */

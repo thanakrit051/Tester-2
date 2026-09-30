@@ -139,6 +139,12 @@ function studentClassView_(data, r, st, byBucket, S) {
     });
   });
 
+  // ถือว่าจบภาคเรียนเมื่อครูกรอกคะแนนปลายภาคของคนนี้แล้ว (เกณฑ์เดียวกับธง "เสี่ยงติด 0")
+  // หน้าสรุปผลใช้บอกนักเรียนว่าเกรดที่เห็นยังเปลี่ยนได้อีกไหม
+  var termDone = (byBucket.fin || []).some(function (c) {
+    return String((V[c.key] || {})[st.sid] || '').trim() !== '';
+  });
+
   return {
     subject: data.meta.subject || '',
     subjectCode: data.meta.subjectCode || '',
@@ -149,6 +155,11 @@ function studentClassView_(data, r, st, byBucket, S) {
     earned: Math.round(earned * 100) / 100,
     outOf: Math.round(outOf * 100) / 100,
     fullTotal: 100,
+    // คะแนนรวมทั้งภาคเรียนกับเกรด — ตัวเดียวกับที่ครูเห็นในบล็อกสรุปของชีต
+    // (ต้องเป็นค่าที่ปัดเศษตามตั้งค่าแล้ว ไม่งั้นนักเรียนเห็นคนละเลขกับใบ SGS)
+    total: r.total,
+    letter: r.grade,
+    termDone: termDone,
     att: {
       present: att['ม'], late: att['ส'], leave: att['ล'], absent: att['ข'],
       checked: att.checked, pct: r.pct, minPct: S.minPct,

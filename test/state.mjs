@@ -42,7 +42,7 @@ globalThis.fetch = async () => {
 };
 
 const api = await import('../js/api.js');
-const { state, loadClass } = await import('../js/state.js');
+const { state, loadClass, refreshClass, fetchedAt, setCells, sync } = await import('../js/state.js');
 
 api.conn.save('https://script.google.com/macros/s/x/exec', 'KEY');
 
@@ -136,5 +136,53 @@ api.queue.push('deleteColumn', { classId: 'C1', key: 'MID|1|mid' });
 await loadClass('C1', { force: true });
 ok(!colAt('MID|1|mid'), 'รายการที่ลบไปแล้วโผล่กลับมาตอนข้อมูลจากชีตมาทับ');
 api.queue.clear();
+
+// ── 5. ดึงห้องที่เปิดอยู่ใหม่เบื้องหลัง (แก้ "รายงานไม่ตรงกับที่เช็ค") ──
+//
+// ชีตตอบคำสั่งเขียนทันที แต่คำสั่งอ่านค้างไว้จนกว่าเทสต์จะปล่อย
+// = จำลองคำสั่งอ่านที่ออกไปก่อน แล้วคำสั่งเขียนแซงไปถึงชีตก่อนตอนมันยังไม่กลับ
+globalThis.fetch = async (_url, init) => {
+  const body = JSON.parse(init.body);
+  const ops = (body.payload && body.payload.ops) || [];
+  if (body.action === 'batch' && ops.some(o => o.action === 'setCells')) {
+    const results = ops.map(o => ({ ok: true, data: { written: (o.payload.cells || []).length } }));
+    return { text: async () => JSON.stringify({ ok: true, data: { results }, version: '2.15.0' }) };
+  }
+  if (waitForTest) await waitForTest;
+  return { text: async () => JSON.stringify({ ok: true, data: reply, version: '2.15.0' }) };
+};
+
+reply = clsOf({ 'ATT|1|A1': { '001': 'ม' } });
+waitForTest = null;
+await loadClass('C1', { force: true });
+
+// 5.1 อีกเครื่องแก้ค่าไป → ดึงใหม่แล้วต้องเห็น
+reply = clsOf({ 'ATT|1|A1': { '001': 'ข' } });
+const before = fetchedAt('C1');
+await new Promise(r => setTimeout(r, 5));
+await refreshClass({ force: true });
+ok(state.cls.values['ATT|1|A1']['001'] === 'ข', 'ดึงใหม่แล้วไม่เห็นค่าที่อีกเครื่องแก้');
+ok(fetchedAt('C1') > before, 'ดึงใหม่แล้วไม่ได้จำเวลา');
+
+// 5.2 ของยังใหม่อยู่ → ไม่ต้องยิงซ้ำ
+let hits = 0;
+const realFetch = globalThis.fetch;
+globalThis.fetch = async (...a) => { hits++; return realFetch(...a); };
+await refreshClass({ maxAge: 60_000 });
+ok(hits === 0, 'ของเพิ่งดึงมาแต่ยังยิงไปถามชีตซ้ำ');
+globalThis.fetch = realFetch;
+
+// 5.3 คิวเขียนสำเร็จระหว่างรออ่าน → ต้องทิ้งของที่อ่านมา ไม่งั้นช่องที่เพิ่งกดหาย
+reply = clsOf({ 'ATT|1|A1': { '001': 'ข' } });                       // ชีตตอนที่ "อ่าน" ยังไม่มีค่าของ 002
+waitForTest = new Promise((r) => { release = r; });
+const reading = refreshClass({ force: true });
+setCells([{ key: 'ATT|1|A1', sid: '002', value: 'ส' }], { quiet: true });
+await sync();                                                       // เขียนถึงชีตก่อน คิวว่างแล้ว
+ok(api.queue.size === 0, 'เทสต์ตั้งไม่ถูก: คิวควรว่างหลังเขียนสำเร็จ');
+release();
+await reading;
+ok(state.cls.values['ATT|1|A1']['002'] === 'ส', 'ของที่อ่านค้างมาเก่ากว่าที่เพิ่งเขียน ทับช่องที่ครูเพิ่งกดหาย');
+ok(fetchedAt('C1') === 0, 'ทิ้งของเก่าแล้วต้องให้รอบหน้าดึงใหม่');
+waitForTest = null;
 
 console.log(`✅ การโหลดห้องเรียนผ่านครบ (${pass} ข้อ)`);

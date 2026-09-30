@@ -2,7 +2,7 @@
 
 import { h, modal, toast, confirmBox, todayISO } from '../dom.js';
 import {
-  state, go, loadClass, createClass, updateClassMeta, deleteClass, setStudents, settings
+  state, go, loadClass, createClass, updateClassMeta, deleteClass, setStudents, settings, bootAll
 } from '../state.js';
 import { computeClass } from '../score.js';
 
@@ -14,11 +14,28 @@ export function viewHome() {
 
     h('div', { style: { display: 'flex', alignItems: 'center', gap: '12px', margin: '18px 0 12px' } },
       h('div', { style: { fontSize: '15px', fontWeight: '700', flex: '1' } },
-        `ห้องเรียนของฉัน · ${state.classes.length} ห้อง-วิชา`),
+        state.classes.length || state.classesKnown
+          ? `ห้องเรียนของฉัน · ${state.classes.length} ห้อง-วิชา` : 'ห้องเรียนของฉัน'),
       h('button', { class: 'btn-dark', onclick: () => openClassForm() }, '+ เพิ่มห้อง')
     ),
 
-    state.classes.length === 0
+    // ยังไม่รู้ว่ามีห้องอะไร (โหลดไม่ขึ้น/ยังรออยู่) ≠ ไม่มีห้อง
+    // ห้ามชวนให้ "สร้างห้องแรก" ตอนนี้ ครูจะสร้างห้องซ้ำกับที่มีอยู่แล้วในชีต
+    state.classes.length === 0 && !state.classesKnown
+      ? h('div', { class: 'card empty' },
+          h('div', { class: 'empty-icon' }, state.classesError ? '⚠️' : '⏳'),
+          h('div', { style: { fontWeight: '600' } },
+            state.classesError ? 'โหลดรายชื่อห้องไม่สำเร็จ' : 'กำลังโหลดรายชื่อห้อง…'),
+          state.classesError && h('div', { style: { fontSize: '13px', margin: '4px 0 14px' } },
+            state.classesError + ' — ห้องเรียนในชีตยังอยู่ครบ ไม่ได้หายไปไหน'),
+          state.classesError && h('button', {
+            class: 'btn',
+            onclick: async (e) => {
+              e.currentTarget.disabled = true;
+              try { await bootAll(); } catch (err) { toast(err.message, 'err'); }
+            }
+          }, 'ลองโหลดใหม่'))
+    : state.classes.length === 0
       ? h('div', { class: 'card empty' },
           h('div', { class: 'empty-icon' }, '📚'),
           h('div', { style: { fontWeight: '600' } }, 'ยังไม่มีห้องเรียน'),

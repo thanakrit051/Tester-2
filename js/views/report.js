@@ -5,10 +5,14 @@
  */
 
 import { h, toast, fmtDate, nf } from '../dom.js';
-import { state, emit, settings, go } from '../state.js';
+import { state, emit, settings, go, sync, refreshClass, fetchedAt } from '../state.js';
+import * as api from '../api.js';
 import { computeClass, parseWork, BUCKETS, ATT_CODES, passMarkOf, passOf } from '../score.js';
 
-const ui = { tab: 'class', sid: null, q: '' };
+/* tab:    'class' ภาพรวม · 'follow' ตามงาน (ใครยังค้างชิ้นไหน) · 'student' รายคน
+ * follow: ตัวกรองของแท็บตามงาน · phase: 0 ทั้งเทอม / 1 ก่อนกลางภาค / 2 หลังกลางภาค
+ * focus:  คีย์รายการที่กดมาจากภาพรวม — โชว์ชิ้นเดียว ('' = ทุกชิ้น) */
+const ui = { tab: 'class', sid: null, q: '', follow: 'all', phase: 0, focus: '' };
 
 // สถานะ → สี + ชื่อ (ใช้ร่วมกันทั้งหน้า)
 // สีอ่านจากตัวแปรใน styles.css เพื่อให้โหมดมืดเปลี่ยนตามได้เอง
@@ -44,15 +48,40 @@ export function viewReport() {
   return h('div', { class: 'page' },
     // แท็บ + ปุ่มส่งออก — ดีไซน์วางไว้แถวบนสุด ปุ่มส่งออกชิดขวา
     h('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' } },
-      h('button', { class: 'chip', 'data-on': ui.tab === 'class' ? '1' : '0', onclick: () => { ui.tab = 'class'; emit(); } }, 'ทั้งห้อง'),
+      h('button', { class: 'chip', 'data-on': ui.tab === 'class' ? '1' : '0', onclick: () => { ui.tab = 'class'; emit(); } }, 'ภาพรวม'),
+      h('button', { class: 'chip', 'data-on': ui.tab === 'follow' ? '1' : '0', onclick: () => { ui.tab = 'follow'; ui.focus = ''; emit(); } }, 'ตามงาน'),
       h('button', { class: 'chip', 'data-on': ui.tab === 'student' ? '1' : '0', onclick: () => { ui.tab = 'student'; emit(); } }, 'รายคน'),
       h('button', {
         class: 'chip', style: { marginLeft: 'auto' },
         onclick: () => exportReport(computeClass(cls, settings()))
-      }, '⤓ ออกไฟล์ CSV')
+      }, '⤓ CSV')
     ),
-    ui.tab === 'class' ? classReport() : studentReport()
+    freshness(),
+    ui.tab === 'class' ? classReport() : ui.tab === 'follow' ? followReport() : studentReport()
   );
+}
+
+/**
+ * บอกว่าตัวเลขในหน้านี้เป็นของเมื่อไหร่ + ปุ่มดึงใหม่
+ *
+ * ครูเช็คชื่อจากมือถือแล้วมาเปิดรายงานบนคอม (หรือกลับมาที่แอปที่เปิดค้างไว้ทั้งคาบ)
+ * หน้านี้เคยโชว์ข้อมูลชุดที่โหลดไว้ตอนเปิดแอปโดยไม่บอกอะไร = "รายงานไม่ตรงกับที่เช็ค"
+ * ตอนนี้แอปดึงใหม่ให้เองเมื่อเปิดหน้านี้ แต่ต้องให้ครูเห็นด้วยว่าเป็นของเมื่อไหร่
+ */
+function freshness() {
+  const at = fetchedAt(state.classId);
+  const busy = state.loadingClass === state.classId;
+  const pend = api.queue.size;
+  return h('div', { class: 'rep-fresh' },
+    h('span', null,
+      busy ? 'กำลังดึงข้อมูลล่าสุดจากชีต…'
+        : at ? `ข้อมูลจากชีตเมื่อ ${new Date(at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.`
+          : 'ข้อมูลที่เก็บไว้ในเครื่อง',
+      pend > 0 && !busy ? ` · รอส่งขึ้นชีตอีก ${pend} รายการ (นับรวมในหน้านี้แล้ว)` : ''),
+    h('button', {
+      class: 'rep-fresh-btn', disabled: busy,
+      onclick: async () => { await sync(); await refreshClass({ force: true, loud: true }); }
+    }, '↻ ดึงใหม่'));
 }
 
 
@@ -148,22 +177,14 @@ function classReport() {
     .sort((a, b) => b.score - a.score)
     .slice(0, 12);
 
-  /* ── คนที่ไม่ผ่านเกณฑ์ แยกตามรายการ ──────────────────────
-   * จัดกลุ่มตาม "ข้อสอบ" ไม่ใช่ตาม "นักเรียน" เพราะการซ่อมทำเป็นรอบ ๆ ตามชิ้นงาน
-   * ครูต้องการรายชื่อคนที่ต้องเรียกมาสอบใหม่ของชิ้นนั้น ๆ ไปเรียกทีเดียวพร้อมกัน
-   * รายการที่ไม่ได้ตั้งเกณฑ์จะไม่โผล่มาเลย (ไม่ใช่โผล่มาแบบ 0 คน) */
-  const failGroups = (cls.columns || [])
-    .map(c => {
-      const mark = passMarkOf(c, S);
-      if (mark === null) return null;
-      const V = cls.values[c.key] || {};
-      const who = (cls.students || []).filter(st => passOf(c, V[st.sid], S) === false);
-      // ซ่อมผ่านแล้วหลุดจาก who เอง (คิดด้วยคะแนนซ่อม) — แต่ครูยังอยากรู้ว่าตามเก็บไปได้กี่คนแล้ว
-      const fixed = (cls.students || [])
-        .filter(st => parseWork(V[st.sid]).retake && passOf(c, V[st.sid], S) === true).length;
-      return who.length ? { col: c, mark, who, fixed } : null;
-    })
-    .filter(Boolean);
+  // ยอดค้างรวมทุกชิ้น — รายชื่อเต็มอยู่แท็บ "ตามงาน" ตรงนี้บอกแค่ว่ามีให้ตามกี่ราย
+  const owe = { miss: 0, fix: 0, none: 0 };
+  for (const c of wCols) {
+    const g = followOf(c, S);
+    owe.miss += g.miss.length;
+    owe.fix += g.fix.length + g.refail.length;
+    if (!g.untouched) owe.none += g.none.length;
+  }
 
   // ตัวเลขสรุปทั้งห้องอยู่หน้าแรกแล้ว หน้านี้จึงเริ่มที่กราฟเลยตามดีไซน์
   return h('div', null,
@@ -216,42 +237,33 @@ function classReport() {
                   ? `${v.label} / ${v.exam}` : (hasExam && !hasWork ? v.exam : v.label);
                 return h('span', { class: 'legend-item' }, h('i', { style: { background: v.c } }), txt);
               })),
+            // กดแถวไหน = ไปดูรายชื่อคนที่ยังค้างของชิ้นนั้นในแท็บ "ตามงาน"
             wCols.map(c => {
               const t = workCount(c);
               const segs = ['ok', 'late', 'miss', 'none'].map(k =>
                 ({ key: k, n: t[k], c: WORK_STYLE[k].c, t: WORK_STYLE[k].t, label: statusLabel(k, c) }));
-              return h('div', { class: 'multi-row' },
+              return h('button', {
+                class: 'multi-row multi-btn', title: 'ดูรายชื่อคนที่ยังค้างของรายการนี้',
+                onclick: () => { ui.tab = 'follow'; ui.focus = c.key; ui.follow = 'all'; emit(); window.scrollTo({ top: 0 }); }
+              },
                 h('div', { class: 'multi-label' }, c.label,
-                  h('span', null, bucketName(c))),
+                  h('span', null, bucketName(c) + ' ›')),
                 stackBar(segs, { height: 18 }));
             }))
     ),
 
-    // ── ไม่ผ่านเกณฑ์ แยกตามข้อสอบ (เอาไปเรียกซ่อมได้ทีเดียวทั้งกลุ่ม) ──
-    failGroups.length > 0 && h('div', { class: 'card', style: { marginBottom: '12px' } },
-      h('div', { class: 'rep-head' },
-        h('h3', null, `ไม่ผ่านเกณฑ์ · ${failGroups.length} รายการ`),
-        h('span', null, 'กดชื่อเพื่อดูรายบุคคล')),
-      failGroups.map(({ col, mark, who, fixed }) => h('div', { class: 'fail-group' },
-        h('div', { class: 'fail-head' },
-          h('b', null, col.label),
-          h('span', null, `${bucketName(col)} · ผ่านที่ ${nf(mark)}/${nf(col.max)} · ไม่ผ่าน ${who.length} คน`
-            + (fixed ? ` · ซ่อมผ่านแล้ว ${fixed} คน` : ''))),
-        h('div', { class: 'fail-names' }, who.map(st => {
-          const w = parseWork((cls.values[col.key] || {})[st.sid]);
-          const got = w.status === 'miss' ? (isExam(col) ? 'ยังไม่ได้สอบ' : 'ไม่ส่ง') : nf(w.score);
-          return h('button', {
-            class: 'fail-chip',
-            title: `${st.name} · ได้ ${got}`
-              + (w.retake ? ` (สอบซ่อมแล้ว · ครั้งแรก ${w.orig === null ? 'ขาดสอบ' : nf(w.orig)})` : ''),
-            onclick: () => { ui.tab = 'student'; ui.sid = st.sid; emit(); }
-          },
-            h('span', null, `${st.no}. ${st.name || '—'}`),
-            // ซ่อมแล้วยังไม่ผ่าน — บอกไว้บนชิป ครูจะได้ไม่เรียกมาซ่อมซ้ำโดยไม่รู้ตัว
-            h('b', null, (w.retake ? 'ซ่อม ' : '') + (w.status === 'miss' ? '—' : nf(w.score))));
-        }))
-      ))
-    ),
+    // ── ยอดค้างรวม → ไปแท็บตามงาน ──
+    (owe.miss + owe.fix + owe.none) > 0 && h('button', {
+      class: 'card owe-card',
+      onclick: () => { ui.tab = 'follow'; ui.focus = ''; emit(); window.scrollTo({ top: 0 }); }
+    },
+      h('div', { class: 'owe-body' },
+        h('b', null, 'ยังต้องตามอยู่'),
+        h('div', { class: 'owe-tags' },
+          owe.miss > 0 && h('span', { class: 'bad' }, `ไม่ส่ง / ขาดสอบ ${owe.miss}`),
+          owe.fix > 0 && h('span', { class: 'bad' }, `ต้องซ่อม ${owe.fix}`),
+          owe.none > 0 && h('span', { class: 'dim' }, `ยังไม่ตรวจ ${owe.none}`))),
+      h('span', { class: 'owe-go' }, 'ดูรายชื่อ ›')),
 
     // ── ต้องติดตาม — เรียงตามความเร่งด่วน พื้นหลังบอกระดับ ──
     h('div', { class: 'card' },
@@ -283,6 +295,145 @@ function bucketName(c) {
   const b = BUCKETS.find(x => x.kind === c.kind && x.half === c.half);
   if (!b) return '';
   return `${b.label} · ${b.phase === 1 ? 'ก่อนกลางภาค' : 'หลังกลางภาค'} · เต็ม ${c.max}`;
+}
+
+// ── ตามงาน: ใครยังค้างชิ้นไหน ──────────────────────────────
+//
+// ครูขอมาตรง ๆ ว่า "งาน 1 เหลือใครบ้าง ใครยังไม่ได้สอบซ่อม เอาเป็นรายชื่อมาเลย"
+// หน้าภาพรวมตอบได้แค่เป็นแถบสัดส่วน ต้องกดไล่ทีละคนในแท็บรายคนเอาเอง
+// จึงจัดตาม "ชิ้นงาน" (ไม่ใช่ตามนักเรียน) เพราะการตามงาน/เรียกซ่อมทำทีละชิ้น ทีละกลุ่ม
+// แล้วมีปุ่มคัดลอกรายชื่อไปวางในกลุ่มไลน์ของห้องได้เลย
+
+/** กลุ่มที่ต้องตาม — เรียงจากเร่งสุด · คำเรียกของงานกับข้อสอบต่างกันให้ตรงกับที่ครูใช้ */
+const FOLLOW = [
+  { id: 'miss',   work: 'ยังไม่ส่ง',                 exam: 'ขาดสอบ',                    tone: 'bad' },
+  { id: 'fix',    work: 'ได้ต่ำกว่าเกณฑ์',           exam: 'ไม่ผ่านเกณฑ์ · ยังไม่ได้สอบซ่อม', tone: 'bad' },
+  { id: 'refail', work: 'แก้แล้วยังไม่ผ่าน',         exam: 'สอบซ่อมแล้ว ยังไม่ผ่าน',     tone: 'warn' },
+  { id: 'none',   work: 'ยังไม่ตรวจ',                exam: 'ยังไม่กรอกคะแนน',           tone: 'dim' }
+];
+const FILTERS = [
+  { id: 'all',  label: 'ทั้งหมด',           has: ['miss', 'fix', 'refail', 'none'] },
+  { id: 'miss', label: 'ไม่ส่ง / ขาดสอบ',  has: ['miss'] },
+  { id: 'fix',  label: 'ต้องซ่อม',          has: ['fix', 'refail'] },
+  { id: 'none', label: 'ยังไม่ตรวจ',        has: ['none'] }
+];
+
+/**
+ * แยกนักเรียนของรายการนี้เป็นกลุ่มที่ต้องตาม
+ * "ไม่ส่ง" ไม่ถูกนับซ้ำในกลุ่มไม่ผ่านเกณฑ์ (x = 0 คะแนน ซึ่งไม่ผ่านอยู่แล้ว แต่ต้องตามคนละแบบ)
+ * untouched = ทั้งห้องยังว่างอยู่ — รายการที่เพิ่งสร้าง ไม่ต้องไล่ชื่อทั้งห้องให้รก
+ */
+function followOf(col, S) {
+  const cls = state.cls;
+  const V = cls.values[col.key] || {};
+  const g = { miss: [], fix: [], refail: [], none: [], fixed: 0 };
+  for (const st of cls.students) {
+    const raw = V[st.sid];
+    const w = parseWork(raw);
+    if (w.status === 'miss') { g.miss.push({ st, w }); continue; }
+    if (w.status === 'none') { g.none.push({ st, w }); continue; }
+    const p = passOf(col, raw, S);
+    if (p === false) (w.retake ? g.refail : g.fix).push({ st, w });
+    else if (p === true && w.retake) g.fixed++;
+  }
+  g.untouched = cls.students.length > 0 && g.none.length === cls.students.length;
+  return g;
+}
+
+function followReport() {
+  const S = settings();
+  const f = FILTERS.find(x => x.id === ui.follow) || FILTERS[0];
+
+  let cols = workColumns();
+  const focus = ui.focus && cols.find(c => c.key === ui.focus);
+  if (focus) cols = [focus];
+  else if (ui.phase) cols = cols.filter(c => (c.half === 2 ? 2 : 1) === ui.phase);
+
+  const items = cols.map(c => {
+    const g = followOf(c, S);
+    const groups = FOLLOW
+      .filter(k => f.has.includes(k.id))
+      .map(k => ({ k, list: g[k.id] }))
+      // รายการที่ยังไม่ได้เริ่มตรวจเลย: ไม่ไล่ชื่อทั้งห้อง บอกบรรทัดเดียวพอ
+      .filter(x => x.list.length && !(x.k.id === 'none' && g.untouched));
+    return { c, g, groups };
+  });
+  const open = items.filter(x => x.groups.length || (x.g.untouched && f.has.includes('none')));
+  const clear = items.filter(x => !open.includes(x));
+
+  // นับบนชิปตัวกรอง — ครูรู้ก่อนกดว่ากลุ่มไหนมีอะไรให้ตามบ้าง
+  const countFor = (flt) => items.reduce((a, x) => a + flt.has.reduce((b, id) =>
+    b + ((id === 'none' && x.g.untouched) ? 0 : x.g[id].length), 0), 0);
+
+  return h('div', null,
+    h('div', { class: 'follow-bar' },
+      focus
+        ? h('button', { class: 'chip', onclick: () => { ui.focus = ''; emit(); } }, '‹ ทุกรายการ')
+        : h('div', { class: 'seg seg-inline', role: 'group', 'aria-label': 'ช่วงภาคเรียน' },
+            [[0, 'ทั้งเทอม'], [1, 'ก่อนกลางภาค'], [2, 'หลังกลางภาค']].map(([v, t]) => h('button', {
+              'data-on': ui.phase === v ? '1' : '0', onclick: () => { ui.phase = v; emit(); }
+            }, t)))),
+    h('div', { class: 'chips' },
+      FILTERS.map(x => h('button', {
+        class: 'chip', 'data-on': ui.follow === x.id ? '1' : '0',
+        onclick: () => { ui.follow = x.id; emit(); }
+      }, `${x.label} ${countFor(x)}`))),
+
+    cols.length === 0
+      ? h('div', { class: 'card empty' }, 'ยังไม่มีรายการงาน/สอบในช่วงนี้')
+      : open.length === 0
+        ? h('div', { class: 'card empty', style: { padding: '26px' } }, 'ไม่มีใครค้างในหมวดนี้ 🎉')
+        : open.map(({ c, g, groups }) => followCard(c, g, groups, S)),
+
+    // ชิ้นที่ครบแล้ว — บอกไว้บรรทัดเดียว จะได้รู้ว่าไม่ได้หายไปไหน
+    clear.length > 0 && !focus && h('div', { class: 'hint', style: { margin: '4px 2px 12px' } },
+      `✓ ไม่มีใครค้าง (${f.label}) · ${clear.map(x => x.c.label).join(' · ')}`)
+  );
+}
+
+function followCard(c, g, groups, S) {
+  const exam = isExam(c);
+  const mark = passMarkOf(c, S);
+  const cls = state.cls;
+
+  const chip = ({ st, w }, tone) => h('button', {
+    class: 'fail-chip ' + tone,
+    title: st.name + (w.retake ? ` · ซ่อมได้ ${nf(w.score)} (ครั้งแรก ${w.orig === null ? 'ขาดสอบ' : nf(w.orig)})` : ''),
+    onclick: () => { ui.tab = 'student'; ui.sid = st.sid; emit(); window.scrollTo({ top: 0 }); }
+  },
+    h('span', null, `${st.no}. ${st.name || '—'}`),
+    (w.status === 'ok' || w.status === 'late') && h('b', null, (w.retake ? 'ซ่อม ' : '') + nf(w.score)));
+
+  const copy = async () => {
+    const room = [cls.meta.grade, cls.meta.room].filter(Boolean).join('/');
+    const text = [
+      `${c.label} · ${[room, cls.meta.subject].filter(Boolean).join(' ')}`,
+      ...groups.flatMap(({ k, list }) => [
+        '',
+        `${exam ? k.exam : k.work} (${list.length} คน)`,
+        ...list.map(({ st }) => `${st.no}. ${st.name || '—'}`)
+      ])
+    ].join('\n');
+    try { await navigator.clipboard.writeText(text); toast('คัดลอกรายชื่อแล้ว — วางในไลน์ได้เลย', 'ok'); }
+    catch (e) { toast('คัดลอกไม่ได้ในเบราว์เซอร์นี้', 'err'); }
+  };
+
+  return h('div', { class: 'card follow-card' },
+    h('div', { class: 'rep-head' },
+      h('h3', null, c.label),
+      groups.length > 0 && h('button', { class: 'rep-fresh-btn', onclick: copy }, '⧉ คัดลอกรายชื่อ')),
+    h('div', { class: 'follow-meta' },
+      bucketName(c)
+        + (mark !== null ? ` · ผ่านที่ ${nf(mark)}` : '')
+        + (g.fixed ? ` · ซ่อมผ่านแล้ว ${g.fixed} คน` : '')),
+    g.untouched && (ui.follow === 'all' || ui.follow === 'none') && h('div', { class: 'follow-empty' },
+      exam ? 'ยังไม่ได้กรอกคะแนนใครเลย' : 'ยังไม่ได้ตรวจของใครเลย'),
+    groups.map(({ k, list }) => h('div', { class: 'fail-group' },
+      h('div', { class: 'fail-head' },
+        h('b', { class: 'tone-' + k.tone }, exam ? k.exam : k.work),
+        h('span', null, `${list.length} คน`)),
+      h('div', { class: 'fail-names' }, list.map(x => chip(x, k.tone)))))
+  );
 }
 
 // ── รายงานรายคน ────────────────────────────────────────────

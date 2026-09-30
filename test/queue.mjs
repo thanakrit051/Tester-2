@@ -173,6 +173,26 @@ queue.push('setCells', { classId: 'c1', cells: [cell('W|1|a', '01', '1')] });
   eq(queue.stuck(5).length, 0, 'stuck() ต้องไม่นับงานที่ยังไม่ถึงเกณฑ์');
 }
 
+// ── 10. ชีตรับคำสั่งแต่เขียนไม่ครบ — ต้องรายงานว่าตกหล่นกี่ช่อง ห้องไหน ──
+// (เดิมเงียบ: จอมีค่า แต่ชีตไม่มี = รายงาน/อีกเครื่องเห็นไม่ตรงกัน)
+queue.clear();
+queue.push('setCells', { classId: 'c1', cells: [cell('W|1|a', '01', '5'), cell('W|1|gone', '01', '7')] });
+queue.push('addColumn', { classId: 'c2', kind: 'WORK', half: 1, id: 'z', label: 'z', max: 10 });
+queue.push('setCells', { classId: 'c2', cells: [cell('W|1|z', '01', '1')] });
+globalThis.fetch = async () => reply([
+  { ok: true, data: { written: 1 } },
+  { ok: true, data: {} },
+  { ok: true, data: { written: 1 } }
+]);
+{
+  const r = await flush();
+  eq(r.sent, 3, 'เขียนไม่ครบก็ยังนับว่าส่งสำเร็จ (ไม่งั้นส่งซ้ำไม่รู้จบ)');
+  eq((r.dropped || []).length, 1, 'ต้องรายงานเฉพาะก้อนที่ตกหล่น');
+  eq(((r.dropped || [])[0] || {}).classId, 'c1', 'ต้องบอกว่าตกหล่นที่ห้องไหน');
+  eq(((r.dropped || [])[0] || {}).n, 1, 'ต้องบอกจำนวนช่องที่ตกหล่น');
+  eq(queue.size, 0, 'ก้อนที่ชีตตอบ ok ต้องออกจากคิว');
+}
+
 queue.clear();
 if (fails) { console.log('❌ คิวออฟไลน์ไม่ผ่าน ' + fails + ' จุด จาก ' + checked); process.exit(1); }
 console.log('✅ คิวออฟไลน์ผ่านครบ (' + checked + ' ข้อ)');

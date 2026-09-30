@@ -14,6 +14,11 @@ export const state = {
   loadingClass: '',       // classId ที่กำลังรอข้อมูลจากชีตอยู่ ('' = ไม่ได้รออะไร)
   webAppUrl: '',          // ลิงก์เปิดแอป (โหมด Apps Script เสิร์ฟเอง)
   user: null,             // บัญชีที่กำลังใช้งาน { email, name }
+  /* รู้จริงไหมว่ามีห้องอะไรบ้าง (ได้คำตอบจากชีต หรือมีสำเนาในเครื่อง)
+   * false + classes ว่าง = "ยังไม่รู้" ไม่ใช่ "ไม่มีห้อง" — หน้าแรกต้องไม่บอกว่ายังไม่มีห้องเรียน
+   * ไม่งั้นครูเห็นห้องหายทั้งหมดทุกครั้งที่เน็ตสะดุดตอนเปิดแอป */
+  classesKnown: false,
+  classesError: '',       // เหตุที่โหลดรายชื่อห้องไม่ได้ล่าสุด ('' = ไม่มีปัญหา)
   installPrompt: null
 };
 
@@ -148,6 +153,8 @@ export function go(view, opts = {}) {
   }
   window.scrollTo({ top: 0 });
   emit();
+  // หน้าที่ "อ่านสรุป" ต้องเป็นของล่าสุด — ครูมักเช็คชื่อจากอีกเครื่องแล้วมาดูตรงนี้
+  if (READ_VIEWS.includes(view)) refreshClass({ maxAge: REFRESH_AFTER });
 }
 
 // ── ลำดับบล็อกซ้าย→ขวา (ให้ตรงกับชีต) ──────────────────────
@@ -198,7 +205,7 @@ export async function bootAll() {
   const cachedBoot = api.cache.get('bootstrap');
   if (cachedBoot) {
     state.config = cachedBoot.config || {};
-    state.classes = cachedBoot.classes || [];
+    if (Array.isArray(cachedBoot.classes)) { state.classes = cachedBoot.classes; state.classesKnown = true; }
     state.stale = true;
   }
   const cachedCls = want ? api.cache.get('class.' + want) : null;
@@ -211,9 +218,12 @@ export async function bootAll() {
   if (want) ops.push({ action: 'getClass', payload: { classId: want } });
 
   let res;
+  const t0 = Date.now();
   try {
     res = await api.call('batch', { ops });
   } catch (e) {
+    state.classesError = e instanceof api.OfflineError ? 'ต่อเน็ตไม่ได้' : e.message;
+    emit();
     if (!(e instanceof api.OfflineError)) toast(e.message, 'err');
     if (e instanceof api.ApiError && e.code === 'AUTH') throw e;
     return;
@@ -222,14 +232,23 @@ export async function bootAll() {
   const list = res.results || [];
   const boot = list[0];
   if (boot && boot.ok) applyBootstrap(boot.data || {});
+  else {
+    // เดิมเงียบไปเฉย ๆ — ครูเห็นแค่ว่าห้องหาย โดยไม่รู้ว่าชีตตอบว่าอะไร
+    state.classesError = (boot && boot.error) || 'ชีตไม่ส่งรายชื่อห้องมา';
+    toast('โหลดรายชื่อห้องไม่สำเร็จ: ' + state.classesError, 'err', 5000);
+  }
 
   const got = list[1];
   if (got && got.ok && got.data) {
     state.cls = withPending(normalizeClass(got.data), want);
     state.classId = want;
+    fetched[want] = t0;
     api.cache.set('class.' + want, state.cls);
   }
   emit();
+
+  // รายชื่อห้องโหลดไม่ขึ้น → ห้ามสรุปว่าห้องที่จำไว้ "ถูกลบไปแล้ว" แล้วสลับห้องให้เอง
+  if (!(boot && boot.ok)) return;
 
   // ห้องที่จำไว้ถูกลบไปแล้ว หรือยังไม่เคยเลือกห้อง → เปิดห้องแรกให้
   const okClass = state.classes.some(c => c.classId === state.classId);
@@ -309,16 +328,77 @@ export async function loadClass(classId, { force = false } = {}) {
   if (!force && cached && !api.net.online) { state.loadingClass = ''; emit(); return; }
 
   try {
+    const t0 = Date.now();
     const data = await api.call('getClass', { classId });
     if (state.classId !== classId) return;          // ครูสลับไปห้องอื่นระหว่างรอ — ของที่ได้มาไม่ใช่ของหน้านี้แล้ว
     state.cls = withPending(normalizeClass(data), classId);
     state.stale = false;
+    fetched[classId] = t0;
     api.cache.set('class.' + classId, state.cls);
   } catch (e) {
     if (!(e instanceof api.OfflineError)) toast(e.message, 'err');
   } finally {
     if (state.classId === classId) state.loadingClass = '';
     emit();
+  }
+}
+
+/* ── ดึงห้องที่เปิดอยู่ใหม่เบื้องหลัง ─────────────────────────
+ *
+ * อาการที่ครูเจอ: "หน้ารายงานผลกับข้อมูลที่เช็คไม่ตรงกันในบางครั้ง"
+ * แอปโหลดห้องจากชีตแค่ตอนเปิดแอปกับตอนสลับห้อง หลังจากนั้นไม่เคยถามชีตอีกเลย
+ *   · เช็คชื่อจากมือถือ แล้วมาดูรายงานบนคอมที่เปิดแอปค้างไว้ → เห็นของเมื่อเช้า
+ *   · แอปบนมือถือที่พับไว้ทั้งวัน (PWA ไม่โหลดหน้าใหม่เอง) → ไม่รู้ว่าอีกเครื่องแก้อะไรไป
+ *   · แก้ในชีตตรง ๆ → แอปไม่เห็นจนกว่าจะกดรีเฟรช ซึ่งครูไม่รู้ว่าต้องกด
+ * จึงดึงใหม่ให้เองเมื่อเปิดหน้าที่ใช้อ่านสรุป และเมื่อกลับมาที่แอปหลังพับไว้สักพัก
+ */
+const REFRESH_AFTER = 60_000;                          // ของที่อายุเกินนี้ถือว่าอาจเก่าแล้ว
+const READ_VIEWS = ['home', 'report', 'summary'];      // หน้าที่ครูมาดูตัวเลข ไม่ได้มากรอก
+const fetched = {};                                    // classId → เวลาที่เริ่มขอข้อมูลชุดที่แสดงอยู่
+let writeEpoch = 0;                                    // นับรอบที่คิวเขียนลงชีตสำเร็จ
+let refreshing = '';
+
+/** ข้อมูลห้องนี้บนจอเป็นของที่ขอจากชีตเมื่อไหร่ (0 = ยังไม่เคยในรอบเปิดแอปนี้ · มาจากแคช) */
+export const fetchedAt = (classId) => fetched[classId] || 0;
+
+/**
+ * @param force  ดึงเลยไม่ว่าของเดิมจะใหม่แค่ไหน
+ * @param maxAge ดึงเฉพาะเมื่อของเดิมเก่ากว่านี้ (มิลลิวินาที)
+ * @param loud   ครูกดเอง → ขึ้นแถบโหลดและบอกผล · ไม่งั้นทำเงียบ ๆ
+ */
+export async function refreshClass({ force = false, maxAge = 0, loud = false } = {}) {
+  const classId = state.classId;
+  if (!classId || !state.cls || !api.conn.ready || !api.net.online) return;
+  if (refreshing === classId) return;
+  if (!force && maxAge && Date.now() - fetchedAt(classId) < maxAge) return;
+
+  refreshing = classId;
+  if (loud) { state.loadingClass = classId; emit(); }
+  const epoch = writeEpoch;
+  const t0 = Date.now();
+  try {
+    const data = await api.call('getClass', { classId }, { quiet: !loud });
+    if (state.classId !== classId) return;
+
+    /* คิวเขียนลงชีตสำเร็จระหว่างที่รออ่าน — ชีตไม่จับ lock ตอนอ่าน ของที่ได้มาจึงอาจเก่ากว่า
+     * สิ่งที่เพิ่งเขียน และงานนั้นออกจากคิวไปแล้ว withPending ทับให้ไม่ได้อีก
+     * ถ้าเอามาใช้ ช่องที่ครูเพิ่งกดจะหายไปต่อหน้า → ทิ้ง แล้วรอบหน้าค่อยดึงใหม่ */
+    if (epoch !== writeEpoch) { fetched[classId] = 0; return; }
+
+    const next = withPending(normalizeClass(data), classId);
+    const changed = JSON.stringify(next) !== JSON.stringify(state.cls);
+    state.cls = next;
+    state.stale = false;
+    fetched[classId] = t0;
+    api.cache.set('class.' + classId, state.cls);
+    // ไม่เปลี่ยนก็ไม่ต้องวาดใหม่ (กันเคอร์เซอร์เด้งหน้ากรอก) — ยกเว้นหน้าอ่านสรุปที่โชว์เวลาอัปเดต
+    if (changed || loud || READ_VIEWS.includes(state.view)) emit();
+    if (loud) toast(changed ? 'อัปเดตเป็นข้อมูลล่าสุดจากชีตแล้ว' : 'ข้อมูลตรงกับชีตแล้ว', 'ok');
+  } catch (e) {
+    if (loud && !(e instanceof api.OfflineError)) toast(e.message, 'err');
+  } finally {
+    if (refreshing === classId) refreshing = '';
+    if (loud && state.loadingClass === classId) { state.loadingClass = ''; emit(); }
   }
 }
 
@@ -401,7 +481,8 @@ function persistClass() {
 function applyBootstrap(d) {
   if (!d) return;
   state.config = d.config || {};
-  state.classes = d.classes || [];
+  // ได้ของไม่ครบรูป → เก็บรายชื่อห้องเดิมไว้ ดีกว่าล้างทิ้งจนหน้าแรกว่างเปล่า
+  if (Array.isArray(d.classes)) { state.classes = d.classes; state.classesKnown = true; state.classesError = ''; }
   state.webAppUrl = d.webAppUrl || '';
   state.user = api.serverInfo.user || null;
   state.stale = false;
@@ -633,6 +714,8 @@ export async function sync({ loud = false } = {}) {
   syncing = true; syncChanged();
   try {
     const res = await api.flush();
+    if (res.sent) writeEpoch++;
+    reportDropped(res.dropped);
     if (res.failed?.length) {
       syncFails++;
       // ของที่ส่งไม่ผ่านยังอยู่ในคิว จะลองใหม่ให้เอง — บอกให้ครูรู้ว่ายังไม่หาย
@@ -664,6 +747,24 @@ function retryDelay() {
 
 export const isSyncing = () => syncing;
 
+/**
+ * ชีตรับคำสั่งแต่เขียนไม่ครบทุกช่อง — รายการ/นักเรียนที่ช่องนั้นอ้างถึงไม่มีในแท็บแล้ว
+ * (ลบคอลัมน์หรือแก้รายชื่อจากอีกเครื่อง · เพิ่มรายการไม่สำเร็จแต่คะแนนตามไปก่อน)
+ *
+ * เดิมเงียบ: บนจอยังเห็นค่าครบ แต่ในชีตไม่มี พอเปิดอีกเครื่อง/ดูบล็อกสรุปก็ไม่ตรงกัน
+ * ตอนนี้บอกครู แล้วดึงของจริงจากชีตมาแทนที่ให้จอตรงกับชีต
+ */
+function reportDropped(dropped) {
+  if (!dropped || !dropped.length) return;
+  const n = dropped.reduce((a, d) => a + d.n, 0);
+  toast(`มี ${n} ช่องที่บันทึกลงชีตไม่ได้ (รายการหรือนักเรียนนั้นไม่มีในชีตแล้ว) — ดึงข้อมูลจริงจากชีตมาแสดงแทน`, 'err', 6000);
+  for (const d of dropped) {
+    fetched[d.classId] = 0;
+    if (d.classId !== state.classId) api.cache.del('class.' + d.classId);   // เปิดครั้งหน้าจะได้ของใหม่
+  }
+  if (dropped.some(d => d.classId === state.classId)) setTimeout(() => refreshClass({ force: true }), 0);
+}
+
 /** คำนวณคะแนนสรุปแล้วเขียนลงชีต */
 export async function recalcOnServer() {
   await sync();
@@ -686,4 +787,15 @@ export async function saveConfig(entries, { quiet = false } = {}) {
 
 // ซิงค์อัตโนมัติเมื่อกลับมาออนไลน์
 api.net.onChange(() => { if (navigator.onLine) sync(); emit(); });
-window.addEventListener('visibilitychange', () => { if (!document.hidden) sync(); });
+
+/* กลับมาที่แอปหลังพับไว้ → ส่งของค้างก่อน แล้วค่อยดึงห้องที่เปิดอยู่ใหม่ถ้าของบนจอเก่าแล้ว
+ * ข้ามการดึงถ้าครูคาเคอร์เซอร์อยู่ในช่องกรอก — วาดใหม่ตอนนั้นแป้นพิมพ์จะหุบใส่ */
+let hiddenAt = 0;
+window.addEventListener('visibilitychange', async () => {
+  if (document.hidden) { hiddenAt = Date.now(); return; }
+  await sync();
+  if (!hiddenAt || Date.now() - hiddenAt < REFRESH_AFTER) return;
+  const el = document.activeElement;
+  if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT')) return;
+  refreshClass({ maxAge: REFRESH_AFTER });
+});
