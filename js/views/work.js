@@ -48,6 +48,31 @@ function syncTo(col) {
 const bucketOf = (id) => BUCKETS.find(b => b.id === id);
 
 /**
+ * กลางภาค/ปลายภาคสอบครั้งเดียว — ไม่ต้องให้ครูกด "เพิ่มรายการ" เอง
+ * รหัสคงที่ (MID|1|mid · FIN|2|fin) ทุกเครื่องจึงชี้ช่องเดียวกัน
+ * เปิดพร้อมกัน 2 เครื่องก็ไม่เกิดช่องซ้ำ (ฝั่งชีตเจอรหัสเดิมจะแก้ช่องเดิม ไม่เพิ่มใหม่)
+ */
+const FIXED_EXAM = {
+  MID: { id: 'mid', label: 'สอบกลางภาค', max: 20 },
+  FIN: { id: 'fin', label: 'สอบปลายภาค', max: 30 }
+};
+const isFixedKind = (kind) => !!kindOf(kind).fixed;
+
+/**
+ * เปิดช่องสอบกลาง/ปลายภาคของห้องนี้ — ยังไม่มีก็สร้างให้เลย
+ * คะแนนเต็มตั้งเท่าน้ำหนักใน SGS กรอกคะแนนที่สอบได้ลงไปตรง ๆ ไม่ต้องเทียบสัดส่วน
+ * (แก้คะแนนเต็มทีหลังได้จากเมนู ⋯ ถ้าข้อสอบจริงเต็มไม่เท่านี้)
+ */
+function openFixedExam() {
+  const b = curBucket();
+  const have = columnsIn(b.id)[0];
+  if (have) { ui.open = have.key; return; }
+  const f = FIXED_EXAM[b.kind];
+  const max = Number(settings().weight[b.id]) || f.max;
+  ui.open = ensureColumn({ kind: b.kind, half: b.half, id: f.id, label: f.label, max }, { quiet: true }).key;
+}
+
+/**
  * ข้อสอบ (สอบเก็บคะแนน / กลางภาค / ปลายภาค) ใช้คำต่างจากงานส่ง
  * และไม่มีสถานะ "ส่งช้า" — สอบแล้วก็คือสอบแล้ว
  */
@@ -124,7 +149,7 @@ viewWork.head = function () {
     modeSeg('ph-seg'),
     !byStudent && h('button', { class: 'ph-box', onclick: () => openItemPicker(col) },
       h('b', null, col.label),
-      h('span', null, `${siblings.length} ชิ้นในถังนี้`),
+      h('span', null, isFixedKind(col.kind) && siblings.length <= 1 ? 'สอบครั้งเดียว' : `${siblings.length} ชิ้นในถังนี้`),
       h('i', null, '⌄'))
   );
 };
@@ -152,7 +177,12 @@ function bucketBar(openFirst) {
       const b = BUCKETS.find(x => x.kind === k.kind && x.half === (k.fixed || ui.phase));
       return h('button', {
         class: 'kind-cell', 'data-on': ui.kind === k.kind ? '1' : '0',
-        onclick: () => { ui.kind = k.kind; jump(); }
+        onclick: () => {
+          ui.kind = k.kind;
+          // กลางภาค/ปลายภาค: ไปหน้ากรอกคะแนนเลย ไม่ต้องผ่านหน้ารายการ
+          if (k.fixed) { openFixedExam(); emit(); return; }
+          jump();
+        }
       },
         h('span', { class: 'kc-ic' }, k.ic),
         h('span', { class: 'kc-label' }, k.label),
@@ -189,7 +219,11 @@ function openItemPicker(cur) {
     h('div', { class: 'chips', style: { marginBottom: '10px' } },
       KINDS.map(k => h('button', {
         class: 'chip', 'data-on': ui.kind === k.kind ? '1' : '0',
-        onclick: () => { ui.kind = k.kind; close(); openItemPicker(cur); }
+        onclick: () => {
+          ui.kind = k.kind; close();
+          if (k.fixed) { openFixedExam(); emit(); return; }
+          openItemPicker(cur);
+        }
       }, `${k.ic} ${k.label}`))),
     !kindOf(ui.kind).fixed && h('div', { class: 'chips', style: { marginBottom: '10px' } },
       [[1, 'ก่อนกลางภาค'], [2, 'หลังกลางภาค']].map(([v, l]) => h('button', {
@@ -202,7 +236,8 @@ function openItemPicker(cur) {
         style: c.key === cur.key ? { borderColor: 'var(--accent)', color: 'var(--accent-ink)' } : null,
         onclick: () => { close(); ui.open = c.key; emit(); }
       }, `${c.label} · เต็ม ${c.max}`)),
-      h('button', { class: 'btn btn-soft btn-block', onclick: () => { close(); openItemForm(); } }, '+ เพิ่มรายการ'),
+      !isFixedKind(ui.kind) &&
+        h('button', { class: 'btn btn-soft btn-block', onclick: () => { close(); openItemForm(); } }, '+ เพิ่มรายการ'),
       h('div', { class: 'sep' }, 'จัดการชิ้นนี้'),
       h('button', { class: 'btn btn-ghost btn-block', onclick: () => { close(); openItemMenu(cur); } }, '✏️ แก้ไข / รายละเอียด / ลบ'),
       h('button', { class: 'btn btn-ghost btn-block', onclick: () => { close(); openPaste(cur); } }, '📋 วางคะแนนจาก Excel'))
@@ -216,6 +251,26 @@ function listScreen() {
   const cols = columnsIn(curBucket().id);
   const b = curBucket();
   const totalMax = cols.reduce((a, c) => a + (c.max || 0), 0);
+
+  // กลางภาค/ปลายภาค: สอบครั้งเดียว ไม่มีปุ่มเพิ่ม · ยังไม่มีช่องก็กดกรอกได้เลย (สร้างให้ตอนกด)
+  if (isFixedKind(b.kind)) {
+    return h('div', { class: 'page' },
+      bucketBar(false),
+      h('div', { class: 'card' },
+        h('div', { style: { fontWeight: '700' } }, `${b.label} · ${b.phase === 1 ? 'ก่อนกลางภาค' : 'หลังกลางภาค'}`),
+        h('div', { style: { fontSize: '12.5px', color: 'var(--ink-2)' } },
+          `สอบครั้งเดียว · คิดเป็น ${S.weight[b.id]} คะแนน (SGS ${b.sgs})`)),
+      cols.length
+        ? h('div', { class: 'card card-tight' }, cols.map(itemRow))
+        : h('div', { class: 'card empty' },
+            h('div', { class: 'empty-icon' }, kindOf(b.kind).ic),
+            h('div', null, `ยังไม่ได้กรอกคะแนน${b.label}`),
+            h('button', {
+              class: 'btn', style: { marginTop: '12px' },
+              onclick: () => { openFixedExam(); emit(); }
+            }, 'กรอกคะแนน'))
+    );
+  }
 
   return h('div', { class: 'page' },
     bucketBar(false),
@@ -509,7 +564,7 @@ function gradeScreen(col) {
         class: 'item-pill', 'data-on': c.key === col.key ? '1' : '0',
         onclick: () => { ui.open = c.key; emit(); }
       }, `${c.label} · เต็ม ${c.max}`)),
-      h('button', { class: 'item-pill add', onclick: () => openItemForm() }, '+ เพิ่มงาน'),
+      !isFixedKind(col.kind) && h('button', { class: 'item-pill add', onclick: () => openItemForm() }, '+ เพิ่มงาน'),
       h('div', { style: { marginLeft: 'auto', display: 'flex', gap: '8px' } },
         h('button', { class: 'btn btn-ghost btn-sm', onclick: () => openPaste(col) }, '📋 วางจาก Excel'),
         h('button', { class: 'icon-btn', title: 'ตัวเลือกเพิ่มเติม', onclick: () => openItemMenu(col) }, '⋯'))
@@ -817,6 +872,10 @@ function openItemMenu(col) {
           toast('ล้างคะแนนแล้ว', 'ok', 1400, undoAction());
         }
       }, '↺ ล้างคะแนนทั้งรายการ'),
+      // สอบกลาง/ปลายภาคช่องเดียว ลบไปก็ถูกสร้างใหม่ตอนเปิดครั้งหน้า — ให้ลบได้เฉพาะช่องที่เกินมา
+      // (ห้องที่สร้างไว้ก่อนมีช่องตายตัว อาจมีหลายช่อง)
+      (!isFixedKind(col.kind) ||
+        state.cls.columns.filter(c => c.kind === col.kind && c.half === col.half).length > 1) &&
       h('button', {
         class: 'btn btn-danger btn-block',
         onclick: async () => {
