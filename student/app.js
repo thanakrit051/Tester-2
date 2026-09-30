@@ -249,7 +249,6 @@
           h('div', { class: 'phase-sub' },
             p.any ? 'เก็บคะแนนแล้ว ' + nf(checked) + ' จาก ' + nf(p.max) : 'ยังไม่มีคะแนนในครึ่งนี้')),
         fraction(p.any, p.got, p.max, 'lg')),
-      scoreBar(p.got, Math.max(0, checked - p.got), Math.max(0, p.max - checked), p.max),
 
       h('div', { class: 'bks' }, buckets.map(function (b) { return bucketBlock(c, b); })));
   }
@@ -269,7 +268,6 @@
       sub = one.score !== null && one.score !== undefined ? 'สอบแล้ว' : LABEL.exam[one.status];
       items = [];
     }
-    var w = b.max > 0 && b.has ? Math.max(0, Math.min(100, b.score / b.max * 100)) : 0;
 
     return h('div', { class: 'bk' + (b.has ? '' : ' nodata') },
       h('div', { class: 'bk-h' },
@@ -277,7 +275,6 @@
           h('div', { class: 'bk-name' }, b.label),
           h('div', { class: 'bk-sub' }, sub)),
         fraction(b.has, b.score, b.max)),
-      h('div', { class: 'bk-bar' }, w > 0 && h('i', { style: { width: w + '%' } })),
       items.length > 0 && h('div', { class: 'rows' }, items.map(function (it) {
         return it.exam ? examRow(it) : workRow(it, c);
       })));
