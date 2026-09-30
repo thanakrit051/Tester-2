@@ -19,7 +19,10 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const gs = path.join(root, 'apps-script');
-const ctx = { console, SpreadsheetApp: { BorderStyle: { SOLID: 1, SOLID_MEDIUM: 2 } }, Utilities: {} };
+const ctx = {
+  console, SpreadsheetApp: { BorderStyle: { SOLID: 1, SOLID_MEDIUM: 2 } }, Utilities: {},
+  getConfig_: () => ({ teacher: 'ครูตั้งค่า', year: '2569', term: '2' })   // อยู่ใน 01_Setup.gs ซึ่งไม่ได้โหลด
+};
 vm.createContext(ctx);
 vm.runInContext(
   fs.readFileSync(path.join(gs, '00_Constants.gs'), 'utf8') + '\n' +
@@ -66,6 +69,16 @@ function makeSheet(grid, notes, name = '5/1 · คณิตศาสตร์') 
     insertRowBefore(row) {
       grid.splice(row - 1, 0, Array(maxCols).fill(''));
       maxRows++;
+      return this;
+    },
+    // แทรก/ลบคอลัมน์เลื่อนทั้งคอลัมน์ทุกแถว (รวมแถวข้อมูลระบบ) — เหมือนชีตจริง
+    insertColumnBefore(col) {
+      grid.forEach(row => { while (row.length < col - 1) row.push(''); row.splice(col - 1, 0, ''); });
+      return this;
+    },
+    insertColumnAfter(col) { return this.insertColumnBefore(col + 1); },
+    deleteColumn(col) {
+      grid.forEach(row => { if (row.length >= col) row.splice(col - 1, 1); });
       return this;
     },
     insertRowsAfter(_row, n) {
@@ -354,6 +367,74 @@ for (const passRow of [true, false]) {
     [8, 9, 10].map(r => String(sh.grid()[r - 1][C_SID_ - 1])), ['70001', '70002', '70003']);
   eq('เกณฑ์ผ่านยังอยู่ครบ', after.columns.map(c => c.pass), [null, 10]);
 }
+
+// ── 7. แทรก/ลบคอลัมน์ → ระดับชั้น/ห้องต้องไม่หาย ─────────────
+//
+// เคยพลาดมาแล้ว: แถว 2 เก็บข้อมูลห้องไว้ที่ A–H แต่คอลัมน์คะแนนก็เริ่มที่ D
+// ห้องใหม่แทรกคอลัมน์ชุดแรกที่ D–H เสมอ ระดับชั้น/ห้องเลยเลื่อนหนีไปทั้งแถว
+// หน้าแรกของแอปขึ้น "—" แทนเลขห้อง (ชื่อวิชากับรหัสวิชายังอยู่ เพราะอยู่ B–C)
+{
+  const students = [
+    { no: '1', sid: '80001', name: 'ก', vals: [''] },
+    { no: '2', sid: '80002', name: 'ข', vals: [''] }
+  ];
+  // ห้องใหม่: มีแต่บล็อกสรุป เริ่มที่ D
+  const { grid, notes } = build({ students, cols: [{ key: 'SUM|0|total', label: 'รวม', max: 100 }] });
+  grid[0][0] = '📘 คณิตศาสตร์  ·  ม.5/1';              // รูปแบบจริง — ห้องปกติต้องไม่ถูกมองว่าเลื่อน
+  const sh = makeSheet(grid, notes);
+  const meta0 = sh.grid()[R_META - 1].slice(0, 8);
+
+  ctx.ensureColumn_(sh, 'WORK|1|w1', 'ใบงาน 1', 10);   // แทรกที่ D
+  ctx.ensureColumn_(sh, 'WORK|1|w2', 'ใบงาน 2', 10);   // แทรกที่ E
+  ctx.ensureColumn_(sh, 'MID|1|mid', 'กลางภาค', 20);   // แทรกที่ F
+  sh.grid()[7][4] = 9;                                 // คะแนนใบงาน 2 ของคนแรก (คอลัมน์ E แถว 8)
+
+  eq('แทรก 3 คอลัมน์แล้ว แถว 2 (A–H) ยังเหมือนเดิม', sh.grid()[R_META - 1].slice(0, 8), meta0);
+  eq('ไม่มีค่าค้างเลย H', sh.grid()[R_META - 1].slice(8).filter(v => v !== ''), []);
+  const d1 = ctx.readClassBySheet_(sh);
+  eq('อ่านได้ระดับชั้น/ห้องเดิม', [d1.meta.grade, d1.meta.room], ['ม.5', '1']);
+  eq('คอลัมน์เรียงถูก', d1.columns.map(c => c.key), ['WORK|1|w1', 'WORK|1|w2', 'MID|1|mid', 'SUM|0|total']);
+
+  ctx.deleteColumn_(sh, 'WORK|1|w1');                   // ลบที่ D
+  eq('ลบคอลัมน์ที่ D แล้ว แถว 2 ยังเหมือนเดิม', sh.grid()[R_META - 1].slice(0, 8), meta0);
+  const d2 = ctx.readClassBySheet_(sh);
+  eq('ลบแล้วคะแนนยังตามคอลัมน์ตัวเอง', d2.values['WORK|1|w2'], { 80001: 9 });
+}
+
+// ── 8. ซ่อมชีตที่แถว 2 เลื่อนไปแล้ว (ของจริงที่ครูเจอก่อนแก้) ──
+{
+  const { grid, notes } = build({
+    students: [{ no: '1', sid: '90001', name: 'ก', vals: [5] }],
+    cols: [{ key: 'WORK|1|w1', label: 'งาน', max: 10 }]
+  });
+  grid[0][0] = '📘 คณิตศาสตร์  ·  ม.1/3';              // รูปแบบจริงจาก initClassLayout_
+  // แทรกไป 2 ครั้งที่ D: D/E ว่าง ทุกอย่างเลื่อนไป 2 ช่อง
+  const row2 = grid[R_META - 1];
+  while (row2.length < 12) row2.push('');
+  ['C1', 'คณิตศาสตร์', 'ค21101', '', '', 'ม.1', 3, 'ครูเอ', '2568', '1'].forEach((v, i) => { row2[i] = v; });
+  const sh = makeSheet(grid, notes);
+
+  const d = ctx.readClassBySheet_(sh);
+  eq('อ่าน: เห็นระดับชั้น/ห้องที่ถูกทันที (ยังไม่ได้เขียน)', [d.meta.grade, d.meta.room], ['ม.1', '3']);
+  eq('อ่าน: ไม่เขียนชีต', sh.grid()[R_META - 1][3], '');
+
+  eq('ซ่อมแล้วรายงานว่าทำจริง', ctx.repairClassMeta_(sh), true);
+  eq('ซ่อม: D–H กลับที่เดิม', sh.grid()[R_META - 1].slice(0, 8),
+    ['C1', 'คณิตศาสตร์', 'ค21101', 'ม.1', '3', 'ครูตั้งค่า', '2569', '2']);
+  eq('ซ่อม: ล้างค่าที่ค้างเลย H', sh.grid()[R_META - 1].slice(8).filter(v => v !== ''), []);
+  eq('ซ่อม: หัวคอลัมน์/คะแนนไม่โดนแตะ', ctx.readClassBySheet_(sh).values['WORK|1|w1'], { 90001: 5 });
+  eq('ซ่อมซ้ำ = ไม่ทำอะไร', ctx.repairClassMeta_(sh), false);
+
+  // ห้องปกติ (ชีตแปลง "3" เป็นตัวเลข 3) ต้องไม่ถูกมองว่าเลื่อน
+  eq('ห้องปกติไม่ต้องซ่อม', ctx.repairClassMeta_(sh), false);
+}
+
+// ── 9. อ่านระดับชั้น/ห้องจากหัวเรื่อง ─────────────────────────
+eq('หัวเรื่อง: ระดับชั้น/ห้อง', ctx.gradeRoomFromTitle_('📘 คณิต  ·  ม.1/1'), { grade: 'ม.1', room: '1' });
+eq('หัวเรื่อง: มีแต่ระดับชั้น', ctx.gradeRoomFromTitle_('📘 คณิต  ·  ม.2'), { grade: 'ม.2', room: '' });
+eq('หัวเรื่อง: มีแต่ห้อง', ctx.gradeRoomFromTitle_('📘 คณิต  ·  4'), { grade: '', room: '4' });
+eq('หัวเรื่อง: ไม่มีตัวคั่น = ไม่เดา', ctx.gradeRoomFromTitle_('📘 คณิต · ม.5/1'), null);
+eq('หัวเรื่อง: ครูแก้เอง = ไม่เดา', ctx.gradeRoomFromTitle_('คณิต ม.5/1'), null);
 
 if (fail) {
   console.error('\n❌ ตัวอ่านแท็บห้องเรียนไม่ผ่าน ' + fail + ' ข้อ');

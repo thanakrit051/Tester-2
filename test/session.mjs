@@ -70,7 +70,8 @@ const ctx = {
     createTextOutput: (s) => ({ setMimeType() { return this; }, getContent: () => s })
   },
   LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },
-  getConfig_: () => cfg
+  getConfig_: () => cfg,
+  healMetaOnce_: () => {}   // อยู่ใน 02_ClassSheet.gs ซึ่งไม่ได้โหลด — ทดสอบแยกใน classsheet.mjs
 };
 vm.createContext(ctx);
 vm.runInContext(

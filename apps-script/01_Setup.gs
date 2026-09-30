@@ -47,6 +47,11 @@ function setupWorkbook() {
     try {
       var csh = sheetForClass_(c.classId);
       if (csh && ensureLayout_(csh)) upgraded++;
+      // ระดับชั้น/ห้องที่เลื่อนหนีไปตอนแทรกคอลัมน์ (ดู keepMeta_) — ซ่อมแล้วอัปสารบัญด้วย
+      if (csh && repairClassMeta_(csh)) {
+        var d = readClassBySheet_(csh);
+        upsertClassRow_(d.meta, d.students.length);
+      }
     } catch (e) {
       console.error('อัปโครงห้อง ' + c.classId + ' ไม่สำเร็จ: ' + e);
     }

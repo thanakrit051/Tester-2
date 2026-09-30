@@ -205,6 +205,123 @@ function initClassLayout_(sh, meta) {
   return sh;
 }
 
+// ── ข้อมูลห้องในแถว 2 (ระดับชั้น · ห้อง) ─────────────────────
+//
+// แถว 2 เก็บข้อมูลห้องไว้ที่ A–H (รหัสห้อง วิชา รหัสวิชา ระดับชั้น ห้อง ครู ปี เทอม)
+// แต่คอลัมน์คะแนนก็เริ่มที่ D (C_FIRST) เหมือนกัน
+//
+// ปัญหาที่เจอ: เลขห้องบนหน้าแรกของแอปหายกลายเป็น "—" (ชื่อวิชากับรหัสวิชายังอยู่)
+// เพราะแทรก/ลบคอลัมน์ที่ D–H = ทั้งแถวเลื่อนตาม ระดับชั้น/ห้องหลุดออกจาก D/E
+// แล้วคำนวณคะแนนรอบถัดไปก็คัดลอกช่องว่างไปทับสารบัญ 🏫 ห้องเรียน
+// ห้องใหม่โดนแทบทุกห้อง เพราะคอลัมน์ชุดแรกของห้องต้องแทรกที่ D–H เสมอ
+
+var META_W = 8;   // แถว 2 ใช้คอลัมน์ A–H
+
+/** แทรก/ลบคอลัมน์ที่ตำแหน่ง col โดยให้ข้อมูลห้องในแถว 2 อยู่ที่เดิม */
+function keepMeta_(sh, col, fn) {
+  if (col > META_W) return fn();     // ขวาของ H ไม่กระทบ — ไม่ต้องเสียรอบคุยกับชีต
+  var keep = sh.getRange(R_META, 1, 1, META_W).getValues()[0];
+  var out = fn();
+  // ช่อง I ล้างทิ้งด้วย — ตอนแทรก ค่าจาก H จะถูกดันไปค้างตรงนั้น
+  sh.getRange(R_META, 1, 1, META_W + 1).setValues([keep.concat([''])]);
+  return out;
+}
+
+/**
+ * ระดับชั้น/ห้องจากหัวเรื่องแถว 1 ("📘 วิชา  ·  ม.1/1")
+ * หัวเรื่องอยู่ A–C ไม่เลื่อนตามคอลัมน์ และถูกเขียนพร้อมกับแถว 2 ทุกครั้ง จึงใช้กู้คืนได้
+ * @return { grade, room } · null = อ่านไม่ออก/ไม่มีระดับชั้นกับห้อง (ไม่แตะอะไร)
+ *   ไม่มีตัวคั่นก็ไม่เดาว่า "ว่าง" — หัวเรื่องที่ครูแก้เองหรือรุ่นเก่าอาจเขียนต่างไป
+ *   เดาผิดทีเดียว = ลบระดับชั้น/ห้องที่ถูกอยู่แล้วทิ้ง ซึ่งแย่กว่าไม่ซ่อม
+ */
+function gradeRoomFromTitle_(title) {
+  var t = String(title || '');
+  if (t.indexOf('📘') !== 0) return null;
+  var at = t.lastIndexOf('  ·  ');
+  if (at < 0) return null;
+  var parts = t.slice(at + 5).trim().split('/');
+  if (parts.length === 1) {
+    // มีค่าเดียว (อีกค่าเว้นว่างไว้) — ตัวเลขล้วนคือห้อง อย่างอื่นคือระดับชั้น (ม.1, ป.6)
+    return /^\d+$/.test(parts[0]) ? { grade: '', room: parts[0] } : { grade: parts[0], room: '' };
+  }
+  return { grade: parts.slice(0, -1).join('/').trim(), room: parts[parts.length - 1].trim() };
+}
+
+/** ค่าในช่องตรงกันไหม — ชีตแปลง "1" เป็นตัวเลข 1 ให้เอง จึงเทียบแบบตัวเลขด้วย */
+function sameCell_(a, b) {
+  var x = String(a == null ? '' : a).trim(), y = String(b == null ? '' : b).trim();
+  return x === y || (x !== '' && y !== '' && !isNaN(x) && !isNaN(y) && Number(x) === Number(y));
+}
+
+/**
+ * แถว 2 เลื่อนไปแล้วไหม
+ * @param row1 row2 ค่าของแถว 1 และ 2 ที่อ่านมาแล้ว (กว้างเท่าไหร่ก็ได้)
+ * @return { grade, room } ที่ถูกต้อง · null = ปกติดี
+ */
+function metaDrift_(row1, row2) {
+  var gr = gradeRoomFromTitle_(row1[0]);
+  var off = !!gr && (!sameCell_(row2[3], gr.grade) || !sameCell_(row2[4], gr.room));
+  var spill = false;                                     // ค่าที่ถูกดันเลย H ไปค้างอยู่
+  for (var c = META_W; c < row2.length && !spill; c++) spill = String(row2[c]).trim() !== '';
+  if (!off && !spill) return null;
+  return gr || { grade: row2[3], room: row2[4] };
+}
+
+/* ห้องที่อ่านแล้วเจอแถว 2 เลื่อน (เทียบกับหัวเรื่อง) — คำสั่งเขียนที่ตามมาในคำขอเดียวกันจะซ่อมให้
+ * แยกไว้ตรงนี้ ไม่ใส่ในข้อมูลที่ส่งกลับ เพราะก้อนนั้นส่งตรงไปหน้าเว็บ */
+var META_DRIFT_ = {};
+
+/**
+ * ซ่อมแถว 2 ของแท็บนี้ — คืน true ถ้าซ่อมจริง
+ * ⚠️ เขียนชีต เรียกได้เฉพาะในคำสั่งที่ถือ lock อยู่
+ */
+function repairClassMeta_(sh) {
+  var w = Math.max(sh.getLastColumn(), META_W + 1);
+  var head = sh.getRange(R_TITLE, 1, 2, w).getValues();
+  var fix = metaDrift_(head[0], head[1]);
+  delete META_DRIFT_[sh.getName()];
+  if (!fix) return false;
+
+  // ครู/ปี/เทอม (F–H) ไม่มีที่ไหนใช้ แต่ก็เลื่อนมาพร้อมกัน — ตั้งกลับเป็นค่าจากหน้าตั้งค่าแบบตอนสร้างห้อง
+  var cfg = getConfig_();
+  var row = head[1].slice(0, 3).concat([fix.grade, fix.room, cfg.teacher || '', cfg.year || '', cfg.term || '']);
+  for (var c = META_W; c < w; c++) row.push('');
+  sh.getRange(R_META, 1, 1, w).setValues([row]);
+  return true;
+}
+
+/**
+ * กวาดซ่อมทุกห้องครั้งเดียวหลังอัปโค้ดรุ่นนี้
+ *
+ * ซ่อมทีละห้องตอนคำนวณคะแนนก็จริง แต่ห้องที่ครูยังไม่ได้แตะ สารบัญจะค้าง "—" ต่อไปเรื่อย ๆ
+ * จำไว้ใน Script Properties ว่าทำแล้ว คำขอถัดไปเสียแค่อ่านค่าเดียว
+ * จับ lock เอง เพราะถูกเรียกก่อนแยกคำสั่งอ่าน/เขียน (เปิดแอป = bootstrap ซึ่งไม่จับ lock)
+ */
+var META_HEAL_KEY_ = 'meta_heal_v1';
+
+function healMetaOnce_() {
+  var props = PropertiesService.getScriptProperties();
+  if (props.getProperty(META_HEAL_KEY_)) return;
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(3000)) return;                   // มีงานเขียนค้างอยู่ — รอบหน้าค่อยทำ ไม่ให้เปิดแอปค้าง
+  try {
+    if (props.getProperty(META_HEAL_KEY_)) return;    // อีกคำขอทำไปแล้วระหว่างรอ lock
+    listClasses_().forEach(function (c) {
+      try {
+        var sh = sheetForClass_(c.classId);
+        if (!sh || !repairClassMeta_(sh)) return;
+        var d = readClassBySheet_(sh);
+        upsertClassRow_(d.meta, d.students.length);
+      } catch (e) {
+        console.error('ซ่อมข้อมูลห้อง ' + c.classId + ' ไม่สำเร็จ: ' + e);
+      }
+    });
+    props.setProperty(META_HEAL_KEY_, new Date().toISOString());
+  } finally {
+    lock.releaseLock();
+  }
+}
+
 // ── คอลัมน์ ─────────────────────────────────────────────────
 
 function columnsOf_(sh) {
@@ -294,12 +411,14 @@ function ensureColumn_(sh, key, label, max, desc, pass) {
     if (blockIndex_(cols[j].kind, cols[j].half) <= bi) insertAt = cols[j].col + 1;
   }
 
-  if (insertAt > sh.getMaxColumns()) sh.insertColumnAfter(sh.getMaxColumns());
-  else sh.insertColumnBefore(insertAt);
+  keepMeta_(sh, insertAt, function () {
+    if (insertAt > sh.getMaxColumns()) sh.insertColumnAfter(sh.getMaxColumns());
+    else sh.insertColumnBefore(insertAt);
 
-  // ล้างรูปแบบที่ติดมาจากคอลัมน์ข้างเคียง
-  sh.getRange(1, insertAt, sh.getMaxRows(), 1).clear({ contentsOnly: false })
-    .setDataValidation(null).setBackground(null).setFontColor(null).setFontWeight('normal');
+    // ล้างรูปแบบที่ติดมาจากคอลัมน์ข้างเคียง
+    sh.getRange(1, insertAt, sh.getMaxRows(), 1).clear({ contentsOnly: false })
+      .setDataValidation(null).setBackground(null).setFontColor(null).setFontWeight('normal');
+  });
 
   writeColumnHeader_(sh, insertAt, key, label || p.id, max, desc, pass);
   refreshGroupRow_(sh);
@@ -311,7 +430,8 @@ function deleteColumn_(sh, key) {
   for (var i = 0; i < cols.length; i++) {
     if (cols[i].key === key) {
       if (cols[i].kind === 'SUM') throw new Error('ลบคอลัมน์สรุปไม่ได้');
-      sh.deleteColumn(cols[i].col);
+      var at = cols[i].col;
+      keepMeta_(sh, at, function () { sh.deleteColumn(at); });
       refreshGroupRow_(sh);
       return true;
     }
@@ -465,6 +585,13 @@ function readClassBySheet_(sh) {
     classId: String(m[0] || ''), subject: m[1], subjectCode: m[2], grade: m[3], room: m[4],
     teacher: m[5], year: m[6], term: m[7], sheetName: sh.getName()
   };
+
+  // แถว 2 เลื่อน (ดู keepMeta_) — แสดงค่าที่ถูกไปก่อนเลย ส่วนการเขียนซ่อมรอคำสั่งที่ถือ lock
+  var drift = metaDrift_(grid[R_TITLE - 1], m);
+  if (drift) {
+    meta.grade = drift.grade; meta.room = drift.room;
+    META_DRIFT_[meta.sheetName] = true;
+  }
 
   // รายชื่อ — ข้ามแถวที่ทั้งเลขประจำตัวและชื่อว่าง (เกณฑ์เดียวกับ studentsOf_)
   var students = [];

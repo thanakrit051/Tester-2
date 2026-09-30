@@ -325,6 +325,9 @@ function handle_(req, embedded) {
    * แลกกับการที่ค่าที่อ่านได้อาจเก่ากว่าคำสั่งเขียนที่ยังส่งไม่ถึงเสี้ยววินาที
    * ฝั่งเว็บกันไว้แล้วด้วยการทับค่าที่ยังค้างคิวลงไป (withPending ใน js/state.js)
    */
+  // ซ่อมระดับชั้น/ห้องที่หายของทุกห้อง — ทำครั้งเดียวหลังอัปโค้ด (ดู healMetaOnce_)
+  try { healMetaOnce_(); } catch (e) { console.error('healMetaOnce_: ' + e); }
+
   if (readOnlyReq_(action, pl)) return run_(action, pl, cfg, user, session);
 
   var lock = LockService.getScriptLock();

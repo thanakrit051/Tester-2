@@ -255,6 +255,8 @@ function recalcClass_(classId) {
   if (!sh) throw new Error('ไม่พบห้องเรียน: ' + classId);
   ensureLayout_(sh);   // คำนวณแล้วต้องเขียนคะแนนสรุปลงแถวนักเรียน ต้องอัปโครงก่อน
   var data = readClassBySheet_(sh);
+  // แถว 2 เลื่อน (ดู keepMeta_ ใน 02_ClassSheet.gs) — data.meta แก้ไว้แล้ว ตรงนี้เขียนลงชีตให้ถาวร
+  if (META_DRIFT_[data.meta.sheetName]) repairClassMeta_(sh);
   var S = scoreSettings_(getConfig_());
   var res = computeClassScores_(data, S);
 
