@@ -99,7 +99,7 @@
 .att-box.leave .att-n { color: var(--st-leave); }
 .att-box.miss .att-n  { color: var(--st-miss); }
 
-.warn {
+.risk-warn {
   display: flex; gap: 9px; align-items: flex-start;
   background: var(--amber-soft); color: var(--warn-ink);
   border-radius: var(--r-1); padding: 11px 13px; font-size: 13px;
@@ -181,6 +181,7 @@
 .srow-tag.bad    { color: var(--st-miss); }
 .srow-tag.warn   { color: var(--st-late); }
 .srow-tag.accent { color: var(--accent-ink); font-size: 15px; }
+.srow-tag.none   { color: var(--ink-3); font-weight: 600; }
 .srow-go { flex: none; color: var(--ink-3); font-size: 14px; }
 .srow.bad .srow-go  { color: var(--st-miss); }
 .srow.warn .srow-go { color: var(--st-late); }
@@ -208,8 +209,7 @@
 .stu-seg { margin-bottom: 12px; background: var(--surface); box-shadow: var(--sh-1); }
 
 /* ── หน้าสรุปผลภาคเรียน ───────────────────────────────────── */
-.sum-card { display: block; width: 100%; text-align: left; }
-.sum-card:hover { box-shadow: var(--sh-2); }
+.sum-card { display: block; width: 100%; text-align: left; scroll-margin-top: 12px; }
 .sum-top { display: flex; align-items: flex-start; gap: 12px; }
 .sum-subj {
   font-size: 15px; font-weight: 700; color: var(--ink);
@@ -245,13 +245,109 @@
 .sum-legend span { display: inline-flex; align-items: center; gap: 5px; font-variant-numeric: tabular-nums; }
 .sum-legend i { width: 9px; height: 9px; border-radius: 3px; display: inline-block; }
 
-.sum-phases { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
-.sum-phases > div {
-  background: var(--surface-2); border-radius: 10px; padding: 8px 11px;
-  display: flex; align-items: baseline; gap: 6px;
+/* ป้ายสถานะข้างคะแนนรวม */
+.sum-total .st-pill { margin-left: auto; align-self: center; }
+.st-pill {
+  flex: none; padding: 3px 10px; border-radius: 999px; font-size: 11.5px; font-weight: 600;
+  background: var(--surface-2); color: var(--ink-2); white-space: nowrap;
 }
-.sum-phases span { flex: 1; font-size: 12px; color: var(--ink-2); }
-.sum-phases b { font-size: 14px; font-weight: 700; color: var(--ink); }
+.st-pill.ok   { background: var(--ok-soft);   color: var(--st-ok); }
+.st-pill.warn { background: var(--late-soft); color: var(--warn-ink); }
+.st-pill.bad  { background: var(--miss-soft); color: var(--st-miss); }
+
+/* ตัวเลข ได้/เต็ม — ตัวได้หนา ตัวเต็มจาง อ่านทีละส่วนได้ไว */
+.frac { flex: none; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.frac b { font-size: 14px; font-weight: 700; color: var(--ink); }
+.frac small { font-size: 12px; font-weight: 500; color: var(--ink-3); margin-left: 1px; }
+.frac.none b { color: var(--ink-3); font-weight: 600; }
+.frac.lg b { font-size: 24px; letter-spacing: -.5px; }
+.frac.lg small { font-size: 14px; }
+
+/* ── ภาพรวมทุกวิชา (ใบรายงานผล) ── */
+.ov { padding: 6px 0; }
+.ov-row {
+  display: grid; grid-template-columns: 1fr 58px 52px; align-items: center; gap: 8px;
+  width: 100%; text-align: left; padding: 10px 16px; border-top: 1px solid var(--line);
+}
+button.ov-row:hover { background: var(--surface-2); }
+.ov-head { border-top: none; padding-top: 6px; padding-bottom: 6px; font-size: 11.5px; font-weight: 600; color: var(--ink-3); }
+.ov-subj { min-width: 0; }
+.ov-subj b {
+  display: block; font-size: 14px; font-weight: 600; color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ov-subj small { display: block; font-size: 11.5px; color: var(--ink-3); }
+.ov-total { text-align: right; font-size: 16px; font-weight: 700; color: var(--ink); }
+.ov-head .ov-total { font-size: 11.5px; font-weight: 600; color: var(--ink-3); }
+.ov-grade { text-align: center; }
+.gpill {
+  display: inline-block; min-width: 40px; padding: 3px 8px; border-radius: 9px;
+  font-style: normal; font-size: 15px; font-weight: 700; text-align: center;
+  background: var(--surface-2); color: var(--ink-3);
+}
+.gpill.ok   { background: var(--ok-soft);   color: var(--st-ok); }
+.gpill.warn { background: var(--late-soft); color: var(--warn-ink); }
+.gpill.bad  { background: var(--miss-soft); color: var(--st-miss); }
+
+/* ── หน้าสรุป: คะแนนแยก 2 ครึ่งภาค วางคู่กัน ── */
+.split { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px; }
+.split-col {
+  background: var(--surface-2); border-radius: 12px; padding: 10px 11px 8px;
+  border-top: 3px solid var(--ph);
+}
+.split-h { padding-bottom: 7px; margin-bottom: 4px; border-bottom: 1px solid var(--line); }
+.split-h > span:first-child { display: block; font-size: 12.5px; font-weight: 700; color: var(--ph-ink); }
+.split-h .frac b { font-size: 20px; letter-spacing: -.3px; }
+.split-h .frac small { font-size: 13px; }
+.split-row { display: flex; align-items: baseline; gap: 6px; padding: 3px 0; }
+.split-row > span:first-child { flex: 1; min-width: 0; font-size: 12.5px; color: var(--ink-2); }
+.split-row .frac b { font-size: 13px; }
+.split-row .frac small { font-size: 11px; }
+
+.sum-more {
+  display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%;
+  margin-top: 12px; padding: 9px; border-radius: 10px;
+  font-size: 13px; font-weight: 600; color: var(--accent-ink); background: var(--accent-soft);
+}
+.sum-more:hover { background: color-mix(in srgb, var(--accent) 16%, var(--surface)); }
+.sum-more span { font-size: 16px; line-height: 1; }
+
+/* ── หน้ารายวิชา: การ์ดครึ่งภาค ──────────────────────────────
+   สีประจำครึ่ง: ครึ่งแรก = เขียวหลัก · ครึ่งหลัง = น้ำเงิน
+   ใช้ทั้งเส้นหัวการ์ด เลขกลม และแถบคะแนนของส่วนย่อย ให้แยกกันออกด้วยตา */
+.p1 { --ph: var(--accent);   --ph-ink: var(--accent-ink); --ph-soft: var(--accent-soft); }
+.p2 { --ph: var(--st-leave); --ph-ink: var(--st-leave);  --ph-soft: var(--leave-soft); }
+
+.phase { padding: 0; overflow: hidden; border-top: 4px solid var(--ph); }
+.phase-h { display: flex; align-items: center; gap: 11px; padding: 14px 16px 0; }
+.phase-no {
+  flex: none; width: 34px; height: 34px; border-radius: 11px;
+  display: grid; place-content: center; font-size: 16px; font-weight: 700;
+  background: var(--ph-soft); color: var(--ph-ink);
+}
+.phase-name { font-size: 16px; font-weight: 700; color: var(--ink); }
+.phase-sub  { font-size: 12px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.phase > .sum-bar { margin: 12px 16px 0; }
+.phase .sum-bar i.got { background: var(--ph); }
+
+.bks { margin-top: 14px; border-top: 1px solid var(--line); }
+.bk { padding: 13px 16px 14px; border-bottom: 1px solid var(--line); }
+.bk:last-child { border-bottom: none; }
+.bk-h { display: flex; align-items: center; gap: 10px; }
+.bk-name { font-size: 14px; font-weight: 700; color: var(--ink); }
+.bk-sub  { font-size: 11.5px; color: var(--ink-3); }
+.bk-bar {
+  height: 6px; border-radius: 99px; background: var(--surface-3);
+  margin-top: 8px; overflow: hidden;
+}
+.bk-bar i { display: block; height: 100%; border-radius: 99px; background: var(--ph); }
+.bk .rows { margin-top: 10px; gap: 6px; }
+.bk .srow { padding: 9px 11px; }
+.bk.nodata .bk-name { color: var(--ink-2); }
+
+.card-h .att-pct { margin-left: auto; font-size: 12px; font-weight: 600; color: var(--ink-2); }
+.card-h .att-pct.bad { color: var(--st-miss); }
+.att-grid { margin-top: 0; }
 
 .sum-note {
   margin-top: 10px; font-size: 12.5px; line-height: 1.55; color: var(--ink-2);
@@ -269,7 +365,7 @@
 
 /* คะแนนบนแถวสีเทาเข้มของโหมดมืด — --st-ok ยังสว่างไม่พอ (วัดได้ 4.33 ต้องการ 4.5)
    ใช้ :not() กันไม่ให้ทับสีของแถวที่มีสถานะเฉพาะ */
-[data-theme="dark"] .srow-tag:not(.bad):not(.warn):not(.accent) { color: #41bf6d; }
+[data-theme="dark"] .srow-tag:not(.bad):not(.warn):not(.accent):not(.none) { color: #41bf6d; }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .srow-tag:not(.bad):not(.warn):not(.accent) { color: #41bf6d; }
+  :root:not([data-theme="light"]) .srow-tag:not(.bad):not(.warn):not(.accent):not(.none) { color: #41bf6d; }
 }
