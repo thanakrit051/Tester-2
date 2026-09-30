@@ -194,7 +194,7 @@
 
         phaseCard(c, 1),
         phaseCard(c, 2),
-        attCard(c),
+        attWarn(c),
 
         h('div', { class: 'tip' },
           'คะแนนแต่ละชิ้นเป็นคะแนนเต็มของชิ้นนั้น ระบบรวมแล้วคิดเป็นคะแนนของแต่ละส่วน' +
@@ -280,29 +280,14 @@
       })));
   }
 
-  /** การมาเรียนทั้งภาค — ชีตนับรวมทั้งภาค ไม่ได้แยกครึ่ง จึงอยู่การ์ดของตัวเอง */
-  function attCard(c) {
+  /** เตือนเรื่องเวลาเรียน — โชว์เฉพาะตอนต่ำกว่าเกณฑ์ (ตัวเลข % อยู่บนแถบเข้มแล้ว) */
+  function attWarn(c) {
     var a = c.att || {};
-    if (!(a.checked > 0)) return null;
-    return h('div', { class: 'card' },
-      h('div', { class: 'card-h' },
-        h('b', null, 'การมาเรียน'),
-        h('span', { class: 'att-pct' + (a.risk ? ' bad' : '') },
-          'เวลาเรียน ' + a.pct + '% · เกณฑ์ ' + a.minPct + '%')),
-      h('div', { class: 'att-grid' },
-        attBox('ok', a.present, 'มา'),
-        attBox('late', a.late, 'สาย'),
-        attBox('leave', a.leave, 'ลา'),
-        attBox('miss', a.absent, 'ขาด')),
-      a.risk && h('div', { class: 'risk-warn' },
-        svg(ICON.warn), h('span', null,
-          'เวลาเรียนตอนนี้ ' + a.pct + '% ต่ำกว่าเกณฑ์ ' + a.minPct + '% ' +
-          'ถ้าถึงปลายภาคยังไม่ถึงเกณฑ์อาจติด มส — รีบคุยกับครูผู้สอน')));
-  }
-  function attBox(tone, n, label) {
-    return h('div', { class: 'att-box ' + tone },
-      h('div', { class: 'att-n' }, String(n || 0)),
-      h('div', { class: 'att-l' }, label));
+    if (!a.risk) return null;
+    return h('div', { class: 'risk-warn' },
+      svg(ICON.warn), h('span', null,
+        'เวลาเรียนตอนนี้ ' + a.pct + '% ต่ำกว่าเกณฑ์ ' + a.minPct + '% ' +
+        'ถ้าถึงปลายภาคยังไม่ถึงเกณฑ์อาจติด มส — รีบคุยกับครูผู้สอน'));
   }
 
   // ── หน้าสรุปผลภาคเรียน ──────────────────────────────────

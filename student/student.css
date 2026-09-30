@@ -347,13 +347,6 @@ button.ov-row:hover { background: var(--surface-2); }
 .bk .pass-tag  { font-size: 12px; }
 .bk.nodata .bk-name { color: var(--ink-2); }
 
-.card-h .att-pct { margin-left: auto; font-size: 13px; font-weight: 600; color: var(--ink-2); }
-.card-h .att-pct.bad { color: var(--st-miss); }
-.card-h:has(.att-pct) b { font-size: 16px; }
-.att-n { font-size: 22px; }
-.att-l { font-size: 12.5px; }
-.att-grid { margin-top: 0; }
-
 .sum-note {
   margin-top: 10px; font-size: 12.5px; line-height: 1.55; color: var(--ink-2);
   padding: 8px 11px; border-radius: 10px; background: var(--surface-2);
