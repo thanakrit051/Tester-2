@@ -145,14 +145,21 @@
   // mode: 'subject' = ดูทีละวิชา (หน้าเดิม) · 'summary' = สรุปคะแนนรวม+เกรดทุกวิชาในหน้าเดียว
   var VIEW = { data: null, cur: 0, mode: 'subject' };
 
+  /* ครูเปิด/ปิดหน้าสรุปผลได้แยกจากการดูคะแนน (student_summary ในแท็บ ⚙️ ตั้งค่า)
+   * ปิดอยู่ ชีตไม่ส่งคะแนนรวม/เกรดมาเลย — ตรงนี้แค่ไม่โชว์ปุ่มให้กดเข้าหน้าว่าง
+   * summary ไม่มีมาเลย = โค้ดในชีตรุ่นก่อนมีสวิตช์นี้ ให้ทำงานแบบเดิม */
+  var summaryOn = function () { return !VIEW.data || VIEW.data.summary !== false; };
+
   function show(d) {
     VIEW.data = d;
     if (VIEW.cur >= d.classes.length) VIEW.cur = 0;
+    if (!summaryOn()) VIEW.mode = 'subject';
     draw();
   }
 
   /** ปุ่มสลับ รายวิชา / สรุปผล — อยู่ตำแหน่งเดียวกันทั้ง 2 หน้า กดสลับไปมาได้ทันที */
   function modeSwitch() {
+    if (!summaryOn()) return null;
     return h('div', { class: 'seg stu-seg', role: 'tablist' },
       [['subject', 'รายวิชา'], ['summary', 'สรุปผลภาคเรียน']].map(function (m) {
         return h('button', {
@@ -170,7 +177,7 @@
         h('div', { class: 'card empty' }, 'ยังไม่มีรายวิชาที่บันทึกไว้')));
       return;
     }
-    if (VIEW.mode === 'summary') { drawSummary(d); return; }
+    if (VIEW.mode === 'summary' && summaryOn()) { drawSummary(d); return; }
     var c = d.classes[VIEW.cur];
 
     root.replaceChildren(

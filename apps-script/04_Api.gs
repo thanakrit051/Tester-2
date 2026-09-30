@@ -264,7 +264,7 @@ function handle_(req, embedded) {
       return json_({ ok: false, error: 'มีการค้นหาถี่เกินไป กรุณาลองใหม่ในอีกสักครู่' });
     }
     try {
-      var sview = studentGet_((req.payload || {}).sid);
+      var sview = studentViewFor_(studentGet_((req.payload || {}).sid), cfg);
       return json_({ ok: true, data: sview, version: SERVER_VERSION });
     } catch (serr) {
       return json_({ ok: false, error: String(serr && serr.message ? serr.message : serr) });

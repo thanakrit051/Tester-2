@@ -23,7 +23,7 @@
 // ── เวอร์ชัน ────────────────────────────────────────────────
 // ⚠️ ต้องตรงกับ APP_VERSION ใน js/version.js
 //    ถ้าเลขไม่ตรง หน้าเว็บจะขึ้นแถบเตือนให้ผู้ใช้อัปเดต/Deploy ใหม่
-var SERVER_VERSION = '2.15.0';
+var SERVER_VERSION = '2.16.0';
 
 // ── ชื่อแท็บระบบ ────────────────────────────────────────────
 var SHEET_CONFIG  = '⚙️ ตั้งค่า';
@@ -117,6 +117,7 @@ var CONFIG_DEFAULTS = [
   ['บัญชี Google', 'allowed_emails',  '', 'อีเมลที่อนุญาต คั่นด้วยจุลภาค — เว้นว่าง = เฉพาะเจ้าของไฟล์นี้'],
   ['ทั่วไป', 'mid_date',    '',     'วันสอบกลางภาค (YYYY-MM-DD) — ใช้เดาว่าวันที่เช็คชื่ออยู่ช่วงก่อนหรือหลังกลางภาค'],
   ['ทั่วไป', 'student_portal', 'on', 'หน้าให้นักเรียนดูผลตัวเอง: on = เปิด | off = ปิด'],
+  ['ทั่วไป', 'student_summary', 'off', 'หน้าสรุปผลภาคเรียน (คะแนนรวม + เกรด) ให้นักเรียนดู: on = เปิด | off = ปิด (ดูคะแนนรายชิ้นได้ตามปกติ)'],
   ['ทั่วไป', 'assets_url',     '',   'โฟลเดอร์ที่มี styles.css กับ app.bundle.js อยู่ เช่น https://ชื่อคุณ.github.io/ชื่อ-repo/ (ถ้าอัปเฉพาะไฟล์ในโฟลเดอร์ docs) หรือ .../ชื่อ-repo/docs/ (ถ้า push ทั้งโปรเจกต์)'],
 
   ['น้ำหนักคะแนน', 'w_work1', '10', 'ส่งงาน ก่อนกลางภาค → SGS ช่อง 1'],
@@ -1722,7 +1723,7 @@ function handle_(req, embedded) {
       return json_({ ok: false, error: 'มีการค้นหาถี่เกินไป กรุณาลองใหม่ในอีกสักครู่' });
     }
     try {
-      var sview = studentGet_((req.payload || {}).sid);
+      var sview = studentViewFor_(studentGet_((req.payload || {}).sid), cfg);
       return json_({ ok: true, data: sview, version: SERVER_VERSION });
     } catch (serr) {
       return json_({ ok: false, error: String(serr && serr.message ? serr.message : serr) });
@@ -2099,6 +2100,32 @@ var STU_MAX_LOOKUPS = 40;     // จำนวนครั้งที่ค้�
 
 function studentPortalOn_(cfg) {
   return String((cfg || getConfig_()).student_portal || 'on').toLowerCase() !== 'off';
+}
+
+/**
+ * หน้าสรุปผลภาคเรียน (คะแนนรวม + เกรด) เปิดให้นักเรียนดูไหม — แยกจากการดูคะแนนรายชิ้น
+ * ตั้งต้นเป็นปิด: เกรดเป็นเรื่องที่ครูอยากเลือกจังหวะประกาศเอง (เช่นหลังส่ง ปพ. แล้ว)
+ * ชีตที่ติดตั้งก่อนมีคีย์นี้จะไม่มีแถวนี้เลย = ปิด จนกว่าครูจะเปิดจากหน้าตั้งค่า
+ */
+function studentSummaryOn_(cfg) {
+  return String((cfg || getConfig_()).student_summary || 'off').toLowerCase() === 'on';
+}
+
+/**
+ * ตัดข้อมูลสรุปผลออกเมื่อครูปิดไว้ — ตัดที่ฝั่งชีต ไม่ใช่แค่ซ่อนปุ่มในหน้าเว็บ
+ * ไม่งั้นนักเรียนเปิดเครื่องมือของเบราว์เซอร์ก็เห็นเกรดได้อยู่ดี
+ * แคชเก็บฉบับเต็มไว้ (ตัดตอนส่งออก) ครูเปิด/ปิดแล้วมีผลทันที ไม่ต้องรอแคชหมดอายุ
+ */
+function studentViewFor_(view, cfg) {
+  var on = studentSummaryOn_(cfg);
+  var out = JSON.parse(JSON.stringify(view));
+  out.summary = on;
+  if (!on) {
+    (out.classes || []).forEach(function (c) {
+      delete c.total; delete c.letter; delete c.termDone;
+    });
+  }
+  return out;
 }
 
 /**

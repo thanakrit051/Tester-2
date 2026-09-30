@@ -117,9 +117,10 @@ const selectInput = (k, options) => h('select', {
 }, options.map(([v, l]) => h('option', { value: v, selected: String(cfg(k)) === v }, l)));
 
 /** ตัวเลือก 2 ทางแบบปุ่มคู่ (ดีไซน์ใช้แทน select ในกติกาหลัก) */
-const segInput = (k, options) => h('div', { class: 'seg seg-inline' },
+// d = ค่าที่ชีตใช้เมื่อยังไม่มีแถวนั้น (ชีตที่ติดตั้งก่อนมีคีย์นี้) — ไม่งั้นไม่มีปุ่มไหนติดเลย
+const segInput = (k, options, d = '') => h('div', { class: 'seg seg-inline' },
   options.map(([v, l]) => h('button', {
-    'data-on': String(cfg(k)) === v ? '1' : '0',
+    'data-on': String(cfg(k, d)).toLowerCase() === v ? '1' : '0',
     onclick: () => { put(k, v); state.config[k] = v; emit(); }
   }, l)));
 
@@ -321,7 +322,10 @@ function secAcct() {
         'นักเรียนกรอกเลขประจำตัวแล้วเห็นงาน คะแนน และการมาเรียนของตัวเอง', h('br'),
         'ดูได้อย่างเดียว แก้อะไรไม่ได้ และเห็นเฉพาะข้อมูลของตัวเอง'),
       row('เปิดหน้าให้นักเรียนดู', 'ปิดแล้วลิงก์ของนักเรียนจะใช้ไม่ได้ทันที',
-        segInput('student_portal', [['on', 'เปิด'], ['off', 'ปิด']])),
+        segInput('student_portal', [['on', 'เปิด'], ['off', 'ปิด']], 'on')),
+      // แยกจากสวิตช์ข้างบน: ให้ดูคะแนนรายชิ้นได้ทั้งเทอม แต่ประกาศเกรดเมื่อพร้อม
+      row('ให้ดูสรุปผลภาคเรียน', 'คะแนนรวม /100 และเกรดทุกวิชา · ปิดไว้นักเรียนยังดูงานและคะแนนรายชิ้นได้ตามปกติ',
+        segInput('student_summary', [['on', 'เปิด'], ['off', 'ปิด']], 'off')),
       h('div', { class: 'btn-row', style: { marginTop: '12px' } },
         h('button', { class: 'btn btn-soft btn-sm', onclick: showStudentLink }, '🎒 ลิงก์สำหรับนักเรียน'),
         h('button', { class: 'btn btn-ghost btn-sm', onclick: showStudentHowTo }, '❓ ต้อง Deploy เพิ่มยังไง'))
