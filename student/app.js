@@ -39,6 +39,9 @@
   var ICON = {
     book: '<path d="M3 4h6a3 3 0 0 1 3 3v13a2.5 2.5 0 0 0-2.5-2.5H3z"/><path d="M21 4h-6a3 3 0 0 0-3 3v13a2.5 2.5 0 0 1 2.5-2.5H21z"/>',
     chev: '<path d="m6 9 6 6 6-6"/>',
+    doc: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6"/><path d="M9 17h4"/>',
+    pen: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
+    cal: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4"/><path d="M8 3v4"/><path d="M3 10h18"/><path d="m9 15 2 2 4-4"/>',
     lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
     warn: '<path d="M12 9v4.5"/><path d="M12 17h.01"/><path d="M10.3 3.9 2.5 17.4A2 2 0 0 0 4.2 20.5h15.6a2 2 0 0 0 1.7-3.1L13.7 3.9a2 2 0 0 0-3.4 0z"/>'
   };
@@ -266,8 +269,11 @@
       : items.length ? items.length + ' รายการ'
       : 'ครูยังไม่ได้เพิ่มรายการ';
 
+    // หัวข้อต้องเด่นกว่ารายการย่อย: ไอคอนประจำส่วน + ตัวใหญ่ · รายการเยื้องเข้าไปใต้ชื่อหัวข้อ
+    var ico = isAtt ? ICON.cal : /^quiz/.test(b.id) ? ICON.pen : ICON.doc;
     return h('div', { class: 'bk' + (b.has ? '' : ' nodata') },
       h('div', { class: 'bk-h' },
+        h('span', { class: 'bk-ico' }, svg(ico)),
         h('div', { style: { flex: '1', minWidth: '0' } },
           h('div', { class: 'bk-name' }, b.label),
           h('div', { class: 'bk-sub' }, sub)),
@@ -523,7 +529,7 @@
     );
   }
 
-  /** แถบเข้มบนสุด — ชื่อ เลือกวิชา คะแนนสะสม และแถบคะแนน 8 ส่วนตามลำดับเวลา */
+  /** แถบเข้มบนสุด — ชื่อ เลือกวิชา คะแนนสะสม และเวลาเรียน */
   function hero(d, c) {
     var many = d.classes.length > 1;
     var kick = [[c.grade, c.room].filter(Boolean).join('/'), c.no ? 'เลขที่ ' + c.no : '',
@@ -555,34 +561,7 @@
             : 'ครูยังไม่ได้กรอกคะแนนในวิชานี้')),
         h('div', { class: 'hero-att' },
           h('span', null, 'เวลาเรียน'),
-          h('b', { class: 'tnum' }, c.att && c.att.checked > 0 ? c.att.pct + '%' : '—'))),
-
-      termBar(c));
-  }
-
-  /**
-   * แถบ 8 ช่องเรียงตามเวลา กว้างตามน้ำหนักของแต่ละส่วน — ดูครั้งเดียวรู้ว่าได้ตรงไหน ขาดตรงไหน
-   * ช่องสอบที่ครูยังปิดเป็นเส้นประ
-   */
-  function termBar(c) {
-    var half = function (phase) {
-      var p = phaseSum(c, phase);
-      return (p.any ? nf(p.got) : '—') + '/' + nf(p.max);
-    };
-    return h('div', { class: 'term' },
-      h('div', {
-        class: 'term-bar', role: 'img',
-        'aria-label': 'ก่อนกลางภาค ' + half(1) + ' · หลังกลางภาค ' + half(2)
-      },
-        c.buckets.filter(function (b) { return Number(b.max) > 0; }).map(function (b) {
-          var max = Number(b.max);
-          var w = b.has ? Math.max(0, Math.min(100, b.score / max * 100)) : 0;
-          return h('i', { class: b.hidden ? 'lock' : null, style: { flexGrow: String(max) } },
-            h('i', { style: { width: w + '%' } }));
-        })),
-      h('div', { class: 'term-legend tnum' },
-        h('span', null, 'ก่อนกลางภาค ' + half(1)),
-        h('span', null, 'หลังกลางภาค ' + half(2))));
+          h('b', { class: 'tnum' }, c.att && c.att.checked > 0 ? c.att.pct + '%' : '—'))));
   }
 
   function mini(label, value) {
