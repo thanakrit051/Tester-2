@@ -231,12 +231,21 @@
     return h('div', { class: cls }, h('i', { style: { width: w + '%' } }));
   }
 
-  /** การ์ดครึ่งภาค — หัวการ์ดกดหุบ/กางได้ บอกคะแนนรวมของครึ่งนี้ แล้วไล่ทีละส่วน */
+  /**
+   * การ์ดครึ่งภาค — หัวการ์ดกดหุบ/กางได้ บอกคะแนนเก็บของครึ่งนี้ แล้วไล่ทีละส่วน
+   *
+   * นับเฉพาะคะแนนเก็บ (งาน · สอบเก็บ · เข้าเรียน) ไม่รวมสอบกลาง/ปลายภาค
+   * เพราะสอบมีการ์ดของตัวเองอยู่ถัดไป — ถ้ารวมไว้ด้วย เด็กบวกทุกการ์ดแล้วได้เกินคะแนนสะสม
+   * (นับสอบซ้ำ 2 รอบ) · ตอนนี้ ครึ่งแรก + สอบกลาง + ครึ่งหลัง + สอบปลาย = คะแนนสะสมพอดี
+   */
   function phaseCard(c, phase) {
-    var p = phaseSum(c, phase);
     var buckets = c.buckets.filter(function (b) { return b.phase === phase && !isExam(b.id); });
-    var checked = 0;
-    c.buckets.forEach(function (b) { if (b.phase === phase && b.has) checked += Number(b.max) || 0; });
+    var p = { got: 0, max: 0, any: false }, checked = 0;
+    buckets.forEach(function (b) {
+      p.max += Number(b.max) || 0;
+      if (b.has) { p.got += Number(b.score) || 0; checked += Number(b.max) || 0; p.any = true; }
+    });
+    p.got = Math.round(p.got * 100) / 100;
     var open = VIEW.open[phase] !== false;
 
     // หุบ/กางด้วยการสลับคลาสตรง ๆ ไม่วาดหน้าใหม่ — จอจะได้ไม่เด้งกลับขึ้นบนสุด
@@ -358,16 +367,6 @@
     var n = Number(g);
     if (isNaN(n)) return 'dim';
     return n <= 1.5 ? 'warn' : 'ok';
-  }
-
-  function phaseSum(c, phase) {
-    var got = 0, max = 0, any = false;
-    c.buckets.forEach(function (b) {
-      if (b.phase !== phase) return;
-      max += Number(b.max) || 0;
-      if (b.has) { got += Number(b.score) || 0; any = true; }
-    });
-    return { got: Math.round(got * 100) / 100, max: max, any: any };
   }
 
   function drawSummary(d) {
