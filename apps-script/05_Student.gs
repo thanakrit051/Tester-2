@@ -32,15 +32,51 @@ function studentSummaryOn_(cfg) {
  * แคชเก็บฉบับเต็มไว้ (ตัดตอนส่งออก) ครูเปิด/ปิดแล้วมีผลทันที ไม่ต้องรอแคชหมดอายุ
  */
 function studentViewFor_(view, cfg) {
+  cfg = cfg || getConfig_();
   var on = studentSummaryOn_(cfg);
+  var hide = ['mid', 'fin'].filter(function (id) { return !studentExamOn_(id, cfg); });
   var out = JSON.parse(JSON.stringify(view));
   out.summary = on;
-  if (!on) {
-    (out.classes || []).forEach(function (c) {
-      delete c.total; delete c.letter; delete c.termDone;
-    });
-  }
+  out.hidden = hide;
+  (out.classes || []).forEach(function (c) {
+    if (hide.length) hideExams_(c, hide);
+    if (!on) { delete c.total; delete c.letter; delete c.termDone; }
+  });
   return out;
+}
+
+/**
+ * คะแนนสอบกลางภาค (mid) / ปลายภาค (fin) ให้นักเรียนเห็นไหม — ครูเลือกจังหวะประกาศเอง
+ * ตั้งต้นเป็นเปิด: ชีตที่ติดตั้งก่อนมีคีย์นี้ นักเรียนยังเห็นคะแนนสอบเหมือนเดิม
+ */
+function studentExamOn_(id, cfg) {
+  return String((cfg || getConfig_())['student_' + id] || 'on').toLowerCase() !== 'off';
+}
+
+/**
+ * ตัดคะแนนสอบที่ครูยังปิดไว้ออกจากข้อมูล 1 วิชา — ตัดที่ฝั่งชีตด้วยเหตุผลเดียวกับเกรด
+ *
+ * ต้องตัดคะแนนรวมกับเกรดทิ้งด้วย ไม่งั้นเอาคะแนนรวมลบส่วนที่เห็นก็ได้คะแนนสอบคืนมา
+ * (เกรดก็เช่นกัน รู้ช่วงคะแนนรวมแล้วเดาคะแนนสอบได้) — หน้าเว็บจะขึ้นว่า "รอ" แทน
+ * คะแนนสะสม (earned/outOf) คิดใหม่จากส่วนที่ยังเห็นอยู่
+ */
+function hideExams_(c, hide) {
+  var earned = 0, outOf = 0;
+  (c.buckets || []).forEach(function (b) {
+    if (hide.indexOf(b.id) >= 0) { b.score = null; b.has = false; b.hidden = true; }
+    if (b.has) { earned += Number(b.score) || 0; outOf += Number(b.max) || 0; }
+  });
+  c.earned = Math.round(earned * 100) / 100;
+  c.outOf = Math.round(outOf * 100) / 100;
+
+  // สถานะรายชิ้นก็บอกได้ว่าสอบแล้ว/ขาดสอบ/ผ่านเกณฑ์ไหม — เหลือแค่ชื่อกับคะแนนเต็ม
+  (c.items || []).forEach(function (it) {
+    if (hide.indexOf(it.bucket) < 0) return;
+    it.hidden = true; it.status = 'none'; it.score = null;
+    it.retake = false; it.orig = null; it.passed = null;
+  });
+
+  delete c.total; delete c.letter; delete c.termDone; delete c.failN;
 }
 
 /**

@@ -23,7 +23,7 @@
 // ── เวอร์ชัน ────────────────────────────────────────────────
 // ⚠️ ต้องตรงกับ APP_VERSION ใน js/version.js
 //    ถ้าเลขไม่ตรง หน้าเว็บจะขึ้นแถบเตือนให้ผู้ใช้อัปเดต/Deploy ใหม่
-var SERVER_VERSION = '2.16.1';
+var SERVER_VERSION = '2.17.0';
 
 // ── ชื่อแท็บระบบ ────────────────────────────────────────────
 var SHEET_CONFIG  = '⚙️ ตั้งค่า';
@@ -118,6 +118,8 @@ var CONFIG_DEFAULTS = [
   ['ทั่วไป', 'mid_date',    '',     'วันสอบกลางภาค (YYYY-MM-DD) — ใช้เดาว่าวันที่เช็คชื่ออยู่ช่วงก่อนหรือหลังกลางภาค'],
   ['ทั่วไป', 'student_portal', 'on', 'หน้าให้นักเรียนดูผลตัวเอง: on = เปิด | off = ปิด'],
   ['ทั่วไป', 'student_summary', 'off', 'หน้าสรุปผลภาคเรียน (คะแนนรวม + เกรด) ให้นักเรียนดู: on = เปิด | off = ปิด (ดูคะแนนรายชิ้นได้ตามปกติ)'],
+  ['ทั่วไป', 'student_mid',     'on',  'คะแนนสอบกลางภาคให้นักเรียนเห็น: on = เปิด | off = ปิด (ปิดแล้วคะแนนสะสมไม่รวมส่วนนี้ และเกรดขึ้นว่า "รอ")'],
+  ['ทั่วไป', 'student_fin',     'on',  'คะแนนสอบปลายภาคให้นักเรียนเห็น: on = เปิด | off = ปิด (ปิดแล้วคะแนนสะสมไม่รวมส่วนนี้ และเกรดขึ้นว่า "รอ")'],
   ['ทั่วไป', 'assets_url',     '',   'โฟลเดอร์ที่มี styles.css กับ app.bundle.js อยู่ เช่น https://ชื่อคุณ.github.io/ชื่อ-repo/ (ถ้าอัปเฉพาะไฟล์ในโฟลเดอร์ docs) หรือ .../ชื่อ-repo/docs/ (ถ้า push ทั้งโปรเจกต์)'],
 
   ['น้ำหนักคะแนน', 'w_work1', '10', 'ส่งงาน ก่อนกลางภาค → SGS ช่อง 1'],
@@ -2254,15 +2256,51 @@ function studentSummaryOn_(cfg) {
  * แคชเก็บฉบับเต็มไว้ (ตัดตอนส่งออก) ครูเปิด/ปิดแล้วมีผลทันที ไม่ต้องรอแคชหมดอายุ
  */
 function studentViewFor_(view, cfg) {
+  cfg = cfg || getConfig_();
   var on = studentSummaryOn_(cfg);
+  var hide = ['mid', 'fin'].filter(function (id) { return !studentExamOn_(id, cfg); });
   var out = JSON.parse(JSON.stringify(view));
   out.summary = on;
-  if (!on) {
-    (out.classes || []).forEach(function (c) {
-      delete c.total; delete c.letter; delete c.termDone;
-    });
-  }
+  out.hidden = hide;
+  (out.classes || []).forEach(function (c) {
+    if (hide.length) hideExams_(c, hide);
+    if (!on) { delete c.total; delete c.letter; delete c.termDone; }
+  });
   return out;
+}
+
+/**
+ * คะแนนสอบกลางภาค (mid) / ปลายภาค (fin) ให้นักเรียนเห็นไหม — ครูเลือกจังหวะประกาศเอง
+ * ตั้งต้นเป็นเปิด: ชีตที่ติดตั้งก่อนมีคีย์นี้ นักเรียนยังเห็นคะแนนสอบเหมือนเดิม
+ */
+function studentExamOn_(id, cfg) {
+  return String((cfg || getConfig_())['student_' + id] || 'on').toLowerCase() !== 'off';
+}
+
+/**
+ * ตัดคะแนนสอบที่ครูยังปิดไว้ออกจากข้อมูล 1 วิชา — ตัดที่ฝั่งชีตด้วยเหตุผลเดียวกับเกรด
+ *
+ * ต้องตัดคะแนนรวมกับเกรดทิ้งด้วย ไม่งั้นเอาคะแนนรวมลบส่วนที่เห็นก็ได้คะแนนสอบคืนมา
+ * (เกรดก็เช่นกัน รู้ช่วงคะแนนรวมแล้วเดาคะแนนสอบได้) — หน้าเว็บจะขึ้นว่า "รอ" แทน
+ * คะแนนสะสม (earned/outOf) คิดใหม่จากส่วนที่ยังเห็นอยู่
+ */
+function hideExams_(c, hide) {
+  var earned = 0, outOf = 0;
+  (c.buckets || []).forEach(function (b) {
+    if (hide.indexOf(b.id) >= 0) { b.score = null; b.has = false; b.hidden = true; }
+    if (b.has) { earned += Number(b.score) || 0; outOf += Number(b.max) || 0; }
+  });
+  c.earned = Math.round(earned * 100) / 100;
+  c.outOf = Math.round(outOf * 100) / 100;
+
+  // สถานะรายชิ้นก็บอกได้ว่าสอบแล้ว/ขาดสอบ/ผ่านเกณฑ์ไหม — เหลือแค่ชื่อกับคะแนนเต็ม
+  (c.items || []).forEach(function (it) {
+    if (hide.indexOf(it.bucket) < 0) return;
+    it.hidden = true; it.status = 'none'; it.score = null;
+    it.retake = false; it.orig = null; it.passed = null;
+  });
+
+  delete c.total; delete c.letter; delete c.termDone; delete c.failN;
 }
 
 /**
