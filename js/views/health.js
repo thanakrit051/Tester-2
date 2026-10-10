@@ -3,7 +3,7 @@
  * ทุกข้อที่ไม่ผ่านต้องบอก 3 อย่างเสมอ: เกิดอะไรขึ้น · กระทบอะไร · แก้ยังไง
  */
 
-import { h, toast, modal } from '../dom.js';
+import { h, toast, modal, copyText } from '../dom.js';
 import { state, emit, go, settings, sync } from '../state.js';
 import * as api from '../api.js';
 import { auth } from '../auth.js';
@@ -324,10 +324,8 @@ async function testConn() {
 }
 
 async function copyTransfer() {
-  try {
-    await navigator.clipboard.writeText(api.conn.transferLink());
-    toast('คัดลอกลิงก์แล้ว — เปิดลิงก์นี้บนเครื่องใหม่', 'ok', 4000);
-  } catch { toast('คัดลอกไม่ได้ ลองที่ ตั้งค่า → ย้ายไปเครื่องอื่น', 'err'); }
+  if (await copyText(api.conn.transferLink())) toast('คัดลอกลิงก์แล้ว — เปิดลิงก์นี้บนเครื่องใหม่', 'ok', 4000);
+  else toast('คัดลอกไม่ได้ ลองที่ ตั้งค่า → ย้ายไปเครื่องอื่น', 'err');
 }
 
 function showUpdateSteps() {

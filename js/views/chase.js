@@ -13,7 +13,7 @@
  * })
  */
 
-import { h, modal, mount, toast } from '../dom.js';
+import { h, modal, mount, toast, copyText } from '../dom.js';
 import { store } from '../storage.js';
 
 const NOTE_KEY = 'ac.chaseNote';
@@ -95,17 +95,3 @@ export function openCopyList({ title, sub, topic, groups }) {
 
 const canShare = () => { try { return typeof navigator.share === 'function'; } catch (e) { return false; } };
 
-/** คัดลอกลงคลิปบอร์ด — เบราว์เซอร์เก่า/โหมดฝังใน Apps Script ไม่มี clipboard API ใช้วิธีสำรอง */
-async function copyText(text) {
-  try {
-    if (navigator.clipboard && window.isSecureContext) { await navigator.clipboard.writeText(text); return true; }
-  } catch (e) { /* ตกไปใช้วิธีสำรอง */ }
-  try {
-    const ta = h('textarea', { value: text, readonly: true, style: { position: 'fixed', top: '-1000px', opacity: '0' } });
-    document.body.append(ta);
-    ta.select();
-    const ok = document.execCommand('copy');
-    ta.remove();
-    return ok;
-  } catch (e) { return false; }
-}

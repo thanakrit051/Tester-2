@@ -1,6 +1,6 @@
 /* AssignCheck V2 — จุดเริ่มต้นแอป: เปลือกหน้าจอ + เราเตอร์ */
 
-import { h, mount, toast, closeTopModal } from './dom.js';
+import { h, mount, toast, closeTopModal, copyText } from './dom.js';
 import * as api from './api.js';
 import { state, subscribe, bootAll, loadClass, sync, isSyncing, go, pushView } from './state.js';
 import { auth, restoreSession } from './auth.js';
@@ -142,12 +142,9 @@ function copyReportBtn(msg) {
     class: 'btn btn-ghost', style: { flex: '1' },
     onclick: async (e) => {
       const btn = e.currentTarget;
-      try {
-        await navigator.clipboard.writeText(problemReport(msg));
-        btn.textContent = 'คัดลอกแล้ว ✓';
-      } catch (err) {
-        btn.textContent = 'คัดลอกไม่ได้ — ลากคลุมข้อความด้านบนแทน';
-      }
+      btn.textContent = await copyText(problemReport(msg))
+        ? 'คัดลอกแล้ว ✓'
+        : 'คัดลอกไม่ได้ — ลากคลุมข้อความด้านบนแทน';
     }
   }, 'คัดลอกรายงาน');
 }

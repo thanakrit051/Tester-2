@@ -1,6 +1,6 @@
 /* หน้าสรุปคะแนน — ตารางตรงกับหน้ากรอกของ SGS */
 
-import { h, modal, toast, nf, printPage } from '../dom.js';
+import { h, modal, toast, nf, printPage, copyText } from '../dom.js';
 import { state, emit, settings, recalcOnServer } from '../state.js';
 import { computeClass, BUCKETS, bucketColumns, parseWork } from '../score.js';
 
@@ -257,18 +257,15 @@ const cellText = (r, id) => (r['_has_' + id] ? nf(r[id]) : '—');
 // ── คัดลอก / ส่งออก ─────────────────────────────────────────
 
 async function toClipboard(text, msg) {
-  try {
-    await navigator.clipboard.writeText(text);
-    toast(msg, 'ok');
-  } catch {
-    modal((close) => h('div', null,
-      h('h2', null, 'คัดลอกด้วยตัวเอง'),
-      h('div', { class: 'hint', style: { marginBottom: '8px' } }, 'เบราว์เซอร์ไม่อนุญาตให้คัดลอกอัตโนมัติ — กดค้างเพื่อเลือกทั้งหมด'),
-      h('textarea', { rows: 12, value: text, style: { fontFamily: 'ui-monospace, monospace' } }),
-      h('div', { style: { height: '10px' } }),
-      h('button', { class: 'btn btn-block', onclick: close }, 'ปิด')
-    ));
-  }
+  if (await copyText(text)) { toast(msg, 'ok'); return; }
+  // คัดลอกอัตโนมัติไม่ได้ทั้งสองวิธี — เปิดกล่องให้ครูเลือกข้อความแล้วคัดลอกเอง
+  modal((close) => h('div', null,
+    h('h2', null, 'คัดลอกด้วยตัวเอง'),
+    h('div', { class: 'hint', style: { marginBottom: '8px' } }, 'เบราว์เซอร์ไม่อนุญาตให้คัดลอกอัตโนมัติ — กดค้างเพื่อเลือกทั้งหมด'),
+    h('textarea', { rows: 12, value: text, style: { fontFamily: 'ui-monospace, monospace' } }),
+    h('div', { style: { height: '10px' } }),
+    h('button', { class: 'btn btn-block', onclick: close }, 'ปิด')
+  ));
 }
 
 function copyColumn(rows, col) {

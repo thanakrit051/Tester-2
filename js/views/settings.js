@@ -6,7 +6,7 @@
  * ครูจะได้ไม่ต้องจำว่ากดบันทึกหรือยัง — ดีไซน์ยึดข้อนี้เป็นหลัก
  */
 
-import { h, toast, confirmBox, modal, printPage } from '../dom.js';
+import { h, toast, confirmBox, modal, printPage, copyText } from '../dom.js';
 import { qrcode } from '../vendor/qrcode.js';
 import { state, saveConfig, sync, bootAll, go, emit } from '../state.js';
 import * as api from '../api.js';
@@ -561,8 +561,8 @@ function showStudentLink() {
     h('button', {
       class: 'btn btn-block',
       onclick: async () => {
-        try { await navigator.clipboard.writeText(link); toast('คัดลอกลิงก์แล้ว', 'ok'); close(); }
-        catch { toast('กดค้างที่ข้อความเพื่อคัดลอก'); }
+        if (await copyText(link)) { toast('คัดลอกลิงก์แล้ว', 'ok'); close(); }
+        else toast('กดค้างที่ข้อความเพื่อคัดลอก');
       }
     }, 'คัดลอกลิงก์'),
     h('div', {
@@ -713,8 +713,8 @@ function showTransfer() {
     h('button', {
       class: 'btn btn-block',
       onclick: async () => {
-        try { await navigator.clipboard.writeText(link); toast('คัดลอกลิงก์แล้ว', 'ok'); close(); }
-        catch { toast('กดค้างที่ข้อความเพื่อคัดลอก'); }
+        if (await copyText(link)) { toast('คัดลอกลิงก์แล้ว', 'ok'); close(); }
+        else toast('กดค้างที่ข้อความเพื่อคัดลอก');
       }
     }, 'คัดลอกลิงก์'),
     h('div', { class: 'hint', style: { marginTop: '10px' } },

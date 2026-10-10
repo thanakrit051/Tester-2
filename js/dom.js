@@ -152,6 +152,29 @@ export function confirmBox(title, message, confirmLabel = 'ยืนยัน') 
   });
 }
 
+// ── คลิปบอร์ด ───────────────────────────────────────────────
+
+/**
+ * คัดลอกข้อความ — คืน true เมื่อสำเร็จ
+ *
+ * ใช้ตัวนี้ตัวเดียวทั้งแอป เดิมแต่ละปุ่มเรียก navigator.clipboard เอง
+ * ซึ่งใช้ไม่ได้ในเบราว์เซอร์เก่า, หน้าที่ไม่ใช่ https และบางเบราว์เซอร์ในแอปไลน์
+ * ตรงนี้ลองวิธีมาตรฐานก่อน ไม่ได้ค่อยตกไปใช้วิธีเลือกข้อความแล้วสั่งคัดลอก
+ */
+export async function copyText(text) {
+  try {
+    if (navigator.clipboard && window.isSecureContext) { await navigator.clipboard.writeText(text); return true; }
+  } catch (e) { /* ตกไปใช้วิธีสำรอง */ }
+  try {
+    const ta = h('textarea', { value: text, readonly: true, style: { position: 'fixed', top: '-1000px', opacity: '0' } });
+    document.body.append(ta);
+    ta.select();
+    const ok = document.execCommand('copy');
+    ta.remove();
+    return ok;
+  } catch (e) { return false; }
+}
+
 // ── พิมพ์ ───────────────────────────────────────────────────
 
 /**
