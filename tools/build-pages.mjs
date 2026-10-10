@@ -33,7 +33,8 @@ const minCss = (code) => transformSync(code, { loader: 'css', minify: true, targ
 
 const VER = (read('js/version.js').match(/APP_VERSION\s*=\s*'([^']+)'/) || [])[1] || '?';
 
-const html = `<!DOCTYPE html>
+/* หน้าเดียวกันใช้ 2 ที่: docs/ (ย่อไฟล์ + ลิงก์จริง) และ dev/demo-student.html (อ่านง่าย + ข้อมูลจำลอง) */
+const page = (min, configTag) => `<!DOCTYPE html>
 <html lang="th">
 <head>
 <meta charset="UTF-8">
@@ -60,7 +61,7 @@ const html = `<!DOCTYPE html>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" media="print" onload="this.media='all';this.onload=null">
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap"></noscript>
 <style>
-${minCss(read('styles.css') + read('student/student.css'))}
+${(min ? minCss : (s) => s)(read('styles.css') + read('student/student.css'))}
 </style>
 </head>
 <body>
@@ -74,13 +75,15 @@ ${minCss(read('styles.css') + read('student/student.css'))}
 
 <div id="app" hidden></div>
 
-<script src="../config.js"></script>
+${configTag}
 <script>
-${minJs(read('student/app.js'))}
+${min ? minJs(read('student/app.js')) : read('student/app.js')}
 </script>
 </body>
 </html>
 `;
+
+const html = page(true, '<script src="../config.js"></script>');
 
 const docs = path.join(root, 'docs');
 fs.mkdirSync(docs, { recursive: true });
@@ -88,6 +91,11 @@ fs.writeFileSync(path.join(docs, 'index.html'), html, 'utf8');
 
 // docs/config.js เลิกใช้แล้ว (อ่าน ../config.js แทน) — ลบสำเนาเก่าทิ้ง
 fs.rmSync(path.join(docs, 'config.js'), { force: true });
+
+// หน้าทดลองดูดีไซน์ — ใส่ข้อมูลจำลองแทน config.js (dev/README.md)
+// เดิมต้องคัดลอก docs/index.html มาแก้เองทุกครั้ง เลยไม่ค่อยมีใครทำ หน้าทดลองจึงเก่ากว่าของจริง
+fs.writeFileSync(path.join(root, 'dev/demo-student.html'),
+  page(false, '<script>' + String.fromCharCode(10) + read('dev/student-mock.js') + '</script>'), 'utf8');
 
 // บอก GitHub Pages ว่าไม่ต้องเอา Jekyll มาประมวลผล
 fs.writeFileSync(path.join(docs, '.nojekyll'), '', 'utf8');

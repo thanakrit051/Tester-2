@@ -23,15 +23,13 @@ python -m http.server 5599
 `Storage.prototype` ไว้ให้ค่าที่ขึ้นต้นด้วย `ac.` เก็บอยู่ในหน่วยความจำเท่านั้น
 เปิดหน้านี้แล้วปิดไป ลิงก์ชีตกับรหัสลับที่ตั้งไว้ในแอปจริงยังอยู่ครบ
 
-`demo-student.html` สร้างจาก `docs/index.html` โดยสลับ `config.js`
-เป็นข้อมูลจำลอง ถ้าแก้หน้านักเรียนแล้วอยากสร้างใหม่:
+`demo-student.html` **build สร้างให้เอง** จากแม่แบบเดียวกับ `docs/index.html`
+(ไม่ย่อไฟล์ อ่านง่าย) แล้วใส่ `student-mock.js` แทน `config.js` — อย่าแก้ไฟล์นี้ตรง ๆ
+อยากเปลี่ยนข้อมูลจำลองให้แก้ `student-mock.js` แล้วรัน:
 
 ```bash
-node tools/build-pages.mjs
+npm run build
 ```
-
-แล้วคัดลอก `docs/index.html` มาแทนบรรทัด `<script src="./config.js">`
-ด้วยข้อมูลจำลองชุดเดิม
 
 ## ตัวช่วยวัดความเร็ว
 

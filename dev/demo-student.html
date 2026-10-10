@@ -1487,6 +1487,310 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
 }
 
 
+/* ══ v3.13 · หน้าแรกบนมือถือกระชับขึ้น ═══════════════════════
+   ของเดิมการ์ดหัว + ปุ่มสองปุ่มซ้อนกันกินจอแรกไปเกือบครึ่ง
+   รายการ "ค้างอยู่" ที่ครูต้องรู้จึงถูกดันลงไปจนต้องเลื่อนหา */
+@media (max-width: 899px) {
+  .hero { padding: 16px; border-radius: 20px; }
+  .hero-meta { margin-bottom: 12px; }
+  .hero-actions { grid-template-columns: 1fr 1fr; }
+  .hero .btn { padding: 12px 10px; }
+  .hero-alt { margin-top: 0; display: flex; align-items: center; justify-content: center; }
+  /* ตัวเลขสรุป 4 ช่องแถวเดียว — ตัวเลขสั้นอยู่แล้ว ไม่ต้องเปลืองสองแถว */
+  .stats-card .stats { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+  .stats-card .stat-num { font-size: 20px; }
+  .stats-card .stat-lbl { font-size: 11.5px; line-height: 1.3; }
+}
+/* แตะง่ายขึ้น — ของเดิมสูงแค่ ~30px */
+.todo-row { min-height: 44px; padding: 4px 0; border-top: 1px solid var(--line); }
+.todo-row:first-of-type { border-top: 0; }
+
+/* ══ v3.13 · ช่องค้นหาชื่อ/เลขที่ ═══════════════════════════ */
+/* แถวที่ถูกกรองออกต้องหายจริง — .stu-row ตั้ง display:flex ไว้ ซึ่งชนะ hidden ของเบราว์เซอร์ */
+.stu-row[hidden], .work-row[hidden], .find-clear[hidden], .att-nomatch[hidden] { display: none !important; }
+.find-box {
+  position: relative; display: flex; align-items: center; margin-bottom: 10px;
+}
+.find-box > .ico {
+  position: absolute; left: 12px; width: 19px; height: 19px;
+  color: var(--ink-3); pointer-events: none;
+}
+.find-box input {
+  width: 100%; min-height: 44px; padding: 0 44px 0 40px;
+  border-radius: 12px; border: 1px solid var(--line-2); background: var(--surface);
+  font-size: 15px; color: var(--ink);
+}
+.find-box input::-webkit-search-cancel-button { display: none; }
+.find-clear {
+  position: absolute; right: 0; top: 0; width: 44px; height: 44px;
+  display: grid; place-content: center; color: var(--ink-3);
+}
+.find-clear .ico { width: 18px; height: 18px; }
+
+/* ══ v3.13 · หน้าเช็คชื่อบนมือถือ: แถวกระชับ ════════════════
+   ของเดิมนักเรียนแต่ละคนเป็นการ์ดแยก สูงราว 80px รวมช่องไฟ
+   ห้อง 40 คนต้องเลื่อน 4 จอ · ตอนนี้รวมเป็นการ์ดเดียว แถวละ 56px
+   ปุ่ม ม/ส/ล/ข ยังสูง 44px เท่าเดิม (ดูกฎ pointer: coarse ด้านบน) */
+@media (max-width: 899px) {
+  .att-list {
+    gap: 0; background: var(--surface); border-radius: 16px;
+    overflow: hidden; box-shadow: var(--sh-1);
+  }
+  .att-list .stu-row {
+    min-height: 56px; padding: 6px 6px 6px 12px; border-radius: 0;
+    border-top: 1px solid var(--line);
+  }
+  .att-list .stu-row:first-child { border-top: 0; }
+  .att-list .stu-name { font-size: 15px; line-height: 1.35; }
+  .att-list .stu-sid { line-height: 1.3; }
+  .att-list > .card.empty { margin: 0; box-shadow: none; }
+}
+
+/* ══ v3.13 · ไอคอนเส้นในแถบถังคะแนน (แทนอีโมจิ) ═════════════ */
+.kind-cell .kc-ic { display: grid; place-content: center; }
+.kind-cell .kc-ic .ico { width: 20px; height: 20px; color: var(--accent); }
+.kind-cell[data-on="1"] .kc-ic .ico { color: var(--lime); }
+.chips .chip .ico { width: 16px; height: 16px; vertical-align: -3px; margin-right: 4px; }
+
+/* ══ v3.13 · กรอกคะแนนแบบตารางเร็ว (มือถือ) ══════════════════
+   แบบการ์ดเดิมสูงราว 125px ต่อคน (ชื่อ + ช่องคะแนน + ปุ่ม 3 ปุ่มอีกบรรทัด)
+   ตารางเร็วเหลือแถวละ ~52px บรรทัดเดียว: เลขที่ · ชื่อ · ป้ายสถานะ · คะแนน */
+.dense-seg {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 3px; padding: 3px;
+  border-radius: 12px; background: var(--surface-2); border: 1px solid var(--line-2);
+  margin-bottom: 10px;
+}
+.dense-seg button {
+  min-height: 38px; border-radius: 9px; font-size: 13.5px; font-weight: 600; color: var(--ink-2);
+}
+.dense-seg button[data-on="1"] { background: var(--surface); color: var(--ink); box-shadow: var(--sh-1); }
+
+.enter-hint {
+  display: flex; align-items: center; gap: 8px; margin: -2px 2px 10px;
+  font-size: 12.5px; color: var(--ink-2);
+}
+.enter-hint kbd {
+  font: inherit; font-weight: 700; color: var(--ink); padding: 1px 7px;
+  border: 1px solid var(--line-2); border-radius: 6px; background: var(--surface);
+}
+
+.work-list.dense {
+  background: var(--surface); border-radius: 16px; overflow: hidden; box-shadow: var(--sh-1);
+}
+.work-row.dense {
+  margin: 0; padding: 4px 10px; border-radius: 0; border-top: 1px solid var(--line);
+  min-height: 52px; display: flex; align-items: center;
+}
+.work-list.dense .work-thead + .work-row { border-top: 0; }
+.work-row.dense .work-head { margin: 0; flex: 1; min-width: 0; gap: 8px; }
+.work-row.dense .stu-no { width: 26px; height: 26px; font-size: 12px; }
+.work-row.dense .score-inp { width: 60px; min-height: 42px; font-size: 16px; }
+.work-row.dense .score-max { display: none; }
+.st-pill {
+  flex: none; min-width: 64px; min-height: 32px; padding: 0 10px; border-radius: 999px;
+  font-size: 13px; font-weight: 700; background: var(--surface-2); color: var(--ink-3);
+}
+.st-pill[data-st="ok"]     { background: var(--ok-soft);    color: #116b32; }
+.st-pill[data-st="late"]   { background: var(--late-soft);  color: #a34b06; }
+.st-pill[data-st="miss"]   { background: var(--miss-soft);  color: var(--st-miss); }
+.st-pill[data-st="retake"] { background: var(--purple-soft); color: var(--purple); }
+[data-theme="dark"] .st-pill[data-st="ok"]   { color: var(--st-ok); }
+[data-theme="dark"] .st-pill[data-st="late"] { color: var(--st-late); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .st-pill[data-st="ok"]   { color: var(--st-ok); }
+  :root:not([data-theme="light"]) .st-pill[data-st="late"] { color: var(--st-late); }
+}
+
+/* แถบความคืบหน้าบาง ๆ ใต้ชิ้นงานแต่ละชิ้น (นับที่ตรวจแล้ว รวมคนไม่ส่ง) */
+.mini-prog { height: 5px; border-radius: 3px; background: var(--surface-3); overflow: hidden; margin-top: 6px; max-width: 220px; }
+.mini-prog i { display: block; height: 100%; border-radius: 3px; background: var(--accent); }
+
+/* ══ v3.13 · ตารางสอน: การ์ด "ตอนนี้" + คาบของวันนี้ ═══════════ */
+.now-top { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.now-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 3px 10px; border-radius: 999px; font-size: 12.5px; font-weight: 700;
+  background: var(--lime); color: var(--on-lime);
+}
+.now-pill i { width: 7px; height: 7px; border-radius: 50%; background: var(--on-lime); }
+.now-pill.next { background: rgba(255,255,255,.14); color: #fff; }
+.now-pill.next i { background: var(--lime); }
+.now-time { margin-left: auto; font-size: 12.5px; color: var(--hero-ink); font-variant-numeric: tabular-nums; }
+.now-card .hero-meta { margin-bottom: 10px; }
+.now-prog { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.now-track { flex: 1; height: 6px; border-radius: 3px; background: rgba(196,239,231,.22); overflow: hidden; }
+.now-track i { display: block; height: 100%; border-radius: 3px; background: var(--lime); }
+.now-prog span { font-size: 12px; color: var(--hero-ink); white-space: nowrap; }
+@media (min-width: 900px) {
+  .now-card .now-prog { margin-bottom: 0; }
+}
+
+.today-card { padding: 4px 0; }
+.today-head { display: flex; align-items: center; padding: 10px 14px 6px; }
+.today-head b { flex: 1; font-size: 14px; }
+.today-edit { min-height: 36px; padding: 0 4px; font-size: 13px; font-weight: 600; color: var(--accent-ink); }
+.today-row {
+  display: flex; align-items: center; gap: 12px; width: 100%; min-height: 48px;
+  padding: 6px 14px; text-align: left; border-top: 1px solid var(--line); color: var(--ink);
+}
+.today-row[data-cur="1"] { background: var(--lime-soft); }
+.today-row[data-past="1"] .today-what { color: var(--ink-2); }
+.today-when { width: 48px; flex: none; display: grid; line-height: 1.25; }
+.today-when b { font-size: 13px; }
+.today-when small { font-size: 11.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.today-what { flex: 1; min-width: 0; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.today-row[data-cur="1"] .today-what { font-weight: 700; }
+.today-state { flex: none; font-size: 12px; font-weight: 600; color: var(--ink-2); }
+.today-state[data-tone="ok"]   { color: #116b32; }
+.today-state[data-tone="cur"]  { color: var(--accent-ink); }
+.today-state[data-tone="late"] { color: #a34b06; }
+[data-theme="dark"] .today-state[data-tone="ok"]   { color: var(--st-ok); }
+[data-theme="dark"] .today-state[data-tone="late"] { color: var(--st-late); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .today-state[data-tone="ok"]   { color: var(--st-ok); }
+  :root:not([data-theme="light"]) .today-state[data-tone="late"] { color: var(--st-late); }
+}
+
+.tt-tip {
+  display: flex; align-items: center; gap: 6px; margin: 12px 0 0;
+  border: 1px dashed var(--line-2); border-radius: 14px; padding: 4px 4px 4px 14px;
+}
+.tt-tip-main { flex: 1; display: grid; gap: 1px; text-align: left; padding: 8px 0; color: var(--ink); }
+.tt-tip-main b { font-size: 14px; color: var(--accent-ink); }
+.tt-tip-main span { font-size: 12.5px; color: var(--ink-2); }
+
+/* กล่องตั้งตารางสอน */
+.tt-days { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; margin-bottom: 12px; }
+.tt-days button {
+  min-height: 48px; border-radius: 12px; display: grid; place-content: center; line-height: 1.2;
+  background: var(--surface-2); color: var(--ink-2);
+}
+.tt-days b { font-size: 15px; }
+.tt-days small { font-size: 11px; }
+.tt-days button[data-on="1"] { background: var(--ink); color: var(--on-ink); }
+.tt-tools { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+.tt-tools > b { flex: 1; font-size: 15px; }
+.tt-list { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.tt-row { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-top: 1px solid var(--line); }
+.tt-list > .tt-row:first-child { border-top: 0; }
+.tt-when { width: 92px; flex: none; display: grid; line-height: 1.3; }
+.tt-when b { font-size: 13.5px; }
+.tt-when > span { font-size: 12px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.tt-row select { flex: 1; min-width: 0; min-height: 44px; }
+.tt-row select[data-set="0"] { color: var(--ink-3); }
+.tt-times { display: flex !important; align-items: center; gap: 2px; }
+.tt-time { width: 100%; min-width: 0; padding: 4px 2px; font-size: 12.5px; min-height: 32px; }
+.tt-row:has(.tt-times) .tt-when { width: 150px; }
+.tt-break {
+  padding: 4px 10px; font-size: 11.5px; color: var(--ink-3); text-align: center;
+  background: var(--surface-2); border-top: 1px solid var(--line);
+}
+
+/* ══ v3.13 · เพิ่มงานลงหลายห้อง ════════════════════════════ */
+.room-list { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.room-list + .room-list { margin-top: 8px; }
+.room-list[hidden] { display: none; }
+.room-row, .field .room-row {
+  display: flex; align-items: center; gap: 12px; min-height: 52px;
+  padding: 6px 14px; border-top: 1px solid var(--line); cursor: pointer;
+  font-size: 14px; color: var(--ink); font-weight: 400; margin: 0;
+}
+.room-row:first-child { border-top: 0; }
+.room-row[data-me="1"] { background: var(--surface-2); cursor: default; }
+.room-row input { width: 22px; height: 22px; flex: none; margin: 0; accent-color: var(--accent); }
+.room-main { flex: 1; min-width: 0; display: grid; line-height: 1.35; }
+.room-main b { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.room-main small { font-size: 12px; color: var(--ink-2); }
+.room-tag { flex: none; font-size: 12px; font-weight: 700; color: var(--accent-ink); }
+.room-tag[data-me="1"] { color: var(--ink-2); }
+.room-more {
+  min-height: 40px; margin-top: 4px; padding: 0 2px;
+  font-size: 13.5px; font-weight: 600; color: var(--accent-ink);
+}
+
+/* ══ v3.13 · ตามงาน → คัดลอกไปไลน์ ══════════════════════════ */
+.chase-opt, .field .chase-opt {
+  display: flex; align-items: center; gap: 12px; min-height: 52px; margin: 0 0 8px;
+  padding: 6px 14px; border-radius: 12px; background: var(--surface-2); cursor: pointer;
+}
+.chase-opt input { width: 22px; height: 22px; flex: none; margin: 0; accent-color: var(--accent); }
+.chase-opt > span { display: grid; line-height: 1.35; }
+.chase-opt b { font-size: 14px; color: var(--ink); }
+.chase-opt small { font-size: 12px; color: var(--ink-2); }
+/* ตัวอย่างข้อความ — หน้าตาคล้ายฟองแชตให้รู้ว่าจะออกไปเป็นแบบไหน */
+.chase-msg {
+  white-space: pre-line; font-size: 14.5px; line-height: 1.65; color: var(--ink);
+  background: var(--surface-2); border-radius: 4px 16px 16px 16px; padding: 12px 14px;
+  max-height: 40vh; overflow-y: auto; user-select: text; -webkit-user-select: text;
+}
+
+/* ══ v3.13 · สุ่มเรียกชื่อ ══════════════════════════════════ */
+.find-row { display: flex; gap: 8px; align-items: flex-start; }
+.find-row > .find-box { flex: 1; min-width: 0; }
+.dice-btn {
+  flex: none; width: 44px; height: 44px; border-radius: 12px; font-size: 20px;
+  background: var(--surface); border: 1px solid var(--line-2);
+}
+.pick-card {
+  display: grid; justify-items: center; gap: 4px; text-align: center;
+  padding: 26px 14px; margin-bottom: 10px; border-radius: 18px;
+  background: var(--hero); color: #fff;
+}
+.pick-sub { font-size: 14px; color: var(--hero-ink); }
+.pick-name { font-size: 28px; font-weight: 700; line-height: 1.3; }
+
+/* ══ v3.13 · พิมพ์ (ใบเช็คชื่อเปล่า · สรุป SGS) ═══════════════
+   เนื้อหาที่จะพิมพ์ถูกวางไว้ใน #print-area (ดู printPage ใน js/dom.js)
+   ตอนพิมพ์ซ่อนทุกอย่างของแอป เหลือแค่กระดาษขาว ตัวอักษรดำ เส้นตารางชัด */
+#print-area { display: none; }
+@media print {
+  body.printing { background: #fff !important; }
+  body.printing > *:not(#print-area) { display: none !important; }
+  body.printing #print-area { display: block; color: #000; font-size: 10.5pt; }
+  #print-area .print-head {
+    display: flex; justify-content: space-between; align-items: baseline; gap: 12px;
+    margin-bottom: 6mm; padding-bottom: 2mm; border-bottom: 1.5px solid #000;
+  }
+  #print-area .print-head b { font-size: 13pt; }
+  #print-area .print-foot {
+    display: flex; justify-content: space-between; gap: 12px; margin-top: 6mm; font-size: 9.5pt;
+  }
+  #print-area table.print-grid { width: 100%; border-collapse: collapse; }
+  #print-area .print-grid th,
+  #print-area .print-grid td {
+    border: 1px solid #000; padding: 3px 5px; color: #000 !important;
+    background: #fff !important; position: static !important; box-shadow: none !important;
+  }
+  #print-area .print-grid thead th { font-weight: 700; }
+  #print-area .print-grid tr { break-inside: avoid; }
+  #print-area .print-grid thead { display: table-header-group; }   /* หัวตารางซ้ำทุกหน้า */
+  #print-area .pg-no { width: 12mm; text-align: center; white-space: nowrap; }
+  #print-area .pg-sid { width: 24mm; white-space: nowrap; }
+  #print-area .pg-name { width: 52mm; white-space: nowrap; }
+  #print-area .pg-day { width: auto; }
+  #print-area .pg-sub th { font-weight: 400; font-size: 8.5pt; height: 7mm; }
+  #print-area tbody td { height: 6.5mm; }
+  /* ตาราง SGS มีสีพื้นหลัง/จุดเตือนตามจอ — กระดาษไม่ต้องใช้ */
+  #print-area .dot-pend { display: none; }
+  #print-area .print-grid div { color: #000 !important; }
+}
+
+/* ══ v3.13 · QR ลิงก์หน้านักเรียน ═══════════════════════════ */
+.qr-box {
+  width: 200px; max-width: 70%; margin: 4px auto 12px; padding: 6px;
+  background: #fff; border-radius: 14px; box-shadow: var(--sh-1);
+}
+.qr-box svg, .qr-poster-code svg { display: block; width: 100%; height: auto; }
+@media print {
+  #print-area .qr-poster { text-align: center; padding-top: 12mm; }
+  #print-area .qr-poster-title { font-size: 34pt; font-weight: 700; }
+  #print-area .qr-poster-sub { font-size: 14pt; margin-top: 2mm; }
+  #print-area .qr-poster-code { width: 120mm; margin: 12mm auto; }
+  #print-area .qr-poster-steps {
+    display: inline-block; text-align: left; font-size: 15pt; line-height: 1.8; margin: 0;
+  }
+  #print-area .qr-poster-link { margin-top: 12mm; font-size: 8.5pt; color: #444; word-break: break-all; }
+}
 /* สไตล์เฉพาะหน้าของนักเรียน — ต่อยอดจาก styles.css (ใช้ตัวแปรสีชุดเดียวกัน) */
 
 .stu-wrap { max-width: 620px; margin: 0 auto; padding: 16px 14px 40px; }
@@ -1969,6 +2273,9 @@ button.ov-row:hover { background: var(--surface-2); }
 <div id="app" hidden></div>
 
 <script>
+/* ข้อมูลจำลองของหน้านักเรียน — tools/build-pages.mjs ใส่ไฟล์นี้แทน config.js
+ * แล้วสร้าง dev/demo-student.html ให้เอง (แก้หน้านักเรียนแล้วไม่ต้องคัดลอกมือ)
+ * แทน fetch ด้วยคำตอบปลอม เปิดดูทุกหน้าจอได้โดยไม่ต่อชีตจริง · ต่อท้าย ?lock=1 = ครูปิดคะแนนปลายภาค */
 window.AC_API='https://example.invalid/exec';
 window.fetch=function(){
   var items=[
@@ -2060,14 +2367,10 @@ window.fetch=function(){
 
   // ── เรียกเซิร์ฟเวอร์ ──────────────────────────────────────
   //
-  // หน้านี้ทำงานได้ 2 ที่ โดยไม่ต้องแก้โค้ด
-  //   1. Apps Script เสิร์ฟเอง  → คุยผ่าน google.script.run
-  //   2. GitHub Pages           → คุยผ่าน fetch ไปที่ URL ใน config.js
+  // หน้านี้อยู่บน GitHub Pages (docs/) คุยผ่าน fetch ไปที่ URL ใน config.js
   //
   // ที่ต้องส่งเป็น text/plain เพราะถ้าใช้ application/json เบราว์เซอร์จะยิง
   // preflight (OPTIONS) ก่อน ซึ่ง Apps Script ตอบไม่ได้ แล้วจะติด CORS
-  var EMBEDDED = !!(window.google && google.script && google.script.run);
-
   function parseRes(raw, resolve, reject) {
     var res;
     try { res = JSON.parse(raw); } catch (e) { reject(new Error('อ่านคำตอบจากเซิร์ฟเวอร์ไม่ได้')); return; }
@@ -2079,16 +2382,6 @@ window.fetch=function(){
     var body = JSON.stringify({ action: 'studentGet', payload: { sid: sid } });
 
     return new Promise(function (resolve, reject) {
-      if (EMBEDDED) {
-        google.script.run
-          .withSuccessHandler(function (raw) { parseRes(raw, resolve, reject); })
-          .withFailureHandler(function (err) {
-            reject(new Error((err && err.message) || 'เชื่อมต่อไม่ได้ ลองใหม่อีกครั้ง'));
-          })
-          .apiCall(body);
-        return;
-      }
-
       var url = String(window.AC_API || '').trim();
       if (!url) {
         reject(new Error('ยังไม่ได้ตั้งค่าที่อยู่ของระบบ — ครูต้องใส่ลิงก์ Apps Script ในไฟล์ config.js'));
