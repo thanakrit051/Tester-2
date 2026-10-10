@@ -177,6 +177,21 @@ export function fmtDayFull(iso) {
 
 export function isToday(iso) { return iso === todayISO(); }
 
+/**
+ * ตรงกับคำค้นไหม — ใช้ในช่องค้นหาของหน้าเช็คชื่อและหน้ากรอกคะแนน
+ *   พิมพ์ตัวเลขล้วน = หาเลขที่ตรงตัว หรือเลขประจำตัวที่มีเลขนี้อยู่
+ *   (ครูพิมพ์ "3" ต้องได้เลขที่ 3 คนเดียว ไม่ใช่ทุกคนที่มีเลข 3 ในเลขประจำตัว)
+ *   พิมพ์ตัวอักษร = หาในชื่อ
+ */
+export function matchStudent(s, q) {
+  const k = String(q || '').trim();
+  if (!k) return true;
+  if (/^\d+$/.test(k)) {
+    return String(s.no) === k || (k.length >= 3 && String(s.sid || '').includes(k));
+  }
+  return String(s.name || '').toLowerCase().includes(k.toLowerCase());
+}
+
 export function nf(v, digits = 2) {
   const n = Number(v);
   if (isNaN(n)) return String(v ?? '');

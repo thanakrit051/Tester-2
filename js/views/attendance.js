@@ -6,7 +6,8 @@
  * ไม่ถามครูตอนเช็ค (แก้ได้ในเมนู ⋯ ถ้าจำเป็น)
  */
 
-import { h, toast, todayISO, fmtDate, fmtDayFull, isToday, confirmBox, modal } from '../dom.js';
+import { h, toast, todayISO, fmtDate, fmtDayFull, isToday, confirmBox, modal, matchStudent } from '../dom.js';
+import { icon } from '../icons.js';
 import { state, emit, ensureColumn, setCells, getCell, deleteColumn, go, undoLastEdit } from '../state.js';
 import { ATT_CODES, ATT_NAMES, attStats } from '../score.js';
 
@@ -24,7 +25,8 @@ const ui = {
   period: 1,
   halfOverride: null,        // ตั้งเองเฉพาะกรณีที่ระบบเดาผิด
   pending: null,             // คาบที่เพิ่งกดเพิ่ม ยังไม่มีข้อมูลในชีต
-  onlyBlank: false           // กรองเฉพาะคนที่ยังไม่เช็ค
+  onlyBlank: false,          // กรองเฉพาะคนที่ยังไม่เช็ค
+  q: ''                      // คำค้นชื่อ/เลขที่
 };
 
 // ── ตัวช่วย ─────────────────────────────────────────────────
@@ -63,6 +65,7 @@ function enterCheck(dateISO, period, { markAllPresent = false } = {}) {
   ui.halfOverride = null;
   ui.pending = null;
   ui.onlyBlank = false;
+  ui.q = '';
   if (markAllPresent) {
     const key = keyFor(dateISO, period);
     ensureColumn(colSpecFromKey(key), { quiet: true });
@@ -349,6 +352,8 @@ function checkScreen() {
         h('button', { class: 'icon-btn', onclick: () => openMenu(available, key) }, '⋯'))
     ),
 
+    searchBox(),
+
     // ── แถวกรอง + ตัวนับ (ตามดีไซน์ วางอยู่เหนือรายชื่อ) ──
     h('div', { class: 'filter-row', style: { display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '10px' } },
       h('button', {
@@ -371,6 +376,10 @@ function checkScreen() {
       shown.length
         ? shown.map(s => studentRow(s, key))
         : h('div', { class: 'card empty', style: { padding: '26px' } }, 'เช็คครบแล้ว 🎉')),
+    h('div', {
+      class: 'card empty att-nomatch',
+      hidden: !ui.q.trim() || shown.some(s => matchStudent(s, ui.q))
+    }, 'ไม่พบนักเรียนที่ค้นหา'),
 
     h('div', { class: 'done-bar' },
       h('div', { class: 'done-note' },
@@ -384,7 +393,7 @@ function checkScreen() {
 
 function studentRow(s, key) {
   const cur = String(getCell(key, s.sid) || '');
-  return h('div', { class: 'stu-row' },
+  return h('div', { class: 'stu-row', hidden: !matchStudent(s, ui.q), 'data-sid': s.sid },
     h('div', { style: { flex: '1', minWidth: '0' } },
       h('div', { class: 'stu-name' }, s.name || '—'),
       h('div', { class: 'stu-sid' }, `เลขที่ ${s.no}${s.sid ? ' · ' + s.sid : ''}`)),
@@ -404,6 +413,40 @@ function studentRow(s, key) {
       }, code))
     )
   );
+}
+
+/**
+ * ช่องค้นหาชื่อ/เลขที่
+ *
+ * ห้องละ 40 คน ครูที่ถือใบลา/รายชื่อคนมาสายต้องเลื่อนหาทีละคน
+ * กรองโดยซ่อนแถวที่มีอยู่แล้ว ไม่วาดหน้าใหม่ — วาดใหม่แล้วแป้นพิมพ์มือถือจะหุบทุกตัวอักษร
+ */
+function searchBox() {
+  const input = h('input', {
+    type: 'search', value: ui.q, placeholder: 'ค้นหาชื่อ หรือเลขที่',
+    'aria-label': 'ค้นหานักเรียน', enterkeyhint: 'search', autocomplete: 'off',
+    oninput: (e) => { ui.q = e.target.value; applySearch(); }
+  });
+  const clearBtn = h('button', {
+    class: 'find-clear', 'aria-label': 'ล้างคำค้น', hidden: !ui.q,
+    onclick: () => { ui.q = ''; input.value = ''; applySearch(); input.focus(); }
+  }, icon('close'));
+  return h('label', { class: 'find-box' }, icon('search'), input, clearBtn);
+}
+
+function applySearch() {
+  const bySid = new Map(state.cls.students.map(s => [String(s.sid), s]));
+  let shown = 0;
+  document.querySelectorAll('.att-list .stu-row').forEach(row => {
+    const s = bySid.get(row.dataset.sid);
+    const ok = !s || matchStudent(s, ui.q);
+    row.hidden = !ok;
+    if (ok) shown++;
+  });
+  const none = document.querySelector('.att-nomatch');
+  if (none) none.hidden = shown > 0 || !ui.q.trim();
+  const clr = document.querySelector('.find-box .find-clear');
+  if (clr) clr.hidden = !ui.q;
 }
 
 // ── เมนู ⋯ เก็บของที่ไม่ค่อยได้ใช้ ──────────────────────────

@@ -15,7 +15,9 @@ const P = {
   book:     '<path d="M5 4.8A1.8 1.8 0 0 1 6.8 3H19v18H6.8A1.8 1.8 0 0 1 5 19.2z"/><path d="M5 17.2h14"/>',
   sun:      '<circle cx="12" cy="12" r="3.8"/><path d="M12 2.2v2.4M12 19.4v2.4M4.5 4.5 6.2 6.2M17.8 17.8l1.7 1.7M2.2 12h2.4M19.4 12h2.4M4.5 19.5 6.2 17.8M17.8 6.2l1.7-1.7"/>',
   moon:     '<path d="M20.2 14.6A8.6 8.6 0 0 1 9.4 3.8a8.6 8.6 0 1 0 10.8 10.8z"/>',
-  auto:     '<rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8.5 21h7M12 17v4"/>'
+  auto:     '<rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8.5 21h7M12 17v4"/>',
+  search:   '<circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.4-4.4"/>',
+  close:    '<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>'
 };
 
 /** คืน element <svg> ที่ใช้สีตามข้อความรอบ ๆ (currentColor) */

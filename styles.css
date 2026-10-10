@@ -1477,3 +1477,44 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
 /* แตะง่ายขึ้น — ของเดิมสูงแค่ ~30px */
 .todo-row { min-height: 44px; padding: 4px 0; border-top: 1px solid var(--line); }
 .todo-row:first-of-type { border-top: 0; }
+
+/* ══ v3.13 · ช่องค้นหาชื่อ/เลขที่ ═══════════════════════════ */
+/* แถวที่ถูกกรองออกต้องหายจริง — .stu-row ตั้ง display:flex ไว้ ซึ่งชนะ hidden ของเบราว์เซอร์ */
+.stu-row[hidden], .work-row[hidden], .find-clear[hidden], .att-nomatch[hidden] { display: none !important; }
+.find-box {
+  position: relative; display: flex; align-items: center; margin-bottom: 10px;
+}
+.find-box > .ico {
+  position: absolute; left: 12px; width: 19px; height: 19px;
+  color: var(--ink-3); pointer-events: none;
+}
+.find-box input {
+  width: 100%; min-height: 44px; padding: 0 44px 0 40px;
+  border-radius: 12px; border: 1px solid var(--line-2); background: var(--surface);
+  font-size: 15px; color: var(--ink);
+}
+.find-box input::-webkit-search-cancel-button { display: none; }
+.find-clear {
+  position: absolute; right: 0; top: 0; width: 44px; height: 44px;
+  display: grid; place-content: center; color: var(--ink-3);
+}
+.find-clear .ico { width: 18px; height: 18px; }
+
+/* ══ v3.13 · หน้าเช็คชื่อบนมือถือ: แถวกระชับ ════════════════
+   ของเดิมนักเรียนแต่ละคนเป็นการ์ดแยก สูงราว 80px รวมช่องไฟ
+   ห้อง 40 คนต้องเลื่อน 4 จอ · ตอนนี้รวมเป็นการ์ดเดียว แถวละ 56px
+   ปุ่ม ม/ส/ล/ข ยังสูง 44px เท่าเดิม (ดูกฎ pointer: coarse ด้านบน) */
+@media (max-width: 899px) {
+  .att-list {
+    gap: 0; background: var(--surface); border-radius: 16px;
+    overflow: hidden; box-shadow: var(--sh-1);
+  }
+  .att-list .stu-row {
+    min-height: 56px; padding: 6px 6px 6px 12px; border-radius: 0;
+    border-top: 1px solid var(--line);
+  }
+  .att-list .stu-row:first-child { border-top: 0; }
+  .att-list .stu-name { font-size: 15px; line-height: 1.35; }
+  .att-list .stu-sid { line-height: 1.3; }
+  .att-list > .card.empty { margin: 0; box-shadow: none; }
+}
