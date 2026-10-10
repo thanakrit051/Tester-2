@@ -16,10 +16,21 @@ import './preflight.mjs';   // ไม่ผ่าน = ไม่ build (ข้�
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { transformSync } from 'esbuild';
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const read = (p) => fs.readFileSync(path.join(root, p), 'utf8')
   .split(String.fromCharCode(13, 10)).join(String.fromCharCode(10));
+
+/* ย่อไฟล์ก่อนขึ้นเว็บ — ตัดคอมเมนต์กับช่องว่างออก (คอมเมนต์ภาษาไทยกินที่ 3 ไบต์ต่อตัวอักษร)
+ *
+ * ได้ประโยชน์จริงตอนเปิดแอปผ่านลิงก์ Apps Script ซึ่งไม่มี service worker
+ * ต้องโหลด app.bundle.js กับ styles.css จาก GitHub ใหม่ทุกครั้งที่แคชของเบราว์เซอร์หมดอายุ (10 นาที)
+ *
+ * target ล็อกไว้ที่ไวยากรณ์รุ่นเดียวกับต้นฉบับ ไม่งั้นตัวย่ออาจเปลี่ยนเป็นไวยากรณ์ใหม่กว่า
+ * (เช่น a = a || b → a ||= b) ที่ iPad/มือถือรุ่นเก่าในโรงเรียนอ่านไม่ออก */
+const minJs = (code) => transformSync(code, { minify: true, target: 'es2020', charset: 'utf8' }).code;
+const minCss = (code) => transformSync(code, { loader: 'css', minify: true, target: ['safari14', 'chrome90', 'firefox90'], charset: 'utf8' }).code;
 
 const VER = (read('js/version.js').match(/APP_VERSION\s*=\s*'([^']+)'/) || [])[1] || '?';
 
@@ -50,8 +61,7 @@ const html = `<!DOCTYPE html>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" media="print" onload="this.media='all';this.onload=null">
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap"></noscript>
 <style>
-${read('styles.css')}
-${read('student/student.css')}
+${minCss(read('styles.css') + read('student/student.css'))}
 </style>
 </head>
 <body>
@@ -67,7 +77,7 @@ ${read('student/student.css')}
 
 <script src="./config.js"></script>
 <script>
-${read('student/app.js')}
+${minJs(read('student/app.js'))}
 </script>
 </body>
 </html>
@@ -100,8 +110,9 @@ if (!fs.existsSync(cfgPath)) fs.writeFileSync(cfgPath, config, 'utf8');
 fs.writeFileSync(path.join(docs, '.nojekyll'), '', 'utf8');
 
 // ไฟล์ที่ฝั่งครู (Apps Script) จะมาดึงไปใช้
-fs.copyFileSync(path.join(root, 'styles.css'), path.join(docs, 'styles.css'));
-fs.copyFileSync(path.join(root, 'dist/app.bundle.js'), path.join(docs, 'app.bundle.js'));
+// ต้นฉบับที่อ่านง่ายอยู่ที่ styles.css กับ dist/app.bundle.js — ที่นี่เป็นตัวย่อสำหรับขึ้นเว็บเท่านั้น
+fs.writeFileSync(path.join(docs, 'styles.css'), minCss(read('styles.css')), 'utf8');
+fs.writeFileSync(path.join(docs, 'app.bundle.js'), minJs(read('dist/app.bundle.js')), 'utf8');
 
 // ไอคอนต้องมาอยู่ใต้ docs/ ด้วย 2 เหตุผล
 //   1. หน้านักเรียนอยู่โฟลเดอร์นี้ จึงอ้าง ./icons/ ได้ตรง ๆ
