@@ -23,7 +23,7 @@
 // ── เวอร์ชัน ────────────────────────────────────────────────
 // ⚠️ ต้องตรงกับ APP_VERSION ใน js/version.js
 //    ถ้าเลขไม่ตรง หน้าเว็บจะขึ้นแถบเตือนให้ผู้ใช้อัปเดต/Deploy ใหม่
-var SERVER_VERSION = '2.17.0';
+var SERVER_VERSION = '2.18.0';
 
 // ── ชื่อแท็บระบบ ────────────────────────────────────────────
 var SHEET_CONFIG  = '⚙️ ตั้งค่า';
@@ -120,6 +120,7 @@ var CONFIG_DEFAULTS = [
   ['ทั่วไป', 'student_summary', 'off', 'หน้าสรุปผลภาคเรียน (คะแนนรวม + เกรด) ให้นักเรียนดู: on = เปิด | off = ปิด (ดูคะแนนรายชิ้นได้ตามปกติ)'],
   ['ทั่วไป', 'student_mid',     'on',  'คะแนนสอบกลางภาคให้นักเรียนเห็น: on = เปิด | off = ปิด (ปิดแล้วคะแนนสะสมไม่รวมส่วนนี้ และเกรดขึ้นว่า "รอ")'],
   ['ทั่วไป', 'student_fin',     'on',  'คะแนนสอบปลายภาคให้นักเรียนเห็น: on = เปิด | off = ปิด (ปิดแล้วคะแนนสะสมไม่รวมส่วนนี้ และเกรดขึ้นว่า "รอ")'],
+  ['ทั่วไป', 'timetable',      '',   'ตารางสอน — ตั้งจากในแอป (⚙️ ตั้งค่า → การเช็คชื่อ → ตารางสอน) ไม่ต้องแก้ช่องนี้เอง'],
   ['ทั่วไป', 'assets_url',     '',   'โฟลเดอร์ที่มี styles.css กับ app.bundle.js อยู่ เช่น https://ชื่อคุณ.github.io/ชื่อ-repo/ (ถ้าอัปเฉพาะไฟล์ในโฟลเดอร์ docs) หรือ .../ชื่อ-repo/docs/ (ถ้า push ทั้งโปรเจกต์)'],
 
   ['น้ำหนักคะแนน', 'w_work1', '10', 'ส่งงาน ก่อนกลางภาค → SGS ช่อง 1'],
@@ -242,6 +243,9 @@ function setupWorkbook() {
     console.error('ตั้งสำรองอัตโนมัติไม่สำเร็จ: ' + backupErr);
   }
 
+  // ปลุกระบบไว้ช่วงเวลาเรียน (ดู 08_KeepWarm.gs)
+  try { ensureWarmTrigger_(); } catch (e) { console.error('ตั้งทริกเกอร์ปลุกระบบไม่สำเร็จ: ' + e); }
+
   /* อัปโครงแท็บห้องเรียนที่สร้างไว้ก่อนมีแถว "เกณฑ์ผ่าน"
    *
    * คำสั่งเขียนแต่ละตัวอัปให้เองอยู่แล้ว (ensureLayout_) แต่กว่าจะครบทุกห้อง
@@ -284,13 +288,17 @@ function setupWorkbook() {
       'วิธีแก้: Apps Script → ไอคอนนาฬิกา ⏰ → + Add Trigger\n' +
       'เลือกฟังก์ชัน scheduledBackup · Time-driven · Week timer · Sunday · 3am';
 
+  var warmMsg = warmTriggerOn_()
+    ? '\n⏰ ปลุกระบบช่วงเวลาเรียน: เปิดอยู่ (จ-ศ 06:30-16:30 ทุก 10 นาที)'
+    : '\n⚠️ ยังตั้งทริกเกอร์ปลุกระบบไม่ได้ (เปิดแอปตอนเช้าจะช้ากว่าปกติ)';
+
   var upgradeMsg = upgraded
     ? '\n\n🆕 เพิ่มแถว "เกณฑ์ผ่าน" ให้แท็บห้องเรียนแล้ว ' + upgraded + ' ห้อง\n' +
       '   (แถวที่ 7 ใต้แถวคะแนนเต็ม — เว้นว่างไว้ = ไม่ตรวจเกณฑ์)'
     : '';
 
   try {
-    SpreadsheetApp.getUi().alert('ติดตั้งเรียบร้อย ✅\n\n' + backupMsg + upgradeMsg +
+    SpreadsheetApp.getUi().alert('ติดตั้งเรียบร้อย ✅\n\n' + backupMsg + warmMsg + upgradeMsg +
       '\n\nดูขั้นตอนถัดไปได้ที่แท็บ "' + SHEET_HELP + '"');
   } catch (e) { /* เรียกจากสคริปต์ ไม่มี UI */ }
 }
@@ -1922,6 +1930,7 @@ function handle_(req, embedded) {
    */
   // ซ่อมระดับชั้น/ห้องที่หายของทุกห้อง — ทำครั้งเดียวหลังอัปโค้ด (ดู healMetaOnce_)
   try { healMetaOnce_(); } catch (e) { console.error('healMetaOnce_: ' + e); }
+  try { ensureWarmOnce_(); } catch (e) { console.error('ensureWarmOnce_: ' + e); }
 
   if (readOnlyReq_(action, pl)) return run_(action, pl, cfg, user, session);
 
@@ -2662,4 +2671,76 @@ function logClientError_(p, user) {
   if (extra > 0) sh.deleteRows(2 + ERRLOG_KEEP, extra);
 
   return { ok: true };
+}
+
+
+/* ══════ 08_KeepWarm.gs ══════ */
+
+/**
+ * AssignCheck — ปลุกระบบไว้ช่วงเวลาเรียน
+ *
+ * ทำไมต้องมี: ถ้าไม่มีใครเรียกสคริปต์สักพัก Google จะพักเครื่องที่รันโค้ดไว้
+ * คำขอแรกหลังจากนั้นต้องรอเปิดเครื่องใหม่ + เปิดไฟล์ชีตใหม่ ช้ากว่าปกติหลายวินาที
+ * ครูเจอทุกเช้าตอนเปิดแอปครั้งแรก และทุกครั้งที่เว้นช่วงไปนาน ๆ ระหว่างวัน
+ *
+ * ทริกเกอร์นี้เรียกสคริปต์ทุก 10 นาที ให้เปิดไฟล์ชีตอ่านค่าเบา ๆ ไว้
+ * นอกเวลาเรียน (เย็น กลางคืน เสาร์-อาทิตย์) ออกทันทีโดยไม่แตะชีต
+ *
+ * โควตา: รอบละไม่ถึง 1 วินาที × 144 รอบ/วัน ≈ 2 นาที จากโควตา 90 นาที/วัน ของบัญชีฟรี
+ *
+ * ติดตั้งให้เองตอนกด "🚀 ติดตั้ง / ซ่อมแซมโครงสร้าง" และครั้งแรกที่แอปเรียกเข้ามา
+ * หลังอัปโค้ด (ดู ensureWarmOnce_) — ไม่ต้องตั้งอะไรเพิ่ม
+ */
+
+/* ⚠️ ห้ามลงท้ายด้วย _ — ทริกเกอร์เรียกฟังก์ชันส่วนตัวไม่ได้ (ดูหมายเหตุใน 06_Backup.gs) */
+var WARM_TRIGGER_FN = 'keepWarm';
+var WARM_ONCE_KEY_ = 'warm_trigger_v1';
+
+/** จ-ศ 06:30–16:30 ตามเวลาไทย */
+function inSchoolHours_(date) {
+  var parts = Utilities.formatDate(date || new Date(), 'Asia/Bangkok', 'u H m').split(' ');
+  var day = Number(parts[0]);                      // 1 = จันทร์ … 7 = อาทิตย์
+  var min = Number(parts[1]) * 60 + Number(parts[2]);
+  return day >= 1 && day <= 5 && min >= 6 * 60 + 30 && min <= 16 * 60 + 30;
+}
+
+/** ทริกเกอร์เรียกอันนี้ — ห้ามพังจนกระทบงานอื่นของสคริปต์ */
+function keepWarm() {
+  if (!inSchoolHours_()) return;
+  try {
+    getConfig_();
+    listClasses_();
+  } catch (err) {
+    console.error('ปลุกระบบไม่สำเร็จ: ' + err);
+  }
+}
+
+function warmTriggerOn_() {
+  try {
+    return ScriptApp.getProjectTriggers().some(function (t) {
+      return t.getHandlerFunction() === WARM_TRIGGER_FN;
+    });
+  } catch (e) {
+    return false;
+  }
+}
+
+/** ติดตั้งทริกเกอร์ทุก 10 นาที — เรียกซ้ำได้ ไม่สร้างซ้ำ */
+function ensureWarmTrigger_() {
+  if (warmTriggerOn_()) return;
+  ScriptApp.newTrigger(WARM_TRIGGER_FN).timeBased().everyMinutes(10).create();
+}
+
+/**
+ * ติดตั้งให้ครั้งเดียวหลังอัปโค้ด โดยไม่ต้องรอครูกดซ่อมแซมโครงสร้าง
+ *
+ * ครูส่วนใหญ่วางโค้ดใหม่แล้ว Deploy เลย ไม่ได้กลับไปกดเมนูในชีต
+ * ถ้ารอให้กดเอง ฟีเจอร์นี้จะไม่เคยเปิดเลยสำหรับคนส่วนใหญ่
+ * ล้มก็ไม่เป็นไร (เช่นยังไม่ได้อนุญาตสิทธิ์) — จดว่าลองแล้ว ไม่ลองซ้ำทุกคำขอ
+ */
+function ensureWarmOnce_() {
+  var props = PropertiesService.getScriptProperties();
+  if (props.getProperty(WARM_ONCE_KEY_)) return;
+  props.setProperty(WARM_ONCE_KEY_, new Date().toISOString());
+  try { ensureWarmTrigger_(); } catch (e) { console.error('ตั้งทริกเกอร์ปลุกระบบไม่สำเร็จ: ' + e); }
 }

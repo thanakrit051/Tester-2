@@ -22,8 +22,8 @@
 3. เลือกโค้ดเดิมใน `Code.gs` ทั้งหมด (Ctrl+A) แล้ววางเนื้อหาของ
    **[`apps-script/ALL-IN-ONE.gs`](apps-script/ALL-IN-ONE.gs)** ทับลงไป — ไฟล์เดียวจบ
 
-   > อยากแยกเป็น 5 ไฟล์ให้อ่านง่ายก็ได้ ใช้ `00_Constants.gs`, `01_Setup.gs`,
-   > `02_ClassSheet.gs`, `03_Score.gs`, `04_Api.gs` แทน (ผลเหมือนกัน)
+   > อยากแยกเป็นหลายไฟล์ให้อ่านง่ายก็ได้ ใช้ทุกไฟล์ `00_Constants.gs` … `08_KeepWarm.gs`
+   > ในโฟลเดอร์ `apps-script/` แทน (ผลเหมือนกัน)
    >
    > แก้โค้ดต้นทางแล้วสร้าง ALL-IN-ONE ใหม่ด้วย `node tools/bundle.mjs`
 
@@ -272,7 +272,7 @@ AssignCheck/
 ├── manifest.webmanifest  ติดตั้งเป็นแอปบนมือถือได้
 ├── icons/                ไอคอนทุกขนาด — สร้างจาก icons/icon.svg (ดู icons/README.md)
 ├── design/               ไฟล์ดีไซน์ต้นทางที่ styles.css สร้างขึ้นมาจาก
-├── package.json          คำสั่ง npm + เครื่องมือตรวจ (ตัวเว็บไม่มี dependency)
+├── package.json          คำสั่ง npm + เครื่องมือตรวจ/ย่อไฟล์ (ตัวเว็บไม่มี dependency)
 ├── eslint.config.mjs     ตั้งค่าตัวตรวจโค้ด
 ├── js/
 │   ├── app.js            เปลือกหน้าจอ + เราเตอร์
@@ -281,7 +281,10 @@ AssignCheck/
 │   ├── score.js          สูตรคะแนน (ฝั่งเบราว์เซอร์)
 │   ├── dom.js            ตัวช่วย DOM/โมดัล/toast
 │   ├── storage.js        เก็บข้อมูลในเครื่อง + สำรองในหน่วยความจำเมื่อถูกบล็อก
+│   ├── timetable.js      ตรรกะตารางสอน (ตอนนี้คาบไหน)
+│   ├── vendor/qrcode.js  ตัวสร้าง QR (qrcode-generator · MIT · คัดลอกมาทั้งไฟล์)
 │   └── views/            setup · home · attendance · work · summary · settings
+│                         · timetable (ตั้งตารางสอน) · chase (ตามงาน → ไลน์)
 └── apps-script/          โค้ดที่ต้องวางใน Apps Script
     ├── 00_Constants.gs   ค่าคงที่ + โครงแถว/บล็อก
     ├── 01_Setup.gs       เมนู + สร้างแท็บระบบ
@@ -290,11 +293,12 @@ AssignCheck/
     ├── 04_Api.gs         Web API
     ├── 05_Student.gs     หน้าให้นักเรียนดูผล (เปิดสาธารณะ อ่านอย่างเดียว)
     ├── 06_Backup.gs      สำรองไฟล์อัตโนมัติรายสัปดาห์
-    └── 07_ErrorLog.gs    รับรายงานปัญหาจากเครื่องครู → แท็บ 🐞 บันทึกปัญหา
+    ├── 07_ErrorLog.gs    รับรายงานปัญหาจากเครื่องครู → แท็บ 🐞 บันทึกปัญหา
+    └── 08_KeepWarm.gs    ปลุกระบบทุก 10 นาทีช่วงเวลาเรียน (เปิดแอปตอนเช้าไม่ต้องรอ)
 
 tools/
 ├── preflight.mjs      ตรวจก่อน build (build เรียกให้เอง)
-├── check-sw.mjs       sw.js เก็บไฟล์ครบ + เวอร์ชันตรงไหม
+├── check-sw.mjs       sw.js เก็บไฟล์ครบ + เวอร์ชัน/SHELL_HASH ตรงไหม (--fix อัป hash ให้)
 ├── bundle.mjs         รวม .gs → ALL-IN-ONE.gs
 ├── build-webapp.mjs   → dist/app.bundle.js
 ├── build-pages.mjs    → docs/ (GitHub Pages)
@@ -319,7 +323,7 @@ tools/
 npm install     # ครั้งแรกครั้งเดียว — ติดตั้งเฉพาะเครื่องมือตรวจ
 npm test        # ตรวจ sw.js + สูตรคะแนน 2 ฝั่ง + คิวออฟไลน์
 npm run lint    # ตรวจโค้ดด้วย ESLint
-npm run build   # bundle + build-webapp + build-pages
+npm run build   # อัป SHELL_HASH + bundle + build-webapp + build-pages (docs/ ถูกย่อไฟล์)
 ```
 
 อยากรันทีละตัวก็ได้:
@@ -336,6 +340,8 @@ node tools/build-pages.mjs   # → docs/ (GitHub Pages)
 |---|---|
 | `tools/check-sw.mjs` — `sw.js` เก็บไฟล์ครบตามที่ `app.js` import ถึงไหม | ขาดไฟล์เดียว แอปเปิดตอนไม่มีเน็ตไม่ขึ้น |
 | `tools/check-sw.mjs` — `sw.js` กับ `package.json` มีเวอร์ชันตรงกับ `APP_VERSION` ไหม | แคชเก่าไม่ถูกล้าง ครูติดอยู่กับโค้ดเก่าถาวร |
+| `tools/check-sw.mjs` — `SHELL_HASH` ใน `sw.js` ตรงกับไฟล์ตอนนี้ไหม (แก้ด้วย `--fix`) | แก้โค้ดแล้ว sw.js ไม่เปลี่ยน เบราว์เซอร์ไม่รู้ว่ามีของใหม่ |
+| `test/timetable.mjs` — ตารางสอนเลือก "คาบตอนนี้" ถูกไหม · ค่าเพี้ยนในชีตไม่ทำให้พัง | กดเดียวแล้วไปเช็คชื่อผิดห้อง |
 | `test/parity.mjs` — สูตรคะแนน 2 ฝั่งตรงกันไหม | หน้าจอโชว์เกรดหนึ่ง ชีตบันทึกอีกเกรดหนึ่ง |
 | `test/queue.mjs` — คิวงานออฟไลน์ยังรักษาของที่ครูกดไว้ครบไหม | คะแนนที่กรอกหายเงียบ ๆ ขึ้นบนจอครบแต่ไม่เคยถึงชีต |
 | `test/state.mjs` — เปิดห้องแล้ววาดจากแคชทันทีไหม · ของที่ค้างคิวรอดจากข้อมูลที่ดึงมาทับไหม | ช่องที่ครูเพิ่งกดหายไปต่อหน้า (ฝั่งชีตไม่จับ lock ตอนอ่าน คำสั่งอ่านจึงแซงคำสั่งเขียนได้) |

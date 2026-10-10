@@ -325,7 +325,13 @@ function render() {
   const view = EXTRA_VIEWS[state.view]
     || (NAV.find(n => n.id === state.view) || NAV[0]).view;
 
-  const alert = topAlert();
+  /* แถบเตือนระดับ "ควรแก้" (warn) ไม่ต้องตามไปทุกหน้า
+   * ของเดิมขึ้นทุกหน้ารวมทั้งตอนกำลังเช็คชื่อ กินจอมือถือไปแถบหนึ่งตลอดทั้งเทอม
+   * จนครูชินแล้วไม่อ่าน — หน้าแรกมีเรื่องนี้ในรายการ "ค้างอยู่" อยู่แล้ว
+   * เหลือไว้เฉพาะหน้าสรุป SGS ซึ่งเป็นที่ที่ผลกระทบโผล่จริง
+   * ส่วนระดับ "ผิด" (err) ยังขึ้นทุกหน้าเหมือนเดิม เพราะข้อมูลอาจไม่ถูกบันทึก */
+  const raw = topAlert();
+  const alert = raw && (raw.level !== 'warn' || state.view === 'summary') ? raw : null;
 
   // ดีไซน์ให้ "บริบทของหน้า" อยู่ในแถบเข้มบนมือถือ — แถบนั้นจึงมาแทน
   // แถบ AssignCheck ทั่วไป ไม่ใช่ซ้อนกันสองชั้น (บน PC แถบทั่วไปอยู่คงที่)
@@ -710,6 +716,37 @@ function confirmBox(title, message, confirmLabel = 'ยืนยัน') {
   });
 }
 
+// ── พิมพ์ ───────────────────────────────────────────────────
+
+/**
+ * พิมพ์เฉพาะเนื้อหาที่ส่งมา ไม่ใช่ทั้งหน้าจอแอป
+ *
+ * วางเนื้อหาไว้ใน #print-area แล้วซ่อนอย่างอื่นทั้งหมดตอนพิมพ์ (ดู @media print ใน styles.css)
+ * พิมพ์เสร็จหรือกดยกเลิกแล้วเก็บกวาดคืนเอง
+ *
+ * @param landscape true = กระดาษแนวนอน (ใบเช็คชื่อมีหลายคอลัมน์วันที่)
+ */
+function printPage(content, { title = '', landscape = false } = {}) {
+  const area = h('div', { id: 'print-area' }, content);
+  const page = h('style', null, `@page { size: A4 ${landscape ? 'landscape' : 'portrait'}; margin: 10mm; }`);
+  const oldTitle = document.title;
+
+  const done = () => {
+    window.removeEventListener('afterprint', done);
+    area.remove(); page.remove();
+    document.body.classList.remove('printing');
+    document.title = oldTitle;
+  };
+
+  document.head.append(page);
+  document.body.append(area);
+  document.body.classList.add('printing');
+  if (title) document.title = title;          // ชื่อไฟล์ตอนเลือก "บันทึกเป็น PDF"
+  window.addEventListener('afterprint', done);
+  // ให้เบราว์เซอร์วาดเนื้อหาใหม่ก่อนเปิดหน้าพิมพ์ ไม่งั้นบางเครื่องพิมพ์ออกมาเป็นหน้าเปล่า
+  setTimeout(() => { try { window.print(); } catch (e) { done(); } }, 60);
+}
+
 // ── ฟอร์แมต ─────────────────────────────────────────────────
 const TH_MONTH = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
 const TH_DAY = ['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์','เสาร์'];
@@ -735,13 +772,28 @@ function fmtDayFull(iso) {
 
 function isToday(iso) { return iso === todayISO(); }
 
+/**
+ * ตรงกับคำค้นไหม — ใช้ในช่องค้นหาของหน้าเช็คชื่อและหน้ากรอกคะแนน
+ *   พิมพ์ตัวเลขล้วน = หาเลขที่ตรงตัว หรือเลขประจำตัวที่มีเลขนี้อยู่
+ *   (ครูพิมพ์ "3" ต้องได้เลขที่ 3 คนเดียว ไม่ใช่ทุกคนที่มีเลข 3 ในเลขประจำตัว)
+ *   พิมพ์ตัวอักษร = หาในชื่อ
+ */
+function matchStudent(s, q) {
+  const k = String(q || '').trim();
+  if (!k) return true;
+  if (/^\d+$/.test(k)) {
+    return String(s.no) === k || (k.length >= 3 && String(s.sid || '').includes(k));
+  }
+  return String(s.name || '').toLowerCase().includes(k.toLowerCase());
+}
+
 function nf(v, digits = 2) {
   const n = Number(v);
   if (isNaN(n)) return String(v ?? '');
   return String(Math.round(n * 10 ** digits) / 10 ** digits);
 }
 
-__exp(exports, { h, clear, mount, toast, closeTopModal, modal, confirmBox, todayISO, fmtDate, fmtDayFull, isToday, nf });
+__exp(exports, { h, clear, mount, toast, closeTopModal, modal, confirmBox, printPage, todayISO, fmtDate, fmtDayFull, isToday, matchStudent, nf });
 
   };
 
@@ -2032,6 +2084,39 @@ function ensureColumn(p, { quiet = false } = {}) {
   return { key: spec.key, created: true };
 }
 
+/**
+ * เพิ่มชิ้นงานเดียวกันลงห้องที่เลือกอยู่ + ห้องอื่นอีกหลายห้องในครั้งเดียว
+ *
+ * ครูที่สอนวิชาเดียวกันหลายห้อง (คณิต ม.1/1–1/5) เดิมต้องสร้าง "ใบงานที่ 3"
+ * ซ้ำทีละห้อง เปิดห้อง → กดเพิ่ม → พิมพ์ชื่อ/คะแนนเต็ม วนไปทุกห้อง
+ *
+ * ทุกห้องได้รหัสชิ้นงานเดียวกัน · งานเข้าคิวเดียวกับการเพิ่มปกติ (ออฟไลน์ได้)
+ * และถูกส่งขึ้นชีตพร้อมกันในรอบซิงค์เดียว
+ * ห้องที่มีสำเนาในเครื่องอยู่แล้วเห็นชิ้นงานใหม่ทันทีตอนสลับไป
+ * ห้องที่ยังไม่เคยเปิดได้จาก withPending ตอนโหลด
+ *
+ * @returns key ของชิ้นงานในห้องที่เปิดอยู่
+ */
+function addColumnToMany(p, otherClassIds = []) {
+  const spec = makeColumnSpec({ ...p, id: p.id || uid(String(p.kind)[0].toLowerCase()) });
+  const { key } = ensureColumn({ ...p, id: spec.id }, { quiet: true });
+  const { payload, ...col } = spec;
+
+  for (const id of otherClassIds) {
+    if (!id || id === state.classId) continue;
+    api.queue.push('addColumn', { classId: id, ...payload });
+    const cached = api.cache.get('class.' + id);
+    if (cached && Array.isArray(cached.columns) && !cached.columns.some(c => c.key === key)) {
+      cached.columns = sortColumns([...cached.columns, { ...col }]);
+      cached.values = cached.values || {};
+      cached.values[key] = cached.values[key] || {};
+      api.cache.set('class.' + id, cached);
+    }
+  }
+  scheduleSync();
+  return key;
+}
+
 async function updateColumn(key, patch) {
   const col = state.cls.columns.find(c => c.key === key);
   // ฝั่งชีตรับ '' = ล้างเกณฑ์ทิ้ง แต่ในเครื่องเก็บเป็น null ให้เหมือนตอนอ่านกลับมา
@@ -2214,7 +2299,7 @@ window.addEventListener('visibilitychange', async () => {
   refreshClass({ maxAge: REFRESH_AFTER });
 });
 
-__exp(exports, { state, subscribe, emit, settings, pushView, go, bootAll, loadClass, fetchedAt, refreshClass, createClass, updateClassMeta, deleteClass, setStudents, ensureColumn, updateColumn, deleteColumn, setCells, undoLastEdit, getCell, sync, isSyncing, recalcOnServer, saveConfig });
+__exp(exports, { state, subscribe, emit, settings, pushView, go, bootAll, loadClass, fetchedAt, refreshClass, createClass, updateClassMeta, deleteClass, setStudents, ensureColumn, addColumnToMany, updateColumn, deleteColumn, setCells, undoLastEdit, getCell, sync, isSyncing, recalcOnServer, saveConfig });
 
   };
 
@@ -2528,7 +2613,14 @@ const P = {
   book:     '<path d="M5 4.8A1.8 1.8 0 0 1 6.8 3H19v18H6.8A1.8 1.8 0 0 1 5 19.2z"/><path d="M5 17.2h14"/>',
   sun:      '<circle cx="12" cy="12" r="3.8"/><path d="M12 2.2v2.4M12 19.4v2.4M4.5 4.5 6.2 6.2M17.8 17.8l1.7 1.7M2.2 12h2.4M19.4 12h2.4M4.5 19.5 6.2 17.8M17.8 6.2l1.7-1.7"/>',
   moon:     '<path d="M20.2 14.6A8.6 8.6 0 0 1 9.4 3.8a8.6 8.6 0 1 0 10.8 10.8z"/>',
-  auto:     '<rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8.5 21h7M12 17v4"/>'
+  auto:     '<rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8.5 21h7M12 17v4"/>',
+  search:   '<circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.4-4.4"/>',
+  // ถังคะแนน 4 ชนิดในหน้างาน/คะแนน
+  doc:      '<path d="M14 3.5H7a1.5 1.5 0 0 0-1.5 1.5v14A1.5 1.5 0 0 0 7 20.5h10a1.5 1.5 0 0 0 1.5-1.5V8z"/><path d="M14 3.5V8h4.5"/><path d="M9 12.5h6M9 16h4"/>',
+  pencil:   '<path d="M4.5 19.5h4l10-10a2.1 2.1 0 0 0-4-4l-10 10z"/><path d="m13.5 6.5 4 4"/>',
+  exam:     '<rect x="4.5" y="3.5" width="15" height="17" rx="1.5"/><path d="M8.5 8.5h7M8.5 12h7M8.5 15.5h4"/>',
+  flag:     '<path d="M5.5 21V4"/><path d="M5.5 4.5h11l-2.2 4 2.2 4h-11"/>',
+  close:    '<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>'
 };
 
 /** คืน element <svg> ที่ใช้สีตามข้อความรอบ ๆ (currentColor) */
@@ -2885,14 +2977,30 @@ __exp(exports, { viewSetup });
 /* หน้าแรก — จัดการห้องเรียน/รายวิชา และภาพรวม */
 
 const { h, modal, toast, confirmBox, todayISO } = __req("js/dom.js");
-const { state, go, loadClass, createClass, updateClassMeta, deleteClass, setStudents, settings, bootAll } = __req("js/state.js");
+const { state, go, emit, loadClass, createClass, updateClassMeta, deleteClass, setStudents, settings, bootAll } = __req("js/state.js");
 const { computeClass } = __req("js/score.js");
+const api = __req("js/api.js");
+const { store } = __req("js/storage.js");
+const { DAYS, currentSlot, slotsOn, hasTimetable } = __req("js/timetable.js");
+const { readTimetable, openTimetableEditor } = __req("js/views/timetable.js");
+const { startCheckAt } = __req("js/views/attendance.js");
 
 function viewHome() {
+  // ตารางสอน → รู้ว่าตอนนี้ควรสอนห้องไหน (ไม่ได้ตั้ง = หน้าแรกแบบเดิมทุกอย่าง)
+  const tt = readTimetable();
+  const known = new Set(state.classes.map(c => c.classId));
+  const nowDate = new Date();
+  const cur = currentSlot(tt, nowDate, known);
+  const today = slotsOn(tt, nowDate.getDay(), known);
+  watchClock(hasTimetable(tt));
+
   // ลำดับตามดีไซน์: เปิดแอปมาต้องเห็น "สิ่งที่ต้องทำต่อ" ก่อน
   // แล้วค่อยเป็นรายการห้องไว้สลับ
   return h('div', { class: 'page' },
-    state.cls && overviewCard(),
+    cur && nowCard(cur),
+    today.length > 0 && todayCard(today, cur),
+    state.cls && overviewCard(!cur),
+    !hasTimetable(tt) && ttTip(),
 
     h('div', { style: { display: 'flex', alignItems: 'center', gap: '12px', margin: '18px 0 12px' } },
       h('div', { style: { fontSize: '15px', fontWeight: '700', flex: '1' } },
@@ -2950,7 +3058,7 @@ function classCard(c) {
   );
 }
 
-function overviewCard() {
+function overviewCard(showHero = true) {
   const rows = computeClass(state.cls, settings());
   if (!rows.length) {
     return h('div', { class: 'card empty' },
@@ -2978,8 +3086,8 @@ function overviewCard() {
         `${rows.length} คน · ` + (attToday ? 'เช็คชื่อวันนี้แล้ว' : 'ยังไม่ได้เช็คชื่อวันนี้'))),
     h('div', { class: 'hero-actions' },
       h('button', { class: 'btn', onclick: () => go('att') },
-        attToday ? 'เปิดหน้าเช็คชื่อ' : '✓ เริ่มเช็คชื่อวันนี้'),
-      h('button', { class: 'hero-alt', onclick: () => go('work') }, 'กรอกงาน / คะแนน'))
+        attToday ? 'เช็คชื่อ' : '✓ เช็คชื่อวันนี้'),
+      h('button', { class: 'hero-alt', onclick: () => go('work') }, 'กรอกคะแนน'))
   );
 
   // ── สิ่งที่ยังค้าง ──
@@ -2999,7 +3107,7 @@ function overviewCard() {
   }
 
   return h('div', null,
-    hero,
+    showHero && hero,
 
     // ดีไซน์วาง "ค้างอยู่" กับตัวเลขสรุปเคียงกันบน PC · ซ้อนกันบนมือถือ
     h('div', { class: 'home-grid' },
@@ -3021,6 +3129,107 @@ function overviewCard() {
           'ยังไม่ได้เช็คชื่อหรือกรอกคะแนน — ตัวเลขจะขึ้นเมื่อเริ่มบันทึกข้อมูล'))
     )
   );
+}
+
+// ── ตารางสอน: การ์ด "ตอนนี้" + คาบของวันนี้ ─────────────────
+
+const classOf = (id) => state.classes.find(c => c.classId === id);
+const roomOf = (c) => [c.grade, c.room].filter(Boolean).join('/') || '—';
+
+/** เช็คชื่อคาบนี้ของห้องนี้วันนี้ไปแล้วหรือยัง · null = ไม่รู้ (ยังไม่เคยโหลดห้องนั้นในเครื่องนี้) */
+function checkedAt(classId, period) {
+  const cls = classId === state.classId ? state.cls : api.cache.get('class.' + classId);
+  if (!cls || !Array.isArray(cls.columns)) return null;
+  const d = todayISO();
+  return cls.columns.some(c => c.kind === 'ATT' && c.date === d && Number(c.period) === period);
+}
+
+/** สลับไปห้องของคาบนั้น แล้วเปิดหน้าที่ต้องการ — ไม่รอเน็ต (แคชวาดให้ก่อน) */
+function openSlot(slot, view) {
+  if (slot.classId !== state.classId) loadClass(slot.classId);
+  if (view === 'att') startCheckAt(slot.period);
+  go(view);
+}
+
+function nowCard(r) {
+  const { slot } = r;
+  const c = classOf(slot.classId);
+  const done = checkedAt(slot.classId, slot.period);
+  const isNow = r.state === 'now';
+  const when = isNow
+    ? (r.left > 0 ? `เหลือ ${r.left} นาที` : 'เพิ่งหมดคาบ')
+    : (r.until <= 90 ? `อีก ${r.until} นาที` : `เริ่ม ${slot.start} น.`);
+
+  return h('div', { class: 'hero now-card' },
+    h('div', { class: 'hero-body' },
+      h('div', { class: 'now-top' },
+        h('span', { class: 'now-pill' + (isNow ? '' : ' next') }, h('i'), isNow ? `กำลังสอน · คาบ ${slot.period}` : `คาบถัดไป · คาบ ${slot.period}`),
+        h('span', { class: 'now-time' }, `${slot.start}–${slot.end}`)),
+      h('div', { class: 'hero-title' }, `${roomOf(c)} · ${c.subject}`),
+      h('div', { class: 'hero-meta' },
+        `${c.studentCount || 0} คน · ` + (done ? 'เช็คชื่อคาบนี้แล้ว ✓' : 'ยังไม่ได้เช็คชื่อคาบนี้')),
+      h('div', { class: 'now-prog' },
+        h('div', { class: 'now-track' }, h('i', { style: { width: (isNow ? r.pct : 0) + '%' } })),
+        h('span', null, when))),
+    h('div', { class: 'hero-actions' },
+      h('button', { class: 'btn', onclick: () => openSlot(slot, 'att') },
+        done ? 'ดูการเช็คชื่อ' : '✓ เช็คชื่อคาบนี้'),
+      h('button', { class: 'hero-alt', onclick: () => openSlot(slot, 'work') }, 'กรอกคะแนน'))
+  );
+}
+
+function todayCard(slots, cur) {
+  const day = DAYS.find(d => d.d === new Date().getDay());
+  const t = new Date().getHours() * 60 + new Date().getMinutes();
+  return h('div', { class: 'card card-tight today-card' },
+    h('div', { class: 'today-head' },
+      h('b', null, `วันนี้ · ${day ? day.name : ''}`),
+      h('button', { class: 'today-edit', onclick: openTimetableEditor }, 'ตารางสอน')),
+    slots.map(slot => {
+      const c = classOf(slot.classId);
+      const done = checkedAt(slot.classId, slot.period);
+      const isCur = !!cur && cur.slot.period === slot.period;
+      const past = t >= slot.e;
+      const [txt, tone] = done ? ['เช็คแล้ว ✓', 'ok']
+        : isCur ? [cur.state === 'now' ? 'ตอนนี้' : 'ถัดไป', 'cur']
+        : past ? ['ยังไม่เช็ค', 'late']
+        : [slot.s - t <= 60 ? `อีก ${slot.s - t} นาที` : `${slot.start} น.`, ''];
+      return h('button', {
+        class: 'today-row', 'data-cur': isCur ? '1' : '0', 'data-past': past && !isCur ? '1' : '0',
+        onclick: () => openSlot(slot, 'att')
+      },
+        h('span', { class: 'today-when' }, h('b', null, `คาบ ${slot.period}`), h('small', null, slot.start)),
+        h('span', { class: 'today-what' }, `${roomOf(c)} · ${c.subject}`),
+        h('span', { class: 'today-state', 'data-tone': tone }, txt));
+    }));
+}
+
+/** ชวนตั้งตารางสอน — ปิดได้ จำไว้ในเครื่อง */
+const TT_TIP = 'ac.ttTip';
+function ttTip() {
+  if (!state.classes.length || store.get(TT_TIP) === 'off') return null;
+  return h('div', { class: 'tt-tip' },
+    h('button', { class: 'tt-tip-main', onclick: openTimetableEditor },
+      h('b', null, 'ตั้งตารางสอน'),
+      h('span', null, 'หน้าแรกจะบอกว่าตอนนี้ต้องสอนห้องไหน กดเดียวเข้าเช็คชื่อได้เลย')),
+    h('button', {
+      class: 'icon-btn', 'aria-label': 'ไม่ต้องแสดงอีก',
+      onclick: () => { store.set(TT_TIP, 'off'); emit(); }
+    }, '✕'));
+}
+
+/* วาดหน้าแรกใหม่ทุกนาทีเพื่อให้การ์ด "ตอนนี้" เดินตามเวลา
+ * เฉพาะตอนตั้งตารางสอนไว้ อยู่หน้าแรก และครูไม่ได้พิมพ์อะไรค้างอยู่ */
+let clock = null;
+function watchClock(on) {
+  if (!on || clock) return;
+  clock = setInterval(() => {
+    if (state.view !== 'home' || document.hidden) return;
+    if (document.querySelector('.modal-back')) return;
+    const el = document.activeElement;
+    if (el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) return;
+    emit();
+  }, 60000);
 }
 
 const stat = (cls, num, lbl) => h('div', { class: 'stat ' + cls },
@@ -3164,6 +3373,303 @@ __exp(exports, { viewHome });
 
   };
 
+  __defs["js/timetable.js"] = function (exports, __req) {
+/* ตารางสอนของครู — ตรรกะล้วน ไม่แตะหน้าจอ (ทดสอบใน test/timetable.mjs)
+ *
+ * เก็บเป็นข้อความ JSON ในแท็บ ⚙️ ตั้งค่า ของชีต (คีย์ timetable) จึงใช้ได้ทุกเครื่อง
+ * และไม่ต้องอัปโค้ดฝั่งชีต — คำสั่ง saveConfig รับคีย์ใหม่ได้อยู่แล้ว
+ *
+ *   { "v": 1,
+ *     "times": [["08:30","09:20"], ...],      ← เวลาของคาบ 1, 2, 3, … ใช้ทุกวันเหมือนกัน
+ *     "days":  { "1": { "2": "<classId>" } } ← วันจันทร์ (1) คาบ 2 สอนห้องไหน
+ *   }
+ *
+ * วันใช้เลขแบบ Date.getDay(): 1 = จันทร์ … 5 = ศุกร์
+ */
+
+const DEFAULT_TIMES = [
+  ['08:30', '09:20'], ['09:20', '10:10'], ['10:10', '11:00'], ['11:00', '11:50'],
+  ['13:00', '13:50'], ['13:50', '14:40'], ['14:40', '15:30'], ['15:30', '16:20']
+];
+
+const MAX_PERIODS = 12;
+
+const DAYS = [
+  { d: 1, short: 'จ',  name: 'วันจันทร์' },
+  { d: 2, short: 'อ',  name: 'วันอังคาร' },
+  { d: 3, short: 'พ',  name: 'วันพุธ' },
+  { d: 4, short: 'พฤ', name: 'วันพฤหัสบดี' },
+  { d: 5, short: 'ศ',  name: 'วันศุกร์' }
+];
+
+const TIME_RE = /^([01]?\d|2[0-3]):([0-5]\d)$/;
+
+/** "08:30" → 510 · รูปแบบผิด = NaN */
+function toMin(hhmm) {
+  const m = TIME_RE.exec(String(hhmm || '').trim());
+  return m ? Number(m[1]) * 60 + Number(m[2]) : NaN;
+}
+
+/** 510 → "08:30" */
+function fromMin(min) {
+  const m = ((Math.round(min) % 1440) + 1440) % 1440;
+  return String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
+}
+
+function emptyTimetable() {
+  return { v: 1, times: DEFAULT_TIMES.map(t => t.slice()), days: {} };
+}
+
+/**
+ * อ่านค่าจากชีต — อะไรที่อ่านไม่ออกให้ได้ตารางว่าง ไม่ใช่ throw
+ * (ครูอาจไปแก้ช่องนี้ในชีตเองจนรูปแบบเพี้ยน ไม่ควรทำให้หน้าแรกเปิดไม่ขึ้น)
+ */
+function parseTimetable(raw) {
+  const out = emptyTimetable();
+  let d = raw;
+  if (typeof raw === 'string') {
+    if (!raw.trim()) return out;
+    try { d = JSON.parse(raw); } catch (e) { return out; }
+  }
+  if (!d || typeof d !== 'object') return out;
+
+  if (Array.isArray(d.times) && d.times.length) {
+    const times = d.times.slice(0, MAX_PERIODS).map((t, i) => {
+      const s = Array.isArray(t) ? t : [];
+      const fb = DEFAULT_TIMES[i] || DEFAULT_TIMES[DEFAULT_TIMES.length - 1];
+      return [isNaN(toMin(s[0])) ? fb[0] : String(s[0]).trim(), isNaN(toMin(s[1])) ? fb[1] : String(s[1]).trim()];
+    });
+    out.times = times;
+  }
+
+  if (d.days && typeof d.days === 'object') {
+    for (const day of DAYS) {
+      const src = d.days[day.d] || d.days[String(day.d)];
+      if (!src || typeof src !== 'object') continue;
+      const dst = {};
+      for (const [p, id] of Object.entries(src)) {
+        const n = Number(p);
+        if (Number.isInteger(n) && n >= 1 && n <= out.times.length && id) dst[n] = String(id);
+      }
+      if (Object.keys(dst).length) out.days[day.d] = dst;
+    }
+  }
+  return out;
+}
+
+function serializeTimetable(tt) {
+  const days = {};
+  for (const [d, slots] of Object.entries(tt.days || {})) {
+    const keep = {};
+    for (const [p, id] of Object.entries(slots || {})) if (id) keep[p] = id;
+    if (Object.keys(keep).length) days[d] = keep;
+  }
+  return JSON.stringify({ v: 1, times: tt.times, days });
+}
+
+/** มีคาบที่ระบุห้องไว้อย่างน้อยหนึ่งคาบไหม */
+function hasTimetable(tt) {
+  return Object.values(tt.days || {}).some(s => Object.values(s || {}).some(Boolean));
+}
+
+/** จำนวนคาบสอนต่อสัปดาห์ */
+function weeklyCount(tt) {
+  return Object.values(tt.days || {}).reduce((a, s) => a + Object.values(s || {}).filter(Boolean).length, 0);
+}
+
+/**
+ * คาบสอนของวันหนึ่ง เรียงตามเวลา
+ * @param known ชุด classId ที่ยังมีอยู่จริง — ห้องที่ถูกลบไปแล้วไม่ต้องโชว์
+ */
+function slotsOn(tt, dow, known) {
+  const day = (tt.days || {})[dow] || {};
+  return Object.entries(day)
+    .map(([p, classId]) => {
+      const period = Number(p);
+      const t = tt.times[period - 1] || [];
+      return { period, classId, start: t[0], end: t[1], s: toMin(t[0]), e: toMin(t[1]) };
+    })
+    .filter(x => x.classId && !isNaN(x.s) && !isNaN(x.e) && (!known || known.has(x.classId)))
+    .sort((a, b) => a.s - b.s || a.period - b.period);
+}
+
+/**
+ * ตอนนี้ควรโชว์คาบไหนบนหน้าแรก
+ *   { slot, state: 'now',  left }   กำลังสอนอยู่ · left = เหลือกี่นาที · pct = ผ่านไปกี่ %
+ *   { slot, state: 'next', until }  คาบถัดไปของวันนี้ · until = อีกกี่นาที
+ *   null                            วันนี้ไม่มีคาบเหลือแล้ว / ไม่ได้ตั้งตาราง
+ *
+ * คาบที่เพิ่งจบไม่เกิน 10 นาทียังนับเป็น "ตอนนี้" — ครูมักเปิดแอปเช็คชื่อตอนท้ายคาบ
+ * หรือคาบถัดไปเป็นคาบว่าง ถ้าเด้งไปคาบอื่นทันทีที่หมดเวลาจะหาคาบที่เพิ่งสอนไม่เจอ
+ */
+function currentSlot(tt, date, known) {
+  const slots = slotsOn(tt, date.getDay(), known);
+  if (!slots.length) return null;
+  const t = date.getHours() * 60 + date.getMinutes();
+  const GRACE = 10;
+
+  const now = slots.find(x => t >= x.s && t < x.e);
+  if (now) return { slot: now, state: 'now', left: now.e - t, pct: Math.round((t - now.s) / Math.max(1, now.e - now.s) * 100) };
+
+  const next = slots.find(x => x.s > t);
+  const justEnded = slots.filter(x => t >= x.e && t < x.e + GRACE).pop();
+  if (justEnded && !(next && next.s - t <= GRACE)) return { slot: justEnded, state: 'now', left: 0, pct: 100 };
+
+  if (next) return { slot: next, state: 'next', until: next.s - t };
+  return null;
+}
+
+__exp(exports, { DEFAULT_TIMES, MAX_PERIODS, DAYS, toMin, fromMin, emptyTimetable, parseTimetable, serializeTimetable, hasTimetable, weeklyCount, slotsOn, currentSlot });
+
+  };
+
+  __defs["js/views/timetable.js"] = function (exports, __req) {
+/* ตั้งตารางสอน — กล่องแก้ไขตารางรายสัปดาห์
+ *
+ * ทำครั้งเดียวตอนต้นเทอม แล้วหน้าแรกจะรู้เองว่าตอนนี้ครูต้องสอนห้องไหน คาบอะไร
+ * (ตรรกะอยู่ใน js/timetable.js · ค่าเก็บในแท็บ ⚙️ ตั้งค่า ของชีต ใช้ได้ทุกเครื่อง)
+ */
+
+const { h, modal, mount, toast } = __req("js/dom.js");
+const { state, saveConfig } = __req("js/state.js");
+const { DAYS, MAX_PERIODS, parseTimetable, serializeTimetable, weeklyCount, toMin, fromMin } = __req("js/timetable.js");
+
+/** ตารางสอนที่ตั้งไว้ตอนนี้ (อ่านจากค่าตั้งค่าล่าสุดเสมอ) */
+const readTimetable = () => parseTimetable(state.config.timetable);
+
+const classLabel = (c) => `${[c.grade, c.room].filter(Boolean).join('/') || '—'} · ${c.subject}`;
+
+function openTimetableEditor() {
+  if (!state.classes.length) return toast('สร้างห้องเรียนก่อน แล้วค่อยตั้งตารางสอน', 'err');
+
+  // แก้บนสำเนา — กดปิดโดยไม่บันทึกต้องไม่มีอะไรเปลี่ยน
+  const tt = readTimetable();
+  const today = new Date().getDay();
+  const ui = { day: today >= 1 && today <= 5 ? today : 1, times: false, saving: false };
+  const known = new Set(state.classes.map(c => c.classId));
+
+  modal((close) => {
+    const body = h('div');
+
+    const slotsOf = (d) => (tt.days[d] ||= {});
+    const countOf = (d) => Object.values(tt.days[d] || {}).filter(id => id && known.has(id)).length;
+
+    function render() {
+      const day = slotsOf(ui.day);
+      const dayInfo = DAYS.find(x => x.d === ui.day);
+
+      const rows = [];
+      tt.times.forEach(([start, end], i) => {
+        const p = i + 1;
+        // ช่วงพักยาว (เช่นพักกลางวัน) คั่นไว้ให้เห็นว่าเช้า/บ่ายแยกกันตรงไหน
+        if (i > 0 && toMin(start) - toMin(tt.times[i - 1][1]) >= 30) {
+          rows.push(h('div', { class: 'tt-break' }, `พัก ${tt.times[i - 1][1]}–${start}`));
+        }
+        const sel = h('select', {
+          'aria-label': `${dayInfo.name} คาบ ${p}`,
+          'data-set': day[p] && known.has(day[p]) ? '1' : '0',
+          onchange: (e) => {
+            if (e.target.value) day[p] = e.target.value; else delete day[p];
+            render();
+          }
+        },
+          h('option', { value: '' }, 'ว่าง — ไม่มีสอน'),
+          state.classes.map(c => h('option', { value: c.classId, selected: day[p] === c.classId }, classLabel(c))));
+
+        rows.push(h('div', { class: 'tt-row' },
+          h('div', { class: 'tt-when' },
+            h('b', null, `คาบ ${p}`),
+            ui.times
+              ? h('span', { class: 'tt-times' },
+                  timeInput(start, (v) => { tt.times[i][0] = v; }), '–',
+                  timeInput(end, (v) => { tt.times[i][1] = v; }))
+              : h('span', null, `${start}–${end}`)),
+          sel));
+      });
+
+      mount(body,
+        h('h2', null, 'ตารางสอน'),
+        h('div', { class: 'hint', style: { marginTop: '-6px', marginBottom: '12px' } },
+          `ตั้งครั้งเดียว หน้าแรกจะบอกว่าตอนนี้สอนห้องไหน · ${weeklyCount(tt)} คาบ/สัปดาห์`),
+
+        h('div', { class: 'tt-days', role: 'tablist', 'aria-label': 'วัน' },
+          DAYS.map(d => h('button', {
+            role: 'tab', 'aria-selected': d.d === ui.day ? 'true' : 'false',
+            'data-on': d.d === ui.day ? '1' : '0',
+            onclick: () => { ui.day = d.d; render(); }
+          }, h('b', null, d.short), h('small', null, `${countOf(d.d)} คาบ`)))),
+
+        h('div', { class: 'tt-tools' },
+          h('b', null, dayInfo.name),
+          ui.day !== 1 && h('button', {
+            class: 'btn btn-ghost btn-sm',
+            onclick: () => { tt.days[ui.day] = { ...(tt.days[1] || {}) }; render(); }
+          }, 'คัดลอกจากวันจันทร์'),
+          h('button', {
+            class: 'btn btn-ghost btn-sm', 'aria-pressed': ui.times ? 'true' : 'false',
+            onclick: () => { ui.times = !ui.times; render(); }
+          }, ui.times ? 'เสร็จ' : 'ตั้งเวลาคาบ')),
+
+        h('div', { class: 'tt-list' }, rows),
+
+        ui.times && h('div', { class: 'btn-row', style: { marginTop: '8px' } },
+          tt.times.length < MAX_PERIODS && h('button', {
+            class: 'btn btn-soft btn-sm', style: { flex: '1' },
+            onclick: () => {
+              const last = tt.times[tt.times.length - 1];
+              const s = toMin(last[1]);
+              tt.times.push([fromMin(s), fromMin(s + 50)]);
+              render();
+            }
+          }, '+ เพิ่มคาบ'),
+          tt.times.length > 1 && h('button', {
+            class: 'btn btn-ghost btn-sm', style: { flex: '1' },
+            onclick: () => {
+              const p = tt.times.length;
+              tt.times.pop();
+              for (const d of Object.values(tt.days)) delete d[p];
+              render();
+            }
+          }, `ลบคาบ ${tt.times.length}`)),
+
+        h('div', { class: 'hint', style: { margin: '10px 0' } },
+          'เวลาคาบใช้เหมือนกันทุกวัน · เก็บไว้ในชีต แท็บ ⚙️ ตั้งค่า เปิดเครื่องไหนก็เห็นตารางเดียวกัน'),
+
+        h('button', {
+          class: 'btn btn-block', disabled: ui.saving,
+          onclick: async () => {
+            const bad = tt.times.findIndex(([s, e]) => isNaN(toMin(s)) || isNaN(toMin(e)) || toMin(e) <= toMin(s));
+            if (bad >= 0) return toast(`เวลาคาบ ${bad + 1} ไม่ถูกต้อง (เวลาเลิกต้องหลังเวลาเริ่ม)`, 'err');
+            ui.saving = true; render();
+            try {
+              await saveConfig({ timetable: serializeTimetable(tt) });
+              toast('บันทึกตารางสอนแล้ว', 'ok');
+              close();
+            } catch (e) {
+              ui.saving = false; render();
+              toast('บันทึกไม่สำเร็จ: ' + e.message, 'err', 5000);
+            }
+          }
+        }, ui.saving ? 'กำลังบันทึก…' : 'บันทึกตารางสอน')
+      );
+    }
+
+    render();
+    return body;
+  });
+}
+
+function timeInput(value, set) {
+  return h('input', {
+    type: 'time', value, class: 'tt-time', required: true,
+    onchange: (e) => { if (e.target.value) set(e.target.value); }
+  });
+}
+
+__exp(exports, { readTimetable, openTimetableEditor });
+
+  };
+
   __defs["js/views/attendance.js"] = function (exports, __req) {
 /* หน้าเช็คชื่อ — 2 จังหวะ
  *   จังหวะ 1  เลือกวัน (ปกติกดปุ่มเดียวจบ เพราะเป็นวันนี้)
@@ -3173,7 +3679,8 @@ __exp(exports, { viewHome });
  * ไม่ถามครูตอนเช็ค (แก้ได้ในเมนู ⋯ ถ้าจำเป็น)
  */
 
-const { h, toast, todayISO, fmtDate, fmtDayFull, isToday, confirmBox, modal } = __req("js/dom.js");
+const { h, toast, todayISO, fmtDate, fmtDayFull, isToday, confirmBox, modal, matchStudent, printPage } = __req("js/dom.js");
+const { icon } = __req("js/icons.js");
 const { state, emit, ensureColumn, setCells, getCell, deleteColumn, go, undoLastEdit } = __req("js/state.js");
 const { ATT_CODES, ATT_NAMES, attStats } = __req("js/score.js");
 
@@ -3191,7 +3698,8 @@ const ui = {
   period: 1,
   halfOverride: null,        // ตั้งเองเฉพาะกรณีที่ระบบเดาผิด
   pending: null,             // คาบที่เพิ่งกดเพิ่ม ยังไม่มีข้อมูลในชีต
-  onlyBlank: false           // กรองเฉพาะคนที่ยังไม่เช็ค
+  onlyBlank: false,          // กรองเฉพาะคนที่ยังไม่เช็ค
+  q: ''                      // คำค้นชื่อ/เลขที่
 };
 
 // ── ตัวช่วย ─────────────────────────────────────────────────
@@ -3230,6 +3738,7 @@ function enterCheck(dateISO, period, { markAllPresent = false } = {}) {
   ui.halfOverride = null;
   ui.pending = null;
   ui.onlyBlank = false;
+  ui.q = '';
   if (markAllPresent) {
     const key = keyFor(dateISO, period);
     ensureColumn(colSpecFromKey(key), { quiet: true });
@@ -3237,6 +3746,21 @@ function enterCheck(dateISO, period, { markAllPresent = false } = {}) {
     toast('ทำเครื่องหมาย "มา" ทุกคนแล้ว — แตะแก้เฉพาะคนที่ไม่ปกติ', 'ok', 3200, undoAction());
   }
   emit();
+}
+
+/**
+ * เปิดหน้าเช็คชื่อของวันนี้ที่คาบนี้เลย — ใช้จากการ์ด "ตอนนี้" ของหน้าแรก (ตารางสอน)
+ * ใส่ไว้เป็น pending ด้วย ไม่งั้นคาบที่ยังไม่มีในชีตจะถูกสลับกลับไปคาบแรกของวัน (ดู resolve)
+ */
+function startCheckAt(period) {
+  const d = todayISO();
+  ui.mode = 'check';
+  ui.date = d;
+  ui.period = period;
+  ui.halfOverride = null;
+  ui.pending = { date: d, period };
+  ui.onlyBlank = false;
+  ui.q = '';
 }
 
 // ── หน้าเข้าสู่การเช็ค ──────────────────────────────────────
@@ -3314,7 +3838,8 @@ viewAttendance.head = function () {
       h('button', { class: 'ph-back', 'aria-label': 'กลับ', onclick: () => { ui.mode = 'list'; emit(); } }, '‹'),
       h('div', { class: 'ph-grow' },
         h('div', { class: 'ph-title' },
-          fmtDate(ui.date) + (available.length > 1 ? ` · คาบ ${ui.period}` : '')),
+          // คาบเดียวของวันก็บอกเลขคาบถ้าไม่ใช่คาบ 1 (มาจากตารางสอน) ครูจะได้มั่นใจว่าเช็คถูกคาบ
+          fmtDate(ui.date) + (available.length > 1 || ui.period !== 1 ? ` · คาบ ${ui.period}` : '')),
         h('div', { class: 'ph-sub' },
           `${[cls.meta.grade, cls.meta.room].filter(Boolean).join('/')} ${cls.meta.subject}`)),
       h('div', { class: 'ph-badge' }, `${done}/${cls.students.length}`),
@@ -3516,6 +4041,11 @@ function checkScreen() {
         h('button', { class: 'icon-btn', onclick: () => openMenu(available, key) }, '⋯'))
     ),
 
+    h('div', { class: 'find-row' }, searchBox(), h('button', {
+      class: 'dice-btn', 'aria-label': 'สุ่มเรียกชื่อ', title: 'สุ่มเรียกชื่อ',
+      onclick: () => openPicker(key)
+    }, '🎲')),
+
     // ── แถวกรอง + ตัวนับ (ตามดีไซน์ วางอยู่เหนือรายชื่อ) ──
     h('div', { class: 'filter-row', style: { display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '10px' } },
       h('button', {
@@ -3538,6 +4068,10 @@ function checkScreen() {
       shown.length
         ? shown.map(s => studentRow(s, key))
         : h('div', { class: 'card empty', style: { padding: '26px' } }, 'เช็คครบแล้ว 🎉')),
+    h('div', {
+      class: 'card empty att-nomatch',
+      hidden: !ui.q.trim() || shown.some(s => matchStudent(s, ui.q))
+    }, 'ไม่พบนักเรียนที่ค้นหา'),
 
     h('div', { class: 'done-bar' },
       h('div', { class: 'done-note' },
@@ -3551,7 +4085,7 @@ function checkScreen() {
 
 function studentRow(s, key) {
   const cur = String(getCell(key, s.sid) || '');
-  return h('div', { class: 'stu-row' },
+  return h('div', { class: 'stu-row', hidden: !matchStudent(s, ui.q), 'data-sid': s.sid },
     h('div', { style: { flex: '1', minWidth: '0' } },
       h('div', { class: 'stu-name' }, s.name || '—'),
       h('div', { class: 'stu-sid' }, `เลขที่ ${s.no}${s.sid ? ' · ' + s.sid : ''}`)),
@@ -3567,10 +4101,99 @@ function studentRow(s, key) {
           const group = e.currentTarget.parentElement;
           [...group.children].forEach(b => { b.dataset.on = (b.dataset.code === next) ? '1' : '0'; });
           refreshStats(key);
+          buzz();
         }
       }, code))
     )
   );
+}
+
+/**
+ * ช่องค้นหาชื่อ/เลขที่
+ *
+ * ห้องละ 40 คน ครูที่ถือใบลา/รายชื่อคนมาสายต้องเลื่อนหาทีละคน
+ * กรองโดยซ่อนแถวที่มีอยู่แล้ว ไม่วาดหน้าใหม่ — วาดใหม่แล้วแป้นพิมพ์มือถือจะหุบทุกตัวอักษร
+ */
+function searchBox() {
+  const input = h('input', {
+    type: 'search', value: ui.q, placeholder: 'ค้นหาชื่อ หรือเลขที่',
+    'aria-label': 'ค้นหานักเรียน', enterkeyhint: 'search', autocomplete: 'off',
+    oninput: (e) => { ui.q = e.target.value; applySearch(); }
+  });
+  const clearBtn = h('button', {
+    class: 'find-clear', 'aria-label': 'ล้างคำค้น', hidden: !ui.q,
+    onclick: () => { ui.q = ''; input.value = ''; applySearch(); input.focus(); }
+  }, icon('close'));
+  return h('label', { class: 'find-box' }, icon('search'), input, clearBtn);
+}
+
+function applySearch() {
+  const bySid = new Map(state.cls.students.map(s => [String(s.sid), s]));
+  let shown = 0;
+  document.querySelectorAll('.att-list .stu-row').forEach(row => {
+    const s = bySid.get(row.dataset.sid);
+    const ok = !s || matchStudent(s, ui.q);
+    row.hidden = !ok;
+    if (ok) shown++;
+  });
+  const none = document.querySelector('.att-nomatch');
+  if (none) none.hidden = shown > 0 || !ui.q.trim();
+  const clr = document.querySelector('.find-box .find-clear');
+  if (clr) clr.hidden = !ui.q;
+}
+
+/**
+ * สั่นสั้น ๆ ตอนแตะปุ่มเช็คชื่อ — ครูเช็คเร็ว ๆ มักไม่ได้มองจอทุกครั้งที่กด
+ * ได้เฉพาะมือถือ Android (iPhone ที่เปิดผ่านเว็บไม่รองรับ เครื่องที่ไม่รองรับก็แค่เงียบไป)
+ */
+function buzz() {
+  try { if (navigator.vibrate) navigator.vibrate(12); } catch (e) { /* ไม่รองรับ */ }
+}
+
+/* คนที่สุ่มไปแล้วในรอบนี้ — ไม่ให้ซ้ำจนกว่าจะครบทุกคน (ปิดแอปแล้วเริ่มนับใหม่) */
+const picked = new Map();   // classId → Set(sid)
+
+/**
+ * สุ่มเรียกชื่อ — ข้ามคนที่ขาด/ลาในคาบที่เปิดอยู่ และไม่สุ่มซ้ำคนเดิมจนกว่าจะครบรอบ
+ */
+function openPicker(key) {
+  const cls = state.cls;
+  const away = (s) => ['ข', 'ล'].includes(String(getCell(key, s.sid) || ''));
+  const pool = cls.students.filter(s => !away(s));
+  if (!pool.length) return toast('ไม่มีนักเรียนให้สุ่ม', 'err');
+
+  const id = state.classId;
+  if (!picked.has(id)) picked.set(id, new Set());
+  const seen = picked.get(id);
+
+  modal((close) => {
+    const name = h('div', { class: 'pick-name' });
+    const sub = h('div', { class: 'pick-sub' });
+    const left = h('div', { class: 'hint', style: { textAlign: 'center' } });
+
+    const roll = () => {
+      let fresh = pool.filter(s => !seen.has(s.sid));
+      if (!fresh.length) { seen.clear(); fresh = pool; }
+      const s = fresh[Math.floor(Math.random() * fresh.length)];
+      seen.add(s.sid);
+      name.textContent = s.name || '—';
+      sub.textContent = `เลขที่ ${s.no}`;
+      const n = pool.filter(x => !seen.has(x.sid)).length;
+      left.textContent = n ? `เหลือ ${n} คนที่ยังไม่ถูกเรียกรอบนี้` : 'ครบทุกคนแล้ว — กดอีกครั้งเริ่มรอบใหม่';
+      buzz();
+    };
+    roll();
+
+    return h('div', null,
+      h('h2', null, '🎲 สุ่มเรียกชื่อ'),
+      h('div', { class: 'pick-card' }, sub, name),
+      left,
+      h('div', { class: 'hint', style: { textAlign: 'center', marginBottom: '12px' } },
+        'ไม่สุ่มคนที่ขาด/ลาในคาบนี้ · ไม่ซ้ำคนเดิมจนกว่าจะครบทุกคน'),
+      h('div', { class: 'btn-row' },
+        h('button', { class: 'btn btn-ghost', style: { flex: '1' }, onclick: close }, 'ปิด'),
+        h('button', { class: 'btn', style: { flex: '2' }, onclick: roll }, 'สุ่มคนต่อไป')));
+  });
 }
 
 // ── เมนู ⋯ เก็บของที่ไม่ค่อยได้ใช้ ──────────────────────────
@@ -3588,6 +4211,11 @@ function openMenu(available, key) {
         class: 'btn btn-ghost btn-block',
         onclick: () => { close(); addPeriod(available, ui.date); }
       }, '➕ เพิ่มคาบของวันนี้'),
+
+      h('button', {
+        class: 'btn btn-ghost btn-block',
+        onclick: () => { close(); printBlankSheet(); }
+      }, '🖨 พิมพ์ใบเช็คชื่อเปล่า'),
 
       // บน PC ไม่มีปุ่ม ‹ แบบมือถือ ทางเข้าหน้าประวัติจึงต้องอยู่ในเมนูนี้
       h('button', {
@@ -3625,6 +4253,44 @@ function openMenu(available, key) {
       }, '🗑 ลบการเช็คครั้งนี้')
     )
   ));
+}
+
+/**
+ * ใบเช็คชื่อเปล่าสำหรับพิมพ์ — สำรองไว้ตอนเน็ตล่ม/มือถือแบตหมด หรือให้ครูสอนแทนใช้
+ * กระดาษแนวนอน ช่องวันที่ว่าง 15 ช่องให้เขียนเอง แล้วค่อยมากรอกลงแอปทีหลัง
+ */
+function printBlankSheet() {
+  const cls = state.cls;
+  const meta = cls.meta;
+  const room = [meta.grade, meta.room].filter(Boolean).join('/');
+  const cfg = state.config || {};
+  const N = 15;
+  const blanks = (tag) => Array.from({ length: N }, () => h(tag, { class: 'pg-day' }));
+
+  printPage([
+    h('div', { class: 'print-head' },
+      h('b', null, `ใบเช็คชื่อ · ${room ? room + ' · ' : ''}${meta.subject}${meta.subjectCode ? ' (' + meta.subjectCode + ')' : ''}`),
+      h('span', null, [`ภาคเรียนที่ ${cfg.term || '—'}/${cfg.year || '—'}`, cfg.teacher ? 'ครู ' + cfg.teacher : '']
+        .filter(Boolean).join(' · '))),
+    h('table', { class: 'print-grid' },
+      h('thead', null,
+        h('tr', null,
+          h('th', { class: 'pg-no' }, 'เลขที่'),
+          h('th', { class: 'pg-sid' }, 'เลขประจำตัว'),
+          h('th', { class: 'pg-name' }, 'ชื่อ-นามสกุล'),
+          blanks('th')),
+        h('tr', { class: 'pg-sub' },
+          h('th', { colspan: '3', style: { textAlign: 'right' } }, 'วันที่ / คาบ →'),
+          blanks('th'))),
+      h('tbody', null, cls.students.map(s => h('tr', null,
+        h('td', { class: 'pg-no' }, s.no),
+        h('td', { class: 'pg-sid' }, s.sid && !/^T\d+$/.test(s.sid) ? s.sid : ''),
+        h('td', { class: 'pg-name' }, s.name || ''),
+        blanks('td'))))),
+    h('div', { class: 'print-foot' },
+      h('span', null, 'ม = มา · ส = สาย · ล = ลา · ข = ขาด'),
+      h('span', null, 'ลงชื่อ ................................................ ผู้เช็คชื่อ'))
+  ], { title: `ใบเช็คชื่อ ${room} ${meta.subject}`, landscape: true });
 }
 
 function addPeriod(used, dateISO) {
@@ -3691,15 +4357,18 @@ function refreshStats(key) {
   if (side && !ui.onlyBlank) side.textContent = st.blank > 0 ? `ยังว่าง ${st.blank}` : 'ครบแล้ว';
 }
 
-__exp(exports, { viewAttendance });
+__exp(exports, { startCheckAt, viewAttendance });
 
   };
 
   __defs["js/views/work.js"] = function (exports, __req) {
 /* หน้ากรอกงานและคะแนนสอบ (ส่งงาน · สอบเก็บคะแนน · กลางภาค · ปลายภาค) */
 
-const { h, modal, toast, confirmBox, nf } = __req("js/dom.js");
-const { state, emit, loadClass, ensureColumn, setCells, getCell, deleteColumn, updateColumn, settings, undoLastEdit } = __req("js/state.js");
+const { h, modal, toast, confirmBox, nf, matchStudent } = __req("js/dom.js");
+const { icon } = __req("js/icons.js");
+const { store } = __req("js/storage.js");
+const { openCopyList } = __req("js/views/chase.js");
+const { state, emit, loadClass, ensureColumn, setCells, getCell, deleteColumn, updateColumn, settings, undoLastEdit, addColumnToMany } = __req("js/state.js");
 const { BUCKETS, NOT_SUBMITTED, RETAKE_KINDS, parseWork, formatWork, formatRetake, passMarkOf, passOf } = __req("js/score.js");
 const { serverInfo } = __req("js/api.js");
 const { serverSupports } = __req("js/version.js");
@@ -3716,19 +4385,26 @@ const undoAction = () => ({
  * รวมกันได้ 8 ถัง เท่ากับ 8 ช่องของ SGS เหมือนเดิม
  * กลางภาค/ปลายภาคมีช่วงเดียว จึงบังคับช่วงให้เอง
  */
+/* ic = ไอคอนเส้นใน js/icons.js (ชุดเดียวกับแถบเมนู) · emoji ใช้เฉพาะหน้าว่างเปล่า
+ * ของเดิมใช้อีโมจิบนปุ่ม ซึ่งแต่ละเครื่องวาดไม่เหมือนกันและไม่เข้ากับไอคอนส่วนอื่นของแอป */
 const KINDS = [
-  { kind: 'WORK', ic: '📝', label: 'ส่งงาน' },
-  { kind: 'QUIZ', ic: '✍️', label: 'สอบเก็บ' },
-  { kind: 'MID',  ic: '📄', label: 'กลางภาค', fixed: 1 },
-  { kind: 'FIN',  ic: '📕', label: 'ปลายภาค', fixed: 2 }
+  { kind: 'WORK', ic: 'doc',    emoji: '📝', label: 'ส่งงาน' },
+  { kind: 'QUIZ', ic: 'pencil', emoji: '✍️', label: 'สอบเก็บ' },
+  { kind: 'MID',  ic: 'exam',   emoji: '📄', label: 'กลางภาค', fixed: 1 },
+  { kind: 'FIN',  ic: 'flag',   emoji: '📕', label: 'ปลายภาค', fixed: 2 }
 ];
+
+const DENSE_KEY = 'ac.workDense';
 
 const ui = {
   kind: 'WORK',      // ชนิดคะแนนที่เลือกอยู่
   phase: 1,          // ช่วง 1 = ก่อนกลางภาค · 2 = หลังกลางภาค
   open: null,        // key ของชิ้นงานที่กำลังกรอก (โหมดรายชิ้นงาน)
   by: 'item',        // 'item' = กรอกทีละชิ้นงาน · 'student' = กรอกทีละคน
-  si: 0              // ลำดับนักเรียนในโหมดรายคน
+  si: 0,             // ลำดับนักเรียนในโหมดรายคน
+  q: '',             // คำค้น "ไปที่เลขที่/ชื่อ" ในหน้ากรอก
+  // ตารางเร็ว (มือถือ): แถวละคน มีแค่ป้ายสถานะกับช่องคะแนน — จำไว้ในเครื่อง
+  dense: store.get(DENSE_KEY) === '1'
 };
 
 const kindOf = (k) => KINDS.find(x => x.kind === k) || KINDS[0];
@@ -3882,7 +4558,7 @@ function bucketBar(openFirst) {
           jump();
         }
       },
-        h('span', { class: 'kc-ic' }, k.ic),
+        h('span', { class: 'kc-ic' }, icon(k.ic)),
         h('span', { class: 'kc-label' }, k.label),
         h('span', { class: 'kc-w' }, b ? S.weight[b.id] : 0));
     })),
@@ -3922,7 +4598,7 @@ function openItemPicker(cur) {
           if (k.fixed) { openFixedExam(); emit(); return; }
           openItemPicker(cur);
         }
-      }, `${k.ic} ${k.label}`))),
+      }, icon(k.ic), k.label))),
     !kindOf(ui.kind).fixed && h('div', { class: 'chips', style: { marginBottom: '10px' } },
       [[1, 'ก่อนกลางภาค'], [2, 'หลังกลางภาค']].map(([v, l]) => h('button', {
         class: 'chip', 'data-on': curPhase() === v ? '1' : '0',
@@ -3961,7 +4637,7 @@ function listScreen() {
       cols.length
         ? h('div', { class: 'card card-tight' }, cols.map(itemRow))
         : h('div', { class: 'card empty' },
-            h('div', { class: 'empty-icon' }, kindOf(b.kind).ic),
+            h('div', { class: 'empty-icon' }, kindOf(b.kind).emoji),
             h('div', null, `ยังไม่ได้กรอกคะแนน${b.label}`),
             h('button', {
               class: 'btn', style: { marginTop: '12px' },
@@ -4023,7 +4699,10 @@ function itemRow(col) {
           `เต็ม ${col.max} · ${words(col).done} ${t.done}/${t.total}`,
           t.late > 0 ? ` · ส่งช้า ${t.late}` : '',
           t.miss > 0 ? ` · ${words(col).miss} ${t.miss}` : '',
-          t.retake > 0 ? ` · สอบซ่อม ${t.retake}` : '')),
+          t.retake > 0 ? ` · สอบซ่อม ${t.retake}` : ''),
+        // ความคืบหน้าแบบเห็นปราดเดียว — ตัวเลข 18/20 ต้องอ่าน แถบไม่ต้อง
+        h('div', { class: 'mini-prog', 'aria-hidden': 'true' },
+          h('i', { style: { width: (t.total ? Math.round((t.total - t.none) / t.total * 100) : 0) + '%' } }))),
       t.none === 0
         ? h('span', { class: 'badge g' }, 'ครบ')
         : h('span', { class: 'badge a' }, `ค้าง ${t.none}`)
@@ -4072,7 +4751,7 @@ const statusBtnsOf = (col) => (isExam(col)
  * @param head โหนดฝั่งซ้ายของแถว ต่างกันตามโหมด (เลขที่+ชื่อ หรือ ชื่องาน+กำหนดส่ง)
  * @param nextInput ฟังก์ชันหาช่องถัดไปตอนกด Enter
  */
-function scoreRow(col, s, { head, nextInput } = {}) {
+function scoreRow(col, s, { head, nextInput, dense = false } = {}) {
   const W = words(col);
 
   // ต่ำกว่าเกณฑ์ผ่าน = ขึ้นสีแดงทันทีตอนกรอก ครูจะได้เห็นว่าใครต้องซ่อมโดยไม่ต้องไปเปิดรายงาน
@@ -4119,6 +4798,20 @@ function scoreRow(col, s, { head, nextInput } = {}) {
 
   const group = h('div', { class: 'st-group' }, btns);
 
+  /* ตารางเร็ว: ปุ่มสถานะ 3 ปุ่มยุบเป็นป้ายเดียว แตะวน ยังไม่ตรวจ → ส่ง → ช้า → ไม่ส่ง
+   * ปกติไม่ต้องแตะเลย เพราะพิมพ์คะแนน = นับว่าส่ง (ดู onchange ข้างบน)
+   * ช่องสอบซ่อมแตะแล้วเปิดกล่องสอบซ่อม เหมือนปุ่มในแบบการ์ด */
+  const cycle = ['none', ...statusBtnsOf(col).map(b => b.st).filter(st => st !== 'retake')];
+  const pill = dense && h('button', {
+    class: 'st-pill',
+    onclick: () => {
+      const now = parseWork(getCell(col.key, s.sid));
+      if (now.retake) return openRetake(col, s, paint);
+      apply(cycle[(cycle.indexOf(now.status) + 1) % cycle.length]);
+    }
+  });
+  const pillText = { none: '—', ok: isExam(col) ? 'สอบแล้ว' : 'ส่ง', late: 'ช้า', miss: W.missShort, retake: 'ซ่อม' };
+
   function write(value) {
     setCells([{ key: col.key, sid: s.sid, value }], { quiet: true });
     paint();
@@ -4142,6 +4835,11 @@ function scoreRow(col, s, { head, nextInput } = {}) {
       b.dataset.on = b.dataset.st === st ? '1' : '0';
       if (b.dataset.st === 'retake') b.replaceChildren(...retakeFace(w));
     });
+    if (pill) {
+      pill.dataset.st = st;
+      pill.textContent = pillText[st];
+      pill.setAttribute('aria-label', `สถานะ ${s.name || 'เลขที่ ' + s.no}: ${st === 'none' ? 'ยังไม่ตรวจ' : pillText[st]} — แตะเพื่อเปลี่ยน`);
+    }
     inp.value = scored ? String(w.score) : '';
     inp.placeholder = w.status === 'miss' ? W.missShort : '';
     inp.title = w.retake ? `คะแนนสอบซ่อม · ครั้งแรก ${origText(w)}` : '';
@@ -4153,13 +4851,14 @@ function scoreRow(col, s, { head, nextInput } = {}) {
 
   // ฝั่งซ้าย+คะแนนบรรทัดบน · ปุ่มสถานะเต็มความกว้างบรรทัดล่าง
   // (แบบเดิมยัดทุกอย่างบรรทัดเดียว ชื่อนักเรียนเลยถูกบีบจนอ่านไม่ออกบนมือถือ)
-  const row = h('div', { class: 'work-row' },
+  const row = h('div', { class: 'work-row' + (dense ? ' dense' : ''), 'data-sid': s.sid },
     h('div', { class: 'work-head' },
       head || null,
+      pill || null,
       h('div', { class: 'score-cell' }, inp,
         h('span', { class: 'score-max', title: mark === null ? null : `ผ่านที่ ${mark}` },
           '/' + col.max + (mark === null ? '' : ` · ผ่าน ${mark}`)))),
-    group
+    dense ? null : group
   );
   paint();
   row.__input = inp;
@@ -4240,12 +4939,22 @@ function openRetake(col, s, done) {
 
 function gradeScreen(col) {
   const students = state.cls.students;
+  // ตารางเร็วมีบนมือถือเท่านั้น — บน PC แถวเป็นตารางบรรทัดเดียวอยู่แล้ว
+  const dense = ui.dense && !wide();
   const rows = [];
+  const find = findBox(rows);
   students.forEach((s, i) => {
     rows.push(scoreRow(col, s, {
+      dense,
       head: [h('div', { class: 'stu-no' }, s.no), h('div', { class: 'work-name' }, s.name || '—')],
-      nextInput: () => rows[i + 1] && rows[i + 1].__input
+      nextInput: () => {
+        /* กำลังค้นหาอยู่ = ครูหยิบกระดาษทีละแผ่นแบบไม่เรียงเลขที่
+         * กด Enter แล้วกลับไปช่องค้นหาที่ล้างแล้ว พร้อมพิมพ์เลขที่ของแผ่นถัดไปเลย */
+        if (ui.q.trim()) return find.reset();
+        return rows.slice(i + 1).find(r => !r.hidden)?.__input;
+      }
     }));
+    rows[i].hidden = !matchStudent(s, ui.q);
   });
 
   const W = words(col);
@@ -4264,6 +4973,7 @@ function gradeScreen(col) {
       }, `${c.label} · เต็ม ${c.max}`)),
       !isFixedKind(col.kind) && h('button', { class: 'item-pill add', onclick: () => openItemForm() }, '+ เพิ่มงาน'),
       h('div', { style: { marginLeft: 'auto', display: 'flex', gap: '8px' } },
+        h('button', { class: 'btn btn-ghost btn-sm', onclick: () => chase(col) }, '📣 ตามงาน'),
         h('button', { class: 'btn btn-ghost btn-sm', onclick: () => openPaste(col) }, '📋 วางจาก Excel'),
         h('button', { class: 'icon-btn', title: 'ตัวเลือกเพิ่มเติม', onclick: () => openItemMenu(col) }, '⋯'))
     ),
@@ -4292,6 +5002,11 @@ function gradeScreen(col) {
 
     // ── ปุ่มลัดทั้งห้อง (มือถือ — บน PC อยู่ในเมนู ⋯ ของแถบชิ้นงาน) ──
     h('div', { class: 'card pc-hide', style: { padding: '10px 12px' } },
+      h('div', { class: 'dense-seg', role: 'group', 'aria-label': 'รูปแบบการกรอก' },
+        [[false, 'การ์ด'], [true, 'ตารางเร็ว']].map(([v, label]) => h('button', {
+          'data-on': ui.dense === v ? '1' : '0', 'aria-pressed': ui.dense === v ? 'true' : 'false',
+          onclick: () => { ui.dense = v; store.set(DENSE_KEY, v ? '1' : '0'); emit(); }
+        }, label))),
       h('div', { class: 'btn-row' },
         h('button', {
           class: 'btn btn-soft btn-sm',
@@ -4307,16 +5022,75 @@ function gradeScreen(col) {
             setCells(state.cls.students.map(s => ({ key: col.key, sid: s.sid, value: '' })));
             toast('ล้างคะแนนแล้ว', 'ok', 1400, undoAction());
           }
-        }, '↺ ล้าง')
+        }, '↺ ล้าง'),
+        h('button', { class: 'btn btn-ghost btn-sm', onclick: () => chase(col) }, '📣 ตามงาน')
       )),
 
-    // ── รายชื่อ: มือถือ = การ์ดใบละคน · PC = ตาราง 4 คอลัมน์ ──
-    h('div', { class: 'work-list' },
+    find.el,
+    dense && h('div', { class: 'enter-hint' }, h('kbd', null, 'Enter ↵'),
+      ui.q.trim() ? 'บันทึกแล้วกลับมาค้นหาแผ่นถัดไป' : 'พิมพ์คะแนนแล้วกด ระบบเลื่อนไปคนถัดไปให้'),
+
+    // ── รายชื่อ: มือถือ = การ์ดใบละคน (หรือตารางเร็ว) · PC = ตาราง 4 คอลัมน์ ──
+    h('div', { class: 'work-list' + (dense ? ' dense' : '') },
       h('div', { class: 'work-thead' },
         h('div', null, 'เลขที่'), h('div', null, 'ชื่อ-นามสกุล'),
         h('div', null, isExam(col) ? 'สถานะการสอบ' : 'สถานะการส่ง'), h('div', null, 'คะแนน')),
       rows)
   );
+}
+
+const wide = () => { try { return matchMedia('(min-width: 900px)').matches; } catch (e) { return false; } };
+
+/**
+ * ช่อง "ไปที่เลขที่ / ชื่อ" ของหน้ากรอก
+ *
+ * ตรวจงานจริงกระดาษไม่ได้เรียงเลขที่ ครูต้องเลื่อนหาคนในรายชื่อ 40 คนทุกแผ่น
+ * พิมพ์เลขที่แล้ว Enter = กระโดดไปช่องคะแนนของคนนั้นเลย
+ * กรองด้วยการซ่อนแถว ไม่วาดหน้าใหม่ แป้นพิมพ์มือถือจึงไม่หุบระหว่างพิมพ์
+ */
+function findBox(rows) {
+  const input = h('input', {
+    type: 'search', value: ui.q, placeholder: 'ไปที่เลขที่ หรือชื่อ',
+    'aria-label': 'ไปที่นักเรียน', enterkeyhint: 'go', autocomplete: 'off',
+    oninput: (e) => { ui.q = e.target.value; apply(); },
+    onkeydown: (e) => {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      const first = rows.find(r => !r.hidden);
+      if (first) { first.__input.focus(); first.__input.select(); }
+    }
+  });
+  const clearBtn = h('button', {
+    class: 'find-clear', 'aria-label': 'ล้างคำค้น', hidden: !ui.q,
+    onclick: () => { reset(); }
+  }, icon('close'));
+  const none = h('div', { class: 'card empty att-nomatch', hidden: true }, 'ไม่พบนักเรียนที่ค้นหา');
+
+  function apply() {
+    const bySid = new Map(state.cls.students.map(s => [String(s.sid), s]));
+    let shown = 0;
+    rows.forEach(r => {
+      const s = bySid.get(r.dataset.sid);
+      r.hidden = !(s && matchStudent(s, ui.q));
+      if (!r.hidden) shown++;
+    });
+    none.hidden = shown > 0 || !ui.q.trim();
+    clearBtn.hidden = !ui.q;
+    const hint = document.querySelector('.enter-hint');
+    if (hint && hint.lastChild) {
+      hint.lastChild.textContent = ui.q.trim()
+        ? 'บันทึกแล้วกลับมาค้นหาแผ่นถัดไป' : 'พิมพ์คะแนนแล้วกด ระบบเลื่อนไปคนถัดไปให้';
+    }
+  }
+  function reset() {
+    ui.q = ''; input.value = ''; apply();
+    input.focus();
+    return null;    // ให้ตัวเรียก (Enter ในช่องคะแนน) ไม่ต้องย้ายโฟกัสต่อ
+  }
+  return {
+    el: h('div', null, h('label', { class: 'find-box' }, icon('search'), input, clearBtn), none),
+    reset
+  };
 }
 
 /**
@@ -4504,8 +5278,16 @@ function openItemForm(edit) {
     placeholder: 'เว้นว่าง = ไม่ตรวจ'
   });
 
+  // เพิ่มลงห้องอื่นด้วย — เฉพาะตอนเพิ่มใหม่ (แก้ไขยังทำทีละห้องเหมือนเดิม)
+  const rooms = edit ? null : roomPicker(() => {
+    const n = rooms.picked().length + 1;
+    save.textContent = n > 1 ? `เพิ่มลง ${n} ห้อง` : 'เพิ่มรายการ';
+  });
+  let save;
+
   modal((close) => {
-    const save = h('button', { class: 'btn btn-block' }, edit ? 'บันทึก' : 'เพิ่มรายการ');
+    save = h('button', { class: 'btn btn-block' }, edit ? 'บันทึก' : 'เพิ่มรายการ');
+    if (rooms) rooms.refresh();
     save.onclick = async () => {
       const l = label.value.trim(), m = Number(max.value), d = desc.value.trim();
       if (!l) return toast('ตั้งชื่อรายการก่อน', 'err');
@@ -4523,8 +5305,9 @@ function openItemForm(edit) {
       try {
         if (edit) await updateColumn(edit.key, { label: l, max: m, desc: d, pass: p });
         else {
-          const { key } = ensureColumn({ kind: b.kind, half: b.half, label: l, max: m, desc: d, pass: p });
-          ui.open = key;
+          const others = rooms ? rooms.picked() : [];
+          ui.open = addColumnToMany({ kind: b.kind, half: b.half, label: l, max: m, desc: d, pass: p }, others);
+          if (others.length) toast(`เพิ่ม "${l}" ลง ${others.length + 1} ห้องแล้ว`, 'ok', 2600);
         }
         close(); emit();
       } catch (e) { toast(e.message, 'err'); }
@@ -4539,8 +5322,108 @@ function openItemForm(edit) {
           `ใส่คะแนนเต็มจริงได้เลย ระบบจะเทียบสัดส่วนเป็น ${settings().weight[curBucket().id]} คะแนนของ SGS ให้เอง`)),
       h('div', { class: 'field' }, h('label', null, 'เกณฑ์ผ่าน (คะแนนดิบ)'), pass,
         h('div', { class: 'hint' }, passHint(Number(max.value) || 0))),
+      rooms && rooms.el,
       save
     );
+  });
+}
+
+/**
+ * รายการห้องให้ติ๊กว่าจะเพิ่มชิ้นงานนี้ลงห้องไหนบ้าง
+ *
+ * ห้องที่สอนวิชาเดียวกัน (รหัสวิชาตรงกัน หรือชื่อวิชาตรงกันถ้าไม่มีรหัส) ติ๊กไว้ให้เลย
+ * — เกือบทุกครั้งครูให้งานชิ้นเดียวกันทุกห้องที่สอนวิชานั้น
+ * ห้องวิชาอื่นซ่อนไว้ กดเปิดดูได้ (นาน ๆ ครั้งถึงจะใช้ และติ๊กพลาดแล้วต้องไปลบทีละห้อง)
+ */
+function roomPicker(onChange) {
+  const me = state.classes.find(c => c.classId === state.classId) || state.cls?.meta || {};
+  const others = state.classes.filter(c => c.classId !== state.classId);
+  if (!others.length) return null;
+
+  const code = String(me.subjectCode || '').trim();
+  const sameSubject = (c) => code
+    ? String(c.subjectCode || '').trim() === code
+    : String(c.subject || '').trim() === String(me.subject || '').trim();
+  const same = others.filter(sameSubject);
+  const rest = others.filter(c => !sameSubject(c));
+
+  const boxes = [];
+  const item = (c, on) => {
+    const cb = h('input', { type: 'checkbox', checked: on, onchange: () => onChange() });
+    cb.dataset.id = c.classId;
+    boxes.push(cb);
+    return h('label', { class: 'room-row' }, cb,
+      h('span', { class: 'room-main' },
+        h('b', null, `${[c.grade, c.room].filter(Boolean).join('/') || '—'} · ${c.subject}`),
+        h('small', null, `${c.studentCount || 0} คน${c.subjectCode ? ' · ' + c.subjectCode : ''}`)),
+      on && h('span', { class: 'room-tag' }, 'วิชาเดียวกัน'));
+  };
+
+  const restBox = rest.length ? h('div', { class: 'room-list', hidden: true }, rest.map(c => item(c, false))) : null;
+  const el = h('div', { class: 'field room-pick' },
+    h('label', null, 'เพิ่มลงห้องไหนบ้าง'),
+    h('div', { class: 'room-list' },
+      h('label', { class: 'room-row', 'data-me': '1' },
+        h('input', { type: 'checkbox', checked: true, disabled: true }),
+        h('span', { class: 'room-main' },
+          h('b', null, `${[me.grade, me.room].filter(Boolean).join('/') || '—'} · ${me.subject || ''}`),
+          h('small', null, 'ห้องที่เปิดอยู่')),
+        h('span', { class: 'room-tag', 'data-me': '1' }, 'ห้องนี้')),
+      same.map(c => item(c, true))),
+    restBox && h('button', {
+      type: 'button', class: 'room-more', 'aria-expanded': 'false',
+      onclick: (e) => {
+        restBox.hidden = !restBox.hidden;
+        e.currentTarget.setAttribute('aria-expanded', String(!restBox.hidden));
+        e.currentTarget.textContent = (restBox.hidden ? '▸ ' : '▾ ') + `ห้องวิชาอื่น (${rest.length})`;
+      }
+    }, `▸ ห้องวิชาอื่น (${rest.length})`),
+    restBox,
+    h('div', { class: 'hint' }, 'ชื่อ คะแนนเต็ม และเกณฑ์ผ่านเหมือนกันทุกห้อง · แก้แยกรายห้องทีหลังได้'));
+
+  return {
+    el,
+    picked: () => boxes.filter(b => b.checked).map(b => b.dataset.id),
+    refresh: onChange
+  };
+}
+
+/** ตามงานชิ้นนี้ — รายชื่อคนที่ยังไม่ส่ง / ยังไม่ผ่านเกณฑ์ เป็นข้อความพร้อมวางในไลน์ */
+function chase(col) {
+  const S = settings();
+  const meta = state.cls.meta;
+  const room = [meta.grade, meta.room].filter(Boolean).join('/');
+  const mark = passMarkOf(col, S);
+
+  const missing = [], failing = [];
+  let unchecked = 0;
+  for (const s of state.cls.students) {
+    const raw = getCell(col.key, s.sid);
+    const w = parseWork(raw);
+    if (w.status === 'none' || w.status === 'miss') {
+      missing.push({ no: s.no, name: s.name });
+      if (w.status === 'none') unchecked++;
+    } else if (mark !== null && passOf(col, raw, S) === false) {
+      failing.push({ no: s.no, name: s.name, extra: `${nf(w.score)}/${col.max}` });
+    }
+  }
+
+  openCopyList({
+    title: 'ตามงาน · ' + col.label,
+    sub: `${room ? room + ' · ' : ''}${meta.subject} · เต็ม ${col.max}`,
+    topic: `${col.label} · ${room ? room + ' ' : ''}${meta.subject}`,
+    groups: [
+      {
+        id: 'miss', label: isExam(col) ? 'ยังไม่สอบ' : 'ยังไม่ส่ง', people: missing,
+        head: (n) => `${isExam(col) ? 'ยังไม่ได้สอบ' : 'ยังไม่ส่ง'} ${n} คน`,
+        // "ยังไม่ตรวจ" อาจส่งแล้วแต่ครูยังไม่ได้กรอก — เตือนก่อนประกาศชื่อในกลุ่ม
+        note: unchecked ? `รวม ${unchecked} คนที่ยังไม่ได้ตรวจ — ถ้าตรวจงานที่ส่งมายังไม่ครบ ตรวจก่อนแล้วค่อยคัดลอก` : ''
+      },
+      {
+        id: 'fail', label: 'ยังไม่ผ่าน', people: failing, names: false,
+        head: (n) => `ยังไม่ผ่านเกณฑ์ ${n} คน (ต่ำกว่า ${nf(mark)}/${col.max}) แก้แล้วส่งใหม่ได้`
+      }
+    ].filter(g => g.id !== 'fail' || mark !== null)
   });
 }
 
@@ -4553,6 +5436,7 @@ function openItemMenu(col) {
     h('div', { style: { display: 'grid', gap: '8px' } },
       h('button', { class: 'btn btn-ghost btn-block', onclick: () => { close(); ui.open = col.key; emit(); } }, '📝 กรอกคะแนน'),
       h('button', { class: 'btn btn-ghost btn-block', onclick: () => { close(); openItemForm(col); } }, '✏️ แก้ไขชื่อ / รายละเอียด / คะแนนเต็ม'),
+      h('button', { class: 'btn btn-ghost btn-block', onclick: () => { close(); chase(col); } }, '📣 ตามงาน · คัดลอกรายชื่อไปไลน์'),
       h('button', {
         class: 'btn btn-ghost btn-block',
         onclick: () => {
@@ -4641,13 +5525,130 @@ __exp(exports, { viewWork });
 
   };
 
+  __defs["js/views/chase.js"] = function (exports, __req) {
+/* ตามงาน / ตามตัว — คัดลอกรายชื่อเป็นข้อความไปวางในกลุ่มไลน์ห้อง
+ *
+ * ครูไทยส่วนใหญ่ตามงานผ่านกลุ่มไลน์ ของเดิมต้องเปิดรายชื่อแล้วพิมพ์ใหม่ทีละคน
+ * ตรงนี้ไม่ต่อระบบอะไรกับ LINE เลย — แค่สร้างข้อความให้แล้วคัดลอก/แชร์
+ * (มือถือมีปุ่มแชร์ของเครื่อง เลือกไลน์ได้ตรง ๆ)
+ *
+ * openCopyList({
+ *   title: 'ตามงาน · ใบงานที่ 3',
+ *   sub:   'ม.1/1 · เต็ม 10',
+ *   topic: 'ใบงานที่ 3 · ม.1/1 คณิตศาสตร์',          ← บรรทัดแรกของข้อความ
+ *   groups: [{ id, label, head: (n) => 'ยังไม่ส่ง 3 คน', people: [{ no, name, extra }],
+ *              names: true, note: 'คำเตือนใต้ตัวเลือก' }]
+ * })
+ */
+
+const { h, modal, mount, toast } = __req("js/dom.js");
+const { store } = __req("js/storage.js");
+
+const NOTE_KEY = 'ac.chaseNote';
+
+function openCopyList({ title, sub, topic, groups }) {
+  const usable = groups.filter(g => g.people.length);
+  if (!usable.length) return toast('ไม่มีใครค้างแล้ว 🎉', 'ok');
+
+  const ui = {
+    gid: usable[0].id,
+    names: {},                                  // ใส่ชื่อไหม — แยกตามกลุ่ม
+    note: store.get(NOTE_KEY) ?? 'ส่งได้ที่ครูภายในสัปดาห์นี้'
+  };
+  usable.forEach(g => { ui.names[g.id] = g.names !== false; });
+
+  const message = () => {
+    const g = usable.find(x => x.id === ui.gid);
+    const lines = g.people.map(p =>
+      `• เลขที่ ${p.no}` + (ui.names[g.id] && p.name ? ` ${p.name}` : '') + (p.extra ? ` (${p.extra})` : ''));
+    return [`[ตามงาน] ${topic}`, g.head(g.people.length), ...lines, ui.note.trim()].filter(Boolean).join('\n');
+  };
+
+  modal((close) => {
+    const body = h('div');
+
+    function render() {
+      const g = usable.find(x => x.id === ui.gid);
+      const preview = h('div', { class: 'chase-msg' }, message());
+      const noteIn = h('input', {
+        value: ui.note, placeholder: 'ข้อความท้าย (ไม่ใส่ก็ได้)', 'aria-label': 'ข้อความท้าย',
+        oninput: (e) => { ui.note = e.target.value; store.set(NOTE_KEY, ui.note); preview.textContent = message(); }
+      });
+
+      mount(body,
+        h('h2', null, title),
+        sub && h('div', { class: 'hint', style: { marginTop: '-6px', marginBottom: '12px' } }, sub),
+
+        usable.length > 1 && h('div', { class: 'dense-seg', role: 'group', 'aria-label': 'เลือกกลุ่ม' },
+          usable.map(x => h('button', {
+            'data-on': x.id === ui.gid ? '1' : '0', 'aria-pressed': x.id === ui.gid ? 'true' : 'false',
+            onclick: () => { ui.gid = x.id; render(); }
+          }, `${x.label} (${x.people.length})`))),
+
+        h('label', { class: 'chase-opt' },
+          h('input', {
+            type: 'checkbox', checked: ui.names[g.id],
+            onchange: (e) => { ui.names[g.id] = e.target.checked; render(); }
+          }),
+          h('span', null,
+            h('b', null, 'ใส่ชื่อนักเรียนด้วย'),
+            h('small', null, 'ไม่ติ๊ก = บอกแค่เลขที่ · เหมาะกับกลุ่มที่มีผู้ปกครองอยู่ด้วย'))),
+        g.note && h('div', { class: 'hint', style: { margin: '0 0 8px' } }, g.note),
+
+        h('div', { class: 'field', style: { marginBottom: '8px' } }, noteIn),
+        preview,
+
+        h('div', { class: 'btn-row', style: { marginTop: '12px' } },
+          h('button', {
+            class: 'btn', style: { flex: '1' },
+            onclick: async () => {
+              if (await copyText(message())) { toast('คัดลอกแล้ว — ไปวางในกลุ่มไลน์ได้เลย', 'ok', 3000); close(); }
+              else toast('คัดลอกไม่สำเร็จ — กดค้างที่ข้อความแล้วเลือกคัดลอกเองได้', 'err', 5000);
+            }
+          }, 'คัดลอกข้อความ'),
+          canShare() && h('button', {
+            class: 'btn btn-ghost', style: { flex: '1' },
+            onclick: async () => {
+              try { await navigator.share({ text: message() }); close(); }
+              catch (e) { /* ครูกดยกเลิกหน้าแชร์ — ไม่ต้องบอกอะไร */ }
+            }
+          }, 'แชร์…'))
+      );
+    }
+
+    render();
+    return body;
+  });
+}
+
+const canShare = () => { try { return typeof navigator.share === 'function'; } catch (e) { return false; } };
+
+/** คัดลอกลงคลิปบอร์ด — เบราว์เซอร์เก่า/โหมดฝังใน Apps Script ไม่มี clipboard API ใช้วิธีสำรอง */
+async function copyText(text) {
+  try {
+    if (navigator.clipboard && window.isSecureContext) { await navigator.clipboard.writeText(text); return true; }
+  } catch (e) { /* ตกไปใช้วิธีสำรอง */ }
+  try {
+    const ta = h('textarea', { value: text, readonly: true, style: { position: 'fixed', top: '-1000px', opacity: '0' } });
+    document.body.append(ta);
+    ta.select();
+    const ok = document.execCommand('copy');
+    ta.remove();
+    return ok;
+  } catch (e) { return false; }
+}
+
+__exp(exports, { openCopyList });
+
+  };
+
   __defs["js/version.js"] = function (exports, __req) {
 /* เวอร์ชันของแอป — ใช้ตรวจว่าโค้ดในชีตกับหน้าเว็บตรงกันไหม
  *
  * ⚠️ เวลาแก้โค้ดที่กระทบทั้ง 2 ฝั่ง ให้บวกเลขนี้ และแก้ SERVER_VERSION
  *    ใน apps-script/00_Constants.gs ให้ตรงกันด้วย
  */
-const APP_VERSION = '3.12.2';
+const APP_VERSION = '3.13.0';
 
 /* เลขเวอร์ชัน 2 ฝั่งเดินคนละสาย (หน้าเว็บ 3.x · โค้ดในชีต 2.x)
  * จึงเทียบกันตรง ๆ ไม่ได้ ต้องเทียบกับ 2 ค่านี้เท่านั้น */
@@ -4659,7 +5660,7 @@ const NEEDS_SERVER = '2.17.0';
 
 /** เวอร์ชันฝั่งชีตที่มาคู่กับหน้าเว็บรุ่นนี้ (= SERVER_VERSION ใน 00_Constants.gs)
  *  สูงกว่านี้ = ครู deploy โค้ดชีตใหม่กว่าหน้าเว็บที่เปิดอยู่ · ต่ำกว่า = ยังไม่ได้ deploy ของใหม่ */
-const SERVER_BUILT_FOR = '2.17.0';
+const SERVER_BUILT_FOR = '2.18.0';
 
 /** เทียบเวอร์ชันแบบ semver ง่าย ๆ — คืน -1 / 0 / 1 */
 function cmpVersion(a, b) {
@@ -4712,7 +5713,7 @@ __exp(exports, { APP_VERSION, NEEDS_SERVER, SERVER_BUILT_FOR, cmpVersion, FEATUR
   __defs["js/views/summary.js"] = function (exports, __req) {
 /* หน้าสรุปคะแนน — ตารางตรงกับหน้ากรอกของ SGS */
 
-const { h, modal, toast, nf } = __req("js/dom.js");
+const { h, modal, toast, nf, printPage } = __req("js/dom.js");
 const { state, emit, settings, recalcOnServer } = __req("js/state.js");
 const { computeClass, BUCKETS, bucketColumns, parseWork } = __req("js/score.js");
 
@@ -4821,8 +5822,32 @@ function viewSummary() {
 
     h('div', { class: 'btn-row', style: { marginTop: '10px' } },
       h('button', { class: 'btn btn-ghost btn-sm', onclick: () => copyTable(rows, cols) }, '📋 คัดลอกทั้งตาราง'),
-      h('button', { class: 'btn btn-ghost btn-sm', onclick: () => downloadCSV(rows) }, '⬇️ CSV'))
+      h('button', { class: 'btn btn-ghost btn-sm', onclick: () => downloadCSV(rows) }, '⬇️ CSV'),
+      h('button', { class: 'btn btn-ghost btn-sm', onclick: () => printSummary(rows, cols, S, pend) }, '🖨 พิมพ์'))
   );
+}
+
+/**
+ * พิมพ์ตารางสรุป SGS — ส่งฝ่ายวิชาการ / แนบเซ็นรับรอง
+ * ใช้ตารางชุดเดียวกับบนจอ แต่ตัดปุ่ม/การคลิกออก และใส่หัวกระดาษบอกห้อง/ภาคเรียน
+ */
+function printSummary(rows, cols, S, pend) {
+  const meta = state.cls.meta;
+  const room = [meta.grade, meta.room].filter(Boolean).join('/');
+  const cfg = state.config || {};
+  const t = table(rows, cols, S, pend);
+  t.classList.add('print-grid');
+  t.querySelectorAll('[title]').forEach(el => el.removeAttribute('title'));
+  printPage([
+    h('div', { class: 'print-head' },
+      h('b', null, `สรุปคะแนน SGS · ${room ? room + ' · ' : ''}${meta.subject}${meta.subjectCode ? ' (' + meta.subjectCode + ')' : ''}`),
+      h('span', null, [`ภาคเรียนที่ ${cfg.term || '—'}/${cfg.year || '—'}`, cfg.teacher ? 'ครู ' + cfg.teacher : '', `${rows.length} คน`]
+        .filter(Boolean).join(' · '))),
+    t,
+    h('div', { class: 'print-foot' },
+      h('span', null, 'พิมพ์จาก AssignCheck · ' + new Date().toLocaleDateString('th-TH', { dateStyle: 'long' })),
+      h('span', null, 'ลงชื่อ ................................................ ครูผู้สอน'))
+  ], { title: `สรุป SGS ${room} ${meta.subject}`, landscape: true });
 }
 
 /** แถบหัวสีเข้ม — มีเฉพาะตอนอยู่ในโหมดกรอกทีละคน (ดีไซน์ 05 มือถือ) */
@@ -5038,6 +6063,7 @@ const { h, toast, fmtDate, nf } = __req("js/dom.js");
 const { state, emit, settings, go, sync, refreshClass, fetchedAt } = __req("js/state.js");
 const api = __req("js/api.js");
 const { computeClass, parseWork, BUCKETS, ATT_CODES, passMarkOf, passOf } = __req("js/score.js");
+const { openCopyList } = __req("js/views/chase.js");
 
 /* tab:    'class' ภาพรวม · 'follow' ตามงาน (ใครยังค้างชิ้นไหน) · 'student' รายคน
  * follow: ตัวกรองของแท็บตามงาน · phase: 0 ทั้งเทอม / 1 ก่อนกลางภาค / 2 หลังกลางภาค
@@ -5434,24 +6460,32 @@ function followCard(c, g, groups, S) {
     h('span', null, `${st.no}. ${st.name || '—'}`),
     (w.status === 'ok' || w.status === 'late') && h('b', null, (w.retake ? 'ซ่อม ' : '') + nf(w.score)));
 
-  const copy = async () => {
+  /* ข้อความตามงานไปวางในไลน์ — ใช้กล่องเดียวกับหน้างาน/คะแนน (เลือกใส่ชื่อหรือแค่เลขที่ได้)
+   * กลุ่ม "ยังไม่ตรวจ" ไม่ส่งออก เพราะเป็นงานค้างของครู ไม่ใช่ของนักเรียน */
+  const copy = () => {
     const room = [cls.meta.grade, cls.meta.room].filter(Boolean).join('/');
-    const text = [
-      `${c.label} · ${[room, cls.meta.subject].filter(Boolean).join(' ')}`,
-      ...groups.flatMap(({ k, list }) => [
-        '',
-        `${exam ? k.exam : k.work} (${list.length} คน)`,
-        ...list.map(({ st }) => `${st.no}. ${st.name || '—'}`)
-      ])
-    ].join('\n');
-    try { await navigator.clipboard.writeText(text); toast('คัดลอกรายชื่อแล้ว — วางในไลน์ได้เลย', 'ok'); }
-    catch (e) { toast('คัดลอกไม่ได้ในเบราว์เซอร์นี้', 'err'); }
+    openCopyList({
+      title: 'ตามงาน · ' + c.label,
+      sub: [room, cls.meta.subject].filter(Boolean).join(' · '),
+      topic: `${c.label} · ${[room, cls.meta.subject].filter(Boolean).join(' ')}`,
+      groups: groups.filter(({ k }) => k.id !== 'none').map(({ k, list }) => {
+        const label = exam ? k.exam : k.work;
+        return {
+          id: k.id, label, names: k.id === 'miss',
+          head: (n) => `${label} ${n} คน`,
+          people: list.map(({ st, w }) => ({
+            no: st.no, name: st.name,
+            extra: k.id !== 'miss' && (w.status === 'ok' || w.status === 'late') ? `${nf(w.score)}/${c.max}` : ''
+          }))
+        };
+      })
+    });
   };
 
   return h('div', { class: 'card follow-card' },
     h('div', { class: 'rep-head' },
       h('h3', null, c.label),
-      groups.length > 0 && h('button', { class: 'rep-fresh-btn', onclick: copy }, '⧉ คัดลอกรายชื่อ')),
+      groups.some(({ k }) => k.id !== 'none') && h('button', { class: 'rep-fresh-btn', onclick: copy }, '📣 คัดลอกไปไลน์')),
     h('div', { class: 'follow-meta' },
       bucketName(c)
         + (mark !== null ? ` · ผ่านที่ ${nf(mark)}` : '')
@@ -5644,12 +6678,15 @@ __exp(exports, { viewReport });
  * ครูจะได้ไม่ต้องจำว่ากดบันทึกหรือยัง — ดีไซน์ยึดข้อนี้เป็นหลัก
  */
 
-const { h, toast, confirmBox, modal } = __req("js/dom.js");
+const { h, toast, confirmBox, modal, printPage } = __req("js/dom.js");
+const { qrcode } = __req("js/vendor/qrcode.js");
 const { state, saveConfig, sync, bootAll, go, emit } = __req("js/state.js");
 const api = __req("js/api.js");
 const { auth, renderSignInButton } = __req("js/auth.js");
 const { icon } = __req("js/icons.js");
 const { THEMES, getTheme, setTheme } = __req("js/theme.js");
+const { readTimetable, openTimetableEditor } = __req("js/views/timetable.js");
+const { weeklyCount } = __req("js/timetable.js");
 
 const SECTIONS = [
   { id: 'score', label: 'การคิดคะแนน' },
@@ -5865,7 +6902,8 @@ function secAtt() {
       row('เกณฑ์เวลาเรียนขั้นต่ำ (มส)', 'ต่ำกว่านี้ระบบติดธง "มส" ให้อัตโนมัติ',
         numInput('att_min_pct', { suffix: '%' })),
       row('นับ "ลา" เป็นเวลาเรียน', 'ผลต่อการคิด % เวลาเรียน ไม่ใช่คะแนน',
-        segInput('att_count_ลา', [['TRUE', 'นับ'], ['FALSE', 'ไม่นับ']]))
+        segInput('att_count_ลา', [['TRUE', 'นับ'], ['FALSE', 'ไม่นับ']])),
+      ttRow()
     ),
 
     h('div', { class: 'card' },
@@ -5878,6 +6916,14 @@ function secAtt() {
            row('หักต่อการขาด 1 คาบ', null, numInput('att_d_ขาด', { step: '0.05' }))]
     )
   ];
+}
+
+/** ตารางสอน — หน้าแรกใช้บอกว่าตอนนี้สอนห้องไหน (ดู js/views/timetable.js) */
+function ttRow() {
+  const n = weeklyCount(readTimetable());
+  return row('ตารางสอน',
+    n ? `ตั้งไว้ ${n} คาบ/สัปดาห์ · หน้าแรกบอกว่าตอนนี้สอนห้องไหน` : 'ตั้งครั้งเดียว หน้าแรกจะบอกว่าตอนนี้ต้องสอนห้องไหน',
+    h('button', { class: 'btn btn-soft btn-sm', onclick: openTimetableEditor }, n ? 'แก้ตารางสอน' : 'ตั้งตารางสอน'));
 }
 
 // ── กลุ่มที่ 3: บัญชีและการเชื่อมต่อ ────────────────────────
@@ -6139,6 +7185,8 @@ function mobileIndex() {
           h('span', { class: 'list-chevron' }, '›'));
       })),
 
+    h('div', { class: 'card' }, ttRow()),
+
     h('div', { class: 'card' },
       row('ธีม', 'ตามเครื่อง / สว่าง / มืด',
         h('div', { class: 'seg seg-inline' },
@@ -6170,7 +7218,12 @@ function showStudentLink() {
   modal((close) => h('div', null,
     h('h2', null, '🎒 ลิงก์สำหรับนักเรียน'),
     h('div', { class: 'hint', style: { marginBottom: '10px' } },
-      'แปะไว้ในกลุ่มไลน์ห้อง หรือทำเป็น QR ติดหน้าห้องก็ได้'),
+      'แปะไว้ในกลุ่มไลน์ห้อง หรือพิมพ์ QR ติดหน้าห้องให้นักเรียนสแกน'),
+    h('div', { class: 'qr-box', html: qrSvg(link) }),
+    h('button', {
+      class: 'btn btn-ghost btn-block', style: { marginBottom: '10px' },
+      onclick: () => { close(); printQrPoster(link); }
+    }, '🖨 พิมพ์ QR ติดหน้าห้อง (A4)'),
     h('textarea', {
       rows: 4, value: link, readonly: true,
       style: { fontFamily: 'ui-monospace, monospace', fontSize: '11.5px' },
@@ -6191,6 +7244,34 @@ function showStudentLink() {
       '⚠️ ลิงก์นี้จะใช้ได้ก็ต่อเมื่อสร้าง Deployment ตัวที่ 2 แบบ "Anyone" แล้วเท่านั้น',
       h('br'), 'ถ้าใช้ลิงก์ของครู นักเรียนจะโดน Google ขอให้ล็อกอินแล้วเข้าไม่ได้ — กดปุ่ม "ต้อง Deploy เพิ่มยังไง" ดูขั้นตอน')
   ));
+}
+
+/**
+ * QR ของลิงก์ เป็น SVG — สร้างในเครื่องด้วย js/vendor/qrcode.js
+ * ไม่ส่งลิงก์ไปให้เว็บสร้าง QR ภายนอก (ไม่ต้องมีเน็ต และลิงก์ไม่รั่วไปที่อื่น)
+ * ระดับแก้ผิด M: สแกนติดแม้กระดาษยับ/แสงสะท้อนนิดหน่อย โดย QR ไม่แน่นเกินไป
+ */
+function qrSvg(text) {
+  const q = qrcode(0, 'M');
+  q.addData(text);
+  q.make();
+  return q.createSvgTag({ cellSize: 4, margin: 8, scalable: true, title: 'QR ลิงก์หน้าดูผลของนักเรียน' });
+}
+
+/** โปสเตอร์ A4 ติดหน้าห้อง — QR ใหญ่ + วิธีใช้สั้น ๆ */
+function printQrPoster(link) {
+  const cfg = state.config || {};
+  printPage(h('div', { class: 'qr-poster' },
+    h('div', { class: 'qr-poster-title' }, 'ดูคะแนนของตัวเอง'),
+    h('div', { class: 'qr-poster-sub' },
+      [cfg.teacher ? 'ครู' + cfg.teacher : '', `ภาคเรียนที่ ${cfg.term || '—'}/${cfg.year || '—'}`].filter(Boolean).join(' · ')),
+    h('div', { class: 'qr-poster-code', html: qrSvg(link) }),
+    h('ol', { class: 'qr-poster-steps' },
+      h('li', null, 'เปิดกล้องมือถือ แล้วสแกน QR นี้'),
+      h('li', null, 'กรอกเลขประจำตัวนักเรียน'),
+      h('li', null, 'ดูคะแนนเก็บ งานที่ยังไม่ส่ง และเวลาเรียนได้เลย')),
+    h('div', { class: 'qr-poster-link' }, link)
+  ), { title: 'QR ดูคะแนน' });
 }
 
 function showStudentHowTo() {
@@ -6316,6 +7397,2254 @@ function showTransfer() {
 }
 
 __exp(exports, { viewSettings });
+
+  };
+
+  __defs["js/vendor/qrcode.js"] = function (exports, __req) {
+/* qrcode-generator 2.0.4 (MIT · Kazuhiko Arase) — https://github.com/kazuhikoarase/qrcode-generator
+ * คัดลอกมาจาก dist/qrcode.mjs ของแพ็กเกจ npm ตามเดิมทุกบรรทัด ยกเว้น
+ *   · ตัดบรรทัด "export default qrcode;" ทิ้ง เพราะตัวรวมไฟล์ tools/build-webapp.mjs รองรับเฉพาะ export ชื่อ
+ * ใช้สร้าง QR ของลิงก์หน้านักเรียนในเครื่องเลย ไม่ต้องส่งลิงก์ไปให้เว็บสร้าง QR ภายนอก
+ * อย่าแก้ไฟล์นี้ — อยากอัปเวอร์ชันให้คัดลอกใหม่ทั้งไฟล์ */
+
+//---------------------------------------------------------------------
+//
+// QR Code Generator for JavaScript
+//
+// Copyright (c) 2009 Kazuhiko Arase
+//
+// URL: http://www.d-project.com/
+//
+// Licensed under the MIT license:
+//  http://www.opensource.org/licenses/mit-license.php
+//
+// The word 'QR Code' is registered trademark of
+// DENSO WAVE INCORPORATED
+//  http://www.denso-wave.com/qrcode/faqpatent-e.html
+//
+//---------------------------------------------------------------------
+
+//---------------------------------------------------------------------
+// qrcode
+//---------------------------------------------------------------------
+
+/**
+ * qrcode
+ * @param typeNumber 1 to 40
+ * @param errorCorrectionLevel 'L','M','Q','H'
+ */
+const qrcode = function(typeNumber, errorCorrectionLevel) {
+
+  const PAD0 = 0xEC;
+  const PAD1 = 0x11;
+
+  let _typeNumber = typeNumber;
+  const _errorCorrectionLevel = QRErrorCorrectionLevel[errorCorrectionLevel];
+  let _modules = null;
+  let _moduleCount = 0;
+  let _dataCache = null;
+  const _dataList = [];
+
+  const _this = {};
+
+  const makeImpl = function(test, maskPattern) {
+
+    _moduleCount = _typeNumber * 4 + 17;
+    _modules = function(moduleCount) {
+      const modules = new Array(moduleCount);
+      for (let row = 0; row < moduleCount; row += 1) {
+        modules[row] = new Array(moduleCount);
+        for (let col = 0; col < moduleCount; col += 1) {
+          modules[row][col] = null;
+        }
+      }
+      return modules;
+    }(_moduleCount);
+
+    setupPositionProbePattern(0, 0);
+    setupPositionProbePattern(_moduleCount - 7, 0);
+    setupPositionProbePattern(0, _moduleCount - 7);
+    setupPositionAdjustPattern();
+    setupTimingPattern();
+    setupTypeInfo(test, maskPattern);
+
+    if (_typeNumber >= 7) {
+      setupTypeNumber(test);
+    }
+
+    if (_dataCache == null) {
+      _dataCache = createData(_typeNumber, _errorCorrectionLevel, _dataList);
+    }
+
+    mapData(_dataCache, maskPattern);
+  };
+
+  const setupPositionProbePattern = function(row, col) {
+
+    for (let r = -1; r <= 7; r += 1) {
+
+      if (row + r <= -1 || _moduleCount <= row + r) continue;
+
+      for (let c = -1; c <= 7; c += 1) {
+
+        if (col + c <= -1 || _moduleCount <= col + c) continue;
+
+        if ( (0 <= r && r <= 6 && (c == 0 || c == 6) )
+            || (0 <= c && c <= 6 && (r == 0 || r == 6) )
+            || (2 <= r && r <= 4 && 2 <= c && c <= 4) ) {
+          _modules[row + r][col + c] = true;
+        } else {
+          _modules[row + r][col + c] = false;
+        }
+      }
+    }
+  };
+
+  const getBestMaskPattern = function() {
+
+    let minLostPoint = 0;
+    let pattern = 0;
+
+    for (let i = 0; i < 8; i += 1) {
+
+      makeImpl(true, i);
+
+      const lostPoint = QRUtil.getLostPoint(_this);
+
+      if (i == 0 || minLostPoint > lostPoint) {
+        minLostPoint = lostPoint;
+        pattern = i;
+      }
+    }
+
+    return pattern;
+  };
+
+  const setupTimingPattern = function() {
+
+    for (let r = 8; r < _moduleCount - 8; r += 1) {
+      if (_modules[r][6] != null) {
+        continue;
+      }
+      _modules[r][6] = (r % 2 == 0);
+    }
+
+    for (let c = 8; c < _moduleCount - 8; c += 1) {
+      if (_modules[6][c] != null) {
+        continue;
+      }
+      _modules[6][c] = (c % 2 == 0);
+    }
+  };
+
+  const setupPositionAdjustPattern = function() {
+
+    const pos = QRUtil.getPatternPosition(_typeNumber);
+
+    for (let i = 0; i < pos.length; i += 1) {
+
+      for (let j = 0; j < pos.length; j += 1) {
+
+        const row = pos[i];
+        const col = pos[j];
+
+        if (_modules[row][col] != null) {
+          continue;
+        }
+
+        for (let r = -2; r <= 2; r += 1) {
+
+          for (let c = -2; c <= 2; c += 1) {
+
+            if (r == -2 || r == 2 || c == -2 || c == 2
+                || (r == 0 && c == 0) ) {
+              _modules[row + r][col + c] = true;
+            } else {
+              _modules[row + r][col + c] = false;
+            }
+          }
+        }
+      }
+    }
+  };
+
+  const setupTypeNumber = function(test) {
+
+    const bits = QRUtil.getBCHTypeNumber(_typeNumber);
+
+    for (let i = 0; i < 18; i += 1) {
+      const mod = (!test && ( (bits >> i) & 1) == 1);
+      _modules[Math.floor(i / 3)][i % 3 + _moduleCount - 8 - 3] = mod;
+    }
+
+    for (let i = 0; i < 18; i += 1) {
+      const mod = (!test && ( (bits >> i) & 1) == 1);
+      _modules[i % 3 + _moduleCount - 8 - 3][Math.floor(i / 3)] = mod;
+    }
+  };
+
+  const setupTypeInfo = function(test, maskPattern) {
+
+    const data = (_errorCorrectionLevel << 3) | maskPattern;
+    const bits = QRUtil.getBCHTypeInfo(data);
+
+    // vertical
+    for (let i = 0; i < 15; i += 1) {
+
+      const mod = (!test && ( (bits >> i) & 1) == 1);
+
+      if (i < 6) {
+        _modules[i][8] = mod;
+      } else if (i < 8) {
+        _modules[i + 1][8] = mod;
+      } else {
+        _modules[_moduleCount - 15 + i][8] = mod;
+      }
+    }
+
+    // horizontal
+    for (let i = 0; i < 15; i += 1) {
+
+      const mod = (!test && ( (bits >> i) & 1) == 1);
+
+      if (i < 8) {
+        _modules[8][_moduleCount - i - 1] = mod;
+      } else if (i < 9) {
+        _modules[8][15 - i - 1 + 1] = mod;
+      } else {
+        _modules[8][15 - i - 1] = mod;
+      }
+    }
+
+    // fixed module
+    _modules[_moduleCount - 8][8] = (!test);
+  };
+
+  const mapData = function(data, maskPattern) {
+
+    let inc = -1;
+    let row = _moduleCount - 1;
+    let bitIndex = 7;
+    let byteIndex = 0;
+    const maskFunc = QRUtil.getMaskFunction(maskPattern);
+
+    for (let col = _moduleCount - 1; col > 0; col -= 2) {
+
+      if (col == 6) col -= 1;
+
+      while (true) {
+
+        for (let c = 0; c < 2; c += 1) {
+
+          if (_modules[row][col - c] == null) {
+
+            let dark = false;
+
+            if (byteIndex < data.length) {
+              dark = ( ( (data[byteIndex] >>> bitIndex) & 1) == 1);
+            }
+
+            const mask = maskFunc(row, col - c);
+
+            if (mask) {
+              dark = !dark;
+            }
+
+            _modules[row][col - c] = dark;
+            bitIndex -= 1;
+
+            if (bitIndex == -1) {
+              byteIndex += 1;
+              bitIndex = 7;
+            }
+          }
+        }
+
+        row += inc;
+
+        if (row < 0 || _moduleCount <= row) {
+          row -= inc;
+          inc = -inc;
+          break;
+        }
+      }
+    }
+  };
+
+  const createBytes = function(buffer, rsBlocks) {
+
+    let offset = 0;
+
+    let maxDcCount = 0;
+    let maxEcCount = 0;
+
+    const dcdata = new Array(rsBlocks.length);
+    const ecdata = new Array(rsBlocks.length);
+
+    for (let r = 0; r < rsBlocks.length; r += 1) {
+
+      const dcCount = rsBlocks[r].dataCount;
+      const ecCount = rsBlocks[r].totalCount - dcCount;
+
+      maxDcCount = Math.max(maxDcCount, dcCount);
+      maxEcCount = Math.max(maxEcCount, ecCount);
+
+      dcdata[r] = new Array(dcCount);
+
+      for (let i = 0; i < dcdata[r].length; i += 1) {
+        dcdata[r][i] = 0xff & buffer.getBuffer()[i + offset];
+      }
+      offset += dcCount;
+
+      const rsPoly = QRUtil.getErrorCorrectPolynomial(ecCount);
+      const rawPoly = qrPolynomial(dcdata[r], rsPoly.getLength() - 1);
+
+      const modPoly = rawPoly.mod(rsPoly);
+      ecdata[r] = new Array(rsPoly.getLength() - 1);
+      for (let i = 0; i < ecdata[r].length; i += 1) {
+        const modIndex = i + modPoly.getLength() - ecdata[r].length;
+        ecdata[r][i] = (modIndex >= 0)? modPoly.getAt(modIndex) : 0;
+      }
+    }
+
+    let totalCodeCount = 0;
+    for (let i = 0; i < rsBlocks.length; i += 1) {
+      totalCodeCount += rsBlocks[i].totalCount;
+    }
+
+    const data = new Array(totalCodeCount);
+    let index = 0;
+
+    for (let i = 0; i < maxDcCount; i += 1) {
+      for (let r = 0; r < rsBlocks.length; r += 1) {
+        if (i < dcdata[r].length) {
+          data[index] = dcdata[r][i];
+          index += 1;
+        }
+      }
+    }
+
+    for (let i = 0; i < maxEcCount; i += 1) {
+      for (let r = 0; r < rsBlocks.length; r += 1) {
+        if (i < ecdata[r].length) {
+          data[index] = ecdata[r][i];
+          index += 1;
+        }
+      }
+    }
+
+    return data;
+  };
+
+  const createData = function(typeNumber, errorCorrectionLevel, dataList) {
+
+    const rsBlocks = QRRSBlock.getRSBlocks(typeNumber, errorCorrectionLevel);
+
+    const buffer = qrBitBuffer();
+
+    for (let i = 0; i < dataList.length; i += 1) {
+      const data = dataList[i];
+      buffer.put(data.getMode(), 4);
+      buffer.put(data.getLength(), QRUtil.getLengthInBits(data.getMode(), typeNumber) );
+      data.write(buffer);
+    }
+
+    // calc num max data.
+    let totalDataCount = 0;
+    for (let i = 0; i < rsBlocks.length; i += 1) {
+      totalDataCount += rsBlocks[i].dataCount;
+    }
+
+    if (buffer.getLengthInBits() > totalDataCount * 8) {
+      throw 'code length overflow. ('
+        + buffer.getLengthInBits()
+        + '>'
+        + totalDataCount * 8
+        + ')';
+    }
+
+    // end code
+    if (buffer.getLengthInBits() + 4 <= totalDataCount * 8) {
+      buffer.put(0, 4);
+    }
+
+    // padding
+    while (buffer.getLengthInBits() % 8 != 0) {
+      buffer.putBit(false);
+    }
+
+    // padding
+    while (true) {
+
+      if (buffer.getLengthInBits() >= totalDataCount * 8) {
+        break;
+      }
+      buffer.put(PAD0, 8);
+
+      if (buffer.getLengthInBits() >= totalDataCount * 8) {
+        break;
+      }
+      buffer.put(PAD1, 8);
+    }
+
+    return createBytes(buffer, rsBlocks);
+  };
+
+  _this.addData = function(data, mode) {
+
+    mode = mode || 'Byte';
+
+    let newData = null;
+
+    switch(mode) {
+    case 'Numeric' :
+      newData = qrNumber(data);
+      break;
+    case 'Alphanumeric' :
+      newData = qrAlphaNum(data);
+      break;
+    case 'Byte' :
+      newData = qr8BitByte(data);
+      break;
+    case 'Kanji' :
+      newData = qrKanji(data);
+      break;
+    default :
+      throw 'mode:' + mode;
+    }
+
+    _dataList.push(newData);
+    _dataCache = null;
+  };
+
+  _this.isDark = function(row, col) {
+    if (row < 0 || _moduleCount <= row || col < 0 || _moduleCount <= col) {
+      throw row + ',' + col;
+    }
+    return _modules[row][col];
+  };
+
+  _this.getModuleCount = function() {
+    return _moduleCount;
+  };
+
+  _this.make = function() {
+    if (_typeNumber < 1) {
+      let typeNumber = 1;
+
+      for (; typeNumber < 40; typeNumber++) {
+        const rsBlocks = QRRSBlock.getRSBlocks(typeNumber, _errorCorrectionLevel);
+        const buffer = qrBitBuffer();
+
+        for (let i = 0; i < _dataList.length; i++) {
+          const data = _dataList[i];
+          buffer.put(data.getMode(), 4);
+          buffer.put(data.getLength(), QRUtil.getLengthInBits(data.getMode(), typeNumber) );
+          data.write(buffer);
+        }
+
+        let totalDataCount = 0;
+        for (let i = 0; i < rsBlocks.length; i++) {
+          totalDataCount += rsBlocks[i].dataCount;
+        }
+
+        if (buffer.getLengthInBits() <= totalDataCount * 8) {
+          break;
+        }
+      }
+
+      _typeNumber = typeNumber;
+    }
+
+    makeImpl(false, getBestMaskPattern() );
+  };
+
+  _this.createTableTag = function(cellSize, margin) {
+
+    cellSize = cellSize || 2;
+    margin = (typeof margin == 'undefined')? cellSize * 4 : margin;
+
+    let qrHtml = '';
+
+    qrHtml += '<table style="';
+    qrHtml += ' border-width: 0px; border-style: none;';
+    qrHtml += ' border-collapse: collapse;';
+    qrHtml += ' padding: 0px; margin: ' + margin + 'px;';
+    qrHtml += '">';
+    qrHtml += '<tbody>';
+
+    for (let r = 0; r < _this.getModuleCount(); r += 1) {
+
+      qrHtml += '<tr>';
+
+      for (let c = 0; c < _this.getModuleCount(); c += 1) {
+        qrHtml += '<td style="';
+        qrHtml += ' border-width: 0px; border-style: none;';
+        qrHtml += ' border-collapse: collapse;';
+        qrHtml += ' padding: 0px; margin: 0px;';
+        qrHtml += ' width: ' + cellSize + 'px;';
+        qrHtml += ' height: ' + cellSize + 'px;';
+        qrHtml += ' background-color: ';
+        qrHtml += _this.isDark(r, c)? '#000000' : '#ffffff';
+        qrHtml += ';';
+        qrHtml += '"/>';
+      }
+
+      qrHtml += '</tr>';
+    }
+
+    qrHtml += '</tbody>';
+    qrHtml += '</table>';
+
+    return qrHtml;
+  };
+
+  _this.createSvgTag = function(cellSize, margin, alt, title) {
+
+    let opts = {};
+    if (typeof arguments[0] == 'object') {
+      // Called by options.
+      opts = arguments[0];
+      // overwrite cellSize and margin.
+      cellSize = opts.cellSize;
+      margin = opts.margin;
+      alt = opts.alt;
+      title = opts.title;
+    }
+
+    cellSize = cellSize || 2;
+    margin = (typeof margin == 'undefined')? cellSize * 4 : margin;
+
+    // Compose alt property surrogate
+    alt = (typeof alt === 'string') ? {text: alt} : alt || {};
+    alt.text = alt.text || null;
+    alt.id = (alt.text) ? alt.id || 'qrcode-description' : null;
+
+    // Compose title property surrogate
+    title = (typeof title === 'string') ? {text: title} : title || {};
+    title.text = title.text || null;
+    title.id = (title.text) ? title.id || 'qrcode-title' : null;
+
+    const size = _this.getModuleCount() * cellSize + margin * 2;
+    let c, mc, r, mr, qrSvg='', rect;
+
+    rect = 'l' + cellSize + ',0 0,' + cellSize +
+      ' -' + cellSize + ',0 0,-' + cellSize + 'z ';
+
+    qrSvg += '<svg version="1.1" xmlns="http://www.w3.org/2000/svg"';
+    qrSvg += !opts.scalable ? ' width="' + size + 'px" height="' + size + 'px"' : '';
+    qrSvg += ' viewBox="0 0 ' + size + ' ' + size + '" ';
+    qrSvg += ' preserveAspectRatio="xMinYMin meet"';
+    qrSvg += (title.text || alt.text) ? ' role="img" aria-labelledby="' +
+        escapeXml([title.id, alt.id].join(' ').trim() ) + '"' : '';
+    qrSvg += '>';
+    qrSvg += (title.text) ? '<title id="' + escapeXml(title.id) + '">' +
+        escapeXml(title.text) + '</title>' : '';
+    qrSvg += (alt.text) ? '<description id="' + escapeXml(alt.id) + '">' +
+        escapeXml(alt.text) + '</description>' : '';
+    qrSvg += '<rect width="100%" height="100%" fill="white" cx="0" cy="0"/>';
+    qrSvg += '<path d="';
+
+    for (r = 0; r < _this.getModuleCount(); r += 1) {
+      mr = r * cellSize + margin;
+      for (c = 0; c < _this.getModuleCount(); c += 1) {
+        if (_this.isDark(r, c) ) {
+          mc = c*cellSize+margin;
+          qrSvg += 'M' + mc + ',' + mr + rect;
+        }
+      }
+    }
+
+    qrSvg += '" stroke="transparent" fill="black"/>';
+    qrSvg += '</svg>';
+
+    return qrSvg;
+  };
+
+  _this.createDataURL = function(cellSize, margin) {
+
+    cellSize = cellSize || 2;
+    margin = (typeof margin == 'undefined')? cellSize * 4 : margin;
+
+    const size = _this.getModuleCount() * cellSize + margin * 2;
+    const min = margin;
+    const max = size - margin;
+
+    return createDataURL(size, size, function(x, y) {
+      if (min <= x && x < max && min <= y && y < max) {
+        const c = Math.floor( (x - min) / cellSize);
+        const r = Math.floor( (y - min) / cellSize);
+        return _this.isDark(r, c)? 0 : 1;
+      } else {
+        return 1;
+      }
+    } );
+  };
+
+  _this.createImgTag = function(cellSize, margin, alt) {
+
+    cellSize = cellSize || 2;
+    margin = (typeof margin == 'undefined')? cellSize * 4 : margin;
+
+    const size = _this.getModuleCount() * cellSize + margin * 2;
+
+    let img = '';
+    img += '<img';
+    img += '\u0020src="';
+    img += _this.createDataURL(cellSize, margin);
+    img += '"';
+    img += '\u0020width="';
+    img += size;
+    img += '"';
+    img += '\u0020height="';
+    img += size;
+    img += '"';
+    if (alt) {
+      img += '\u0020alt="';
+      img += escapeXml(alt);
+      img += '"';
+    }
+    img += '/>';
+
+    return img;
+  };
+
+  const escapeXml = function(s) {
+    let escaped = '';
+    for (let i = 0; i < s.length; i += 1) {
+      const c = s.charAt(i);
+      switch(c) {
+      case '<': escaped += '&lt;'; break;
+      case '>': escaped += '&gt;'; break;
+      case '&': escaped += '&amp;'; break;
+      case '"': escaped += '&quot;'; break;
+      default : escaped += c; break;
+      }
+    }
+    return escaped;
+  };
+
+  const _createHalfASCII = function(margin) {
+    const cellSize = 1;
+    margin = (typeof margin == 'undefined')? cellSize * 2 : margin;
+
+    const size = _this.getModuleCount() * cellSize + margin * 2;
+    const min = margin;
+    const max = size - margin;
+
+    let y, x, r1, r2, p;
+
+    const blocks = {
+      '██': '█',
+      '█ ': '▀',
+      ' █': '▄',
+      '  ': ' '
+    };
+
+    const blocksLastLineNoMargin = {
+      '██': '▀',
+      '█ ': '▀',
+      ' █': ' ',
+      '  ': ' '
+    };
+
+    let ascii = '';
+    for (y = 0; y < size; y += 2) {
+      r1 = Math.floor((y - min) / cellSize);
+      r2 = Math.floor((y + 1 - min) / cellSize);
+      for (x = 0; x < size; x += 1) {
+        p = '█';
+
+        if (min <= x && x < max && min <= y && y < max && _this.isDark(r1, Math.floor((x - min) / cellSize))) {
+          p = ' ';
+        }
+
+        if (min <= x && x < max && min <= y+1 && y+1 < max && _this.isDark(r2, Math.floor((x - min) / cellSize))) {
+          p += ' ';
+        }
+        else {
+          p += '█';
+        }
+
+        // Output 2 characters per pixel, to create full square. 1 character per pixels gives only half width of square.
+        ascii += (margin < 1 && y+1 >= max) ? blocksLastLineNoMargin[p] : blocks[p];
+      }
+
+      ascii += '\n';
+    }
+
+    if (size % 2 && margin > 0) {
+      return ascii.substring(0, ascii.length - size - 1) + Array(size+1).join('▀');
+    }
+
+    return ascii.substring(0, ascii.length-1);
+  };
+
+  _this.createASCII = function(cellSize, margin) {
+    cellSize = cellSize || 1;
+
+    if (cellSize < 2) {
+      return _createHalfASCII(margin);
+    }
+
+    cellSize -= 1;
+    margin = (typeof margin == 'undefined')? cellSize * 2 : margin;
+
+    const size = _this.getModuleCount() * cellSize + margin * 2;
+    const min = margin;
+    const max = size - margin;
+
+    let y, x, r, p;
+
+    const white = Array(cellSize+1).join('██');
+    const black = Array(cellSize+1).join('  ');
+
+    let ascii = '';
+    let line = '';
+    for (y = 0; y < size; y += 1) {
+      r = Math.floor( (y - min) / cellSize);
+      line = '';
+      for (x = 0; x < size; x += 1) {
+        p = 1;
+
+        if (min <= x && x < max && min <= y && y < max && _this.isDark(r, Math.floor((x - min) / cellSize))) {
+          p = 0;
+        }
+
+        // Output 2 characters per pixel, to create full square. 1 character per pixels gives only half width of square.
+        line += p ? white : black;
+      }
+
+      for (r = 0; r < cellSize; r += 1) {
+        ascii += line + '\n';
+      }
+    }
+
+    return ascii.substring(0, ascii.length-1);
+  };
+
+  _this.renderTo2dContext = function(context, cellSize) {
+    cellSize = cellSize || 2;
+    const length = _this.getModuleCount();
+    for (let row = 0; row < length; row++) {
+      for (let col = 0; col < length; col++) {
+        context.fillStyle = _this.isDark(row, col) ? 'black' : 'white';
+        context.fillRect(col * cellSize, row * cellSize, cellSize, cellSize);
+      }
+    }
+  }
+
+  return _this;
+};
+
+//---------------------------------------------------------------------
+// qrcode.stringToBytes
+//---------------------------------------------------------------------
+
+qrcode.stringToBytes = function(s) {
+  const bytes = [];
+  for (let i = 0; i < s.length; i += 1) {
+    const c = s.charCodeAt(i);
+    bytes.push(c & 0xff);
+  }
+  return bytes;
+};
+
+//---------------------------------------------------------------------
+// qrcode.createStringToBytes
+//---------------------------------------------------------------------
+
+/**
+ * @param unicodeData base64 string of byte array.
+ * [16bit Unicode],[16bit Bytes], ...
+ * @param numChars
+ */
+qrcode.createStringToBytes = function(unicodeData, numChars) {
+
+  // create conversion map.
+
+  const unicodeMap = function() {
+
+    const bin = base64DecodeInputStream(unicodeData);
+    const read = function() {
+      const b = bin.read();
+      if (b == -1) throw 'eof';
+      return b;
+    };
+
+    let count = 0;
+    const unicodeMap = {};
+    while (true) {
+      const b0 = bin.read();
+      if (b0 == -1) break;
+      const b1 = read();
+      const b2 = read();
+      const b3 = read();
+      const k = String.fromCharCode( (b0 << 8) | b1);
+      const v = (b2 << 8) | b3;
+      unicodeMap[k] = v;
+      count += 1;
+    }
+    if (count != numChars) {
+      throw count + ' != ' + numChars;
+    }
+
+    return unicodeMap;
+  }();
+
+  const unknownChar = '?'.charCodeAt(0);
+
+  return function(s) {
+    const bytes = [];
+    for (let i = 0; i < s.length; i += 1) {
+      const c = s.charCodeAt(i);
+      if (c < 128) {
+        bytes.push(c);
+      } else {
+        const b = unicodeMap[s.charAt(i)];
+        if (typeof b == 'number') {
+          if ( (b & 0xff) == b) {
+            // 1byte
+            bytes.push(b);
+          } else {
+            // 2bytes
+            bytes.push(b >>> 8);
+            bytes.push(b & 0xff);
+          }
+        } else {
+          bytes.push(unknownChar);
+        }
+      }
+    }
+    return bytes;
+  };
+};
+
+//---------------------------------------------------------------------
+// QRMode
+//---------------------------------------------------------------------
+
+const QRMode = {
+  MODE_NUMBER :    1 << 0,
+  MODE_ALPHA_NUM : 1 << 1,
+  MODE_8BIT_BYTE : 1 << 2,
+  MODE_KANJI :     1 << 3
+};
+
+//---------------------------------------------------------------------
+// QRErrorCorrectionLevel
+//---------------------------------------------------------------------
+
+const QRErrorCorrectionLevel = {
+  L : 1,
+  M : 0,
+  Q : 3,
+  H : 2
+};
+
+//---------------------------------------------------------------------
+// QRMaskPattern
+//---------------------------------------------------------------------
+
+const QRMaskPattern = {
+  PATTERN000 : 0,
+  PATTERN001 : 1,
+  PATTERN010 : 2,
+  PATTERN011 : 3,
+  PATTERN100 : 4,
+  PATTERN101 : 5,
+  PATTERN110 : 6,
+  PATTERN111 : 7
+};
+
+//---------------------------------------------------------------------
+// QRUtil
+//---------------------------------------------------------------------
+
+const QRUtil = function() {
+
+  const PATTERN_POSITION_TABLE = [
+    [],
+    [6, 18],
+    [6, 22],
+    [6, 26],
+    [6, 30],
+    [6, 34],
+    [6, 22, 38],
+    [6, 24, 42],
+    [6, 26, 46],
+    [6, 28, 50],
+    [6, 30, 54],
+    [6, 32, 58],
+    [6, 34, 62],
+    [6, 26, 46, 66],
+    [6, 26, 48, 70],
+    [6, 26, 50, 74],
+    [6, 30, 54, 78],
+    [6, 30, 56, 82],
+    [6, 30, 58, 86],
+    [6, 34, 62, 90],
+    [6, 28, 50, 72, 94],
+    [6, 26, 50, 74, 98],
+    [6, 30, 54, 78, 102],
+    [6, 28, 54, 80, 106],
+    [6, 32, 58, 84, 110],
+    [6, 30, 58, 86, 114],
+    [6, 34, 62, 90, 118],
+    [6, 26, 50, 74, 98, 122],
+    [6, 30, 54, 78, 102, 126],
+    [6, 26, 52, 78, 104, 130],
+    [6, 30, 56, 82, 108, 134],
+    [6, 34, 60, 86, 112, 138],
+    [6, 30, 58, 86, 114, 142],
+    [6, 34, 62, 90, 118, 146],
+    [6, 30, 54, 78, 102, 126, 150],
+    [6, 24, 50, 76, 102, 128, 154],
+    [6, 28, 54, 80, 106, 132, 158],
+    [6, 32, 58, 84, 110, 136, 162],
+    [6, 26, 54, 82, 110, 138, 166],
+    [6, 30, 58, 86, 114, 142, 170]
+  ];
+  const G15 = (1 << 10) | (1 << 8) | (1 << 5) | (1 << 4) | (1 << 2) | (1 << 1) | (1 << 0);
+  const G18 = (1 << 12) | (1 << 11) | (1 << 10) | (1 << 9) | (1 << 8) | (1 << 5) | (1 << 2) | (1 << 0);
+  const G15_MASK = (1 << 14) | (1 << 12) | (1 << 10) | (1 << 4) | (1 << 1);
+
+  const _this = {};
+
+  const getBCHDigit = function(data) {
+    let digit = 0;
+    while (data != 0) {
+      digit += 1;
+      data >>>= 1;
+    }
+    return digit;
+  };
+
+  _this.getBCHTypeInfo = function(data) {
+    let d = data << 10;
+    while (getBCHDigit(d) - getBCHDigit(G15) >= 0) {
+      d ^= (G15 << (getBCHDigit(d) - getBCHDigit(G15) ) );
+    }
+    return ( (data << 10) | d) ^ G15_MASK;
+  };
+
+  _this.getBCHTypeNumber = function(data) {
+    let d = data << 12;
+    while (getBCHDigit(d) - getBCHDigit(G18) >= 0) {
+      d ^= (G18 << (getBCHDigit(d) - getBCHDigit(G18) ) );
+    }
+    return (data << 12) | d;
+  };
+
+  _this.getPatternPosition = function(typeNumber) {
+    return PATTERN_POSITION_TABLE[typeNumber - 1];
+  };
+
+  _this.getMaskFunction = function(maskPattern) {
+
+    switch (maskPattern) {
+
+    case QRMaskPattern.PATTERN000 :
+      return function(i, j) { return (i + j) % 2 == 0; };
+    case QRMaskPattern.PATTERN001 :
+      return function(i, j) { return i % 2 == 0; };
+    case QRMaskPattern.PATTERN010 :
+      return function(i, j) { return j % 3 == 0; };
+    case QRMaskPattern.PATTERN011 :
+      return function(i, j) { return (i + j) % 3 == 0; };
+    case QRMaskPattern.PATTERN100 :
+      return function(i, j) { return (Math.floor(i / 2) + Math.floor(j / 3) ) % 2 == 0; };
+    case QRMaskPattern.PATTERN101 :
+      return function(i, j) { return (i * j) % 2 + (i * j) % 3 == 0; };
+    case QRMaskPattern.PATTERN110 :
+      return function(i, j) { return ( (i * j) % 2 + (i * j) % 3) % 2 == 0; };
+    case QRMaskPattern.PATTERN111 :
+      return function(i, j) { return ( (i * j) % 3 + (i + j) % 2) % 2 == 0; };
+
+    default :
+      throw 'bad maskPattern:' + maskPattern;
+    }
+  };
+
+  _this.getErrorCorrectPolynomial = function(errorCorrectLength) {
+    let a = qrPolynomial([1], 0);
+    for (let i = 0; i < errorCorrectLength; i += 1) {
+      a = a.multiply(qrPolynomial([1, QRMath.gexp(i)], 0) );
+    }
+    return a;
+  };
+
+  _this.getLengthInBits = function(mode, type) {
+
+    if (1 <= type && type < 10) {
+
+      // 1 - 9
+
+      switch(mode) {
+      case QRMode.MODE_NUMBER    : return 10;
+      case QRMode.MODE_ALPHA_NUM : return 9;
+      case QRMode.MODE_8BIT_BYTE : return 8;
+      case QRMode.MODE_KANJI     : return 8;
+      default :
+        throw 'mode:' + mode;
+      }
+
+    } else if (type < 27) {
+
+      // 10 - 26
+
+      switch(mode) {
+      case QRMode.MODE_NUMBER    : return 12;
+      case QRMode.MODE_ALPHA_NUM : return 11;
+      case QRMode.MODE_8BIT_BYTE : return 16;
+      case QRMode.MODE_KANJI     : return 10;
+      default :
+        throw 'mode:' + mode;
+      }
+
+    } else if (type < 41) {
+
+      // 27 - 40
+
+      switch(mode) {
+      case QRMode.MODE_NUMBER    : return 14;
+      case QRMode.MODE_ALPHA_NUM : return 13;
+      case QRMode.MODE_8BIT_BYTE : return 16;
+      case QRMode.MODE_KANJI     : return 12;
+      default :
+        throw 'mode:' + mode;
+      }
+
+    } else {
+      throw 'type:' + type;
+    }
+  };
+
+  _this.getLostPoint = function(qrcode) {
+
+    const moduleCount = qrcode.getModuleCount();
+
+    let lostPoint = 0;
+
+    // LEVEL1
+
+    for (let row = 0; row < moduleCount; row += 1) {
+      for (let col = 0; col < moduleCount; col += 1) {
+
+        let sameCount = 0;
+        const dark = qrcode.isDark(row, col);
+
+        for (let r = -1; r <= 1; r += 1) {
+
+          if (row + r < 0 || moduleCount <= row + r) {
+            continue;
+          }
+
+          for (let c = -1; c <= 1; c += 1) {
+
+            if (col + c < 0 || moduleCount <= col + c) {
+              continue;
+            }
+
+            if (r == 0 && c == 0) {
+              continue;
+            }
+
+            if (dark == qrcode.isDark(row + r, col + c) ) {
+              sameCount += 1;
+            }
+          }
+        }
+
+        if (sameCount > 5) {
+          lostPoint += (3 + sameCount - 5);
+        }
+      }
+    };
+
+    // LEVEL2
+
+    for (let row = 0; row < moduleCount - 1; row += 1) {
+      for (let col = 0; col < moduleCount - 1; col += 1) {
+        let count = 0;
+        if (qrcode.isDark(row, col) ) count += 1;
+        if (qrcode.isDark(row + 1, col) ) count += 1;
+        if (qrcode.isDark(row, col + 1) ) count += 1;
+        if (qrcode.isDark(row + 1, col + 1) ) count += 1;
+        if (count == 0 || count == 4) {
+          lostPoint += 3;
+        }
+      }
+    }
+
+    // LEVEL3
+
+    for (let row = 0; row < moduleCount; row += 1) {
+      for (let col = 0; col < moduleCount - 6; col += 1) {
+        if (qrcode.isDark(row, col)
+            && !qrcode.isDark(row, col + 1)
+            &&  qrcode.isDark(row, col + 2)
+            &&  qrcode.isDark(row, col + 3)
+            &&  qrcode.isDark(row, col + 4)
+            && !qrcode.isDark(row, col + 5)
+            &&  qrcode.isDark(row, col + 6) ) {
+          lostPoint += 40;
+        }
+      }
+    }
+
+    for (let col = 0; col < moduleCount; col += 1) {
+      for (let row = 0; row < moduleCount - 6; row += 1) {
+        if (qrcode.isDark(row, col)
+            && !qrcode.isDark(row + 1, col)
+            &&  qrcode.isDark(row + 2, col)
+            &&  qrcode.isDark(row + 3, col)
+            &&  qrcode.isDark(row + 4, col)
+            && !qrcode.isDark(row + 5, col)
+            &&  qrcode.isDark(row + 6, col) ) {
+          lostPoint += 40;
+        }
+      }
+    }
+
+    // LEVEL4
+
+    let darkCount = 0;
+
+    for (let col = 0; col < moduleCount; col += 1) {
+      for (let row = 0; row < moduleCount; row += 1) {
+        if (qrcode.isDark(row, col) ) {
+          darkCount += 1;
+        }
+      }
+    }
+
+    const ratio = Math.abs(100 * darkCount / moduleCount / moduleCount - 50) / 5;
+    lostPoint += ratio * 10;
+
+    return lostPoint;
+  };
+
+  return _this;
+}();
+
+//---------------------------------------------------------------------
+// QRMath
+//---------------------------------------------------------------------
+
+const QRMath = function() {
+
+  const EXP_TABLE = new Array(256);
+  const LOG_TABLE = new Array(256);
+
+  // initialize tables
+  for (let i = 0; i < 8; i += 1) {
+    EXP_TABLE[i] = 1 << i;
+  }
+  for (let i = 8; i < 256; i += 1) {
+    EXP_TABLE[i] = EXP_TABLE[i - 4]
+      ^ EXP_TABLE[i - 5]
+      ^ EXP_TABLE[i - 6]
+      ^ EXP_TABLE[i - 8];
+  }
+  for (let i = 0; i < 255; i += 1) {
+    LOG_TABLE[EXP_TABLE[i] ] = i;
+  }
+
+  const _this = {};
+
+  _this.glog = function(n) {
+
+    if (n < 1) {
+      throw 'glog(' + n + ')';
+    }
+
+    return LOG_TABLE[n];
+  };
+
+  _this.gexp = function(n) {
+
+    while (n < 0) {
+      n += 255;
+    }
+
+    while (n >= 256) {
+      n -= 255;
+    }
+
+    return EXP_TABLE[n];
+  };
+
+  return _this;
+}();
+
+//---------------------------------------------------------------------
+// qrPolynomial
+//---------------------------------------------------------------------
+
+const qrPolynomial = function(num, shift) {
+
+  if (typeof num.length == 'undefined') {
+    throw num.length + '/' + shift;
+  }
+
+  const _num = function() {
+    let offset = 0;
+    while (offset < num.length && num[offset] == 0) {
+      offset += 1;
+    }
+    const _num = new Array(num.length - offset + shift);
+    for (let i = 0; i < num.length - offset; i += 1) {
+      _num[i] = num[i + offset];
+    }
+    return _num;
+  }();
+
+  const _this = {};
+
+  _this.getAt = function(index) {
+    return _num[index];
+  };
+
+  _this.getLength = function() {
+    return _num.length;
+  };
+
+  _this.multiply = function(e) {
+
+    const num = new Array(_this.getLength() + e.getLength() - 1);
+
+    for (let i = 0; i < _this.getLength(); i += 1) {
+      for (let j = 0; j < e.getLength(); j += 1) {
+        num[i + j] ^= QRMath.gexp(QRMath.glog(_this.getAt(i) ) + QRMath.glog(e.getAt(j) ) );
+      }
+    }
+
+    return qrPolynomial(num, 0);
+  };
+
+  _this.mod = function(e) {
+
+    if (_this.getLength() - e.getLength() < 0) {
+      return _this;
+    }
+
+    const ratio = QRMath.glog(_this.getAt(0) ) - QRMath.glog(e.getAt(0) );
+
+    const num = new Array(_this.getLength() );
+    for (let i = 0; i < _this.getLength(); i += 1) {
+      num[i] = _this.getAt(i);
+    }
+
+    for (let i = 0; i < e.getLength(); i += 1) {
+      num[i] ^= QRMath.gexp(QRMath.glog(e.getAt(i) ) + ratio);
+    }
+
+    // recursive call
+    return qrPolynomial(num, 0).mod(e);
+  };
+
+  return _this;
+};
+
+//---------------------------------------------------------------------
+// QRRSBlock
+//---------------------------------------------------------------------
+
+const QRRSBlock = function() {
+
+  const RS_BLOCK_TABLE = [
+
+    // L
+    // M
+    // Q
+    // H
+
+    // 1
+    [1, 26, 19],
+    [1, 26, 16],
+    [1, 26, 13],
+    [1, 26, 9],
+
+    // 2
+    [1, 44, 34],
+    [1, 44, 28],
+    [1, 44, 22],
+    [1, 44, 16],
+
+    // 3
+    [1, 70, 55],
+    [1, 70, 44],
+    [2, 35, 17],
+    [2, 35, 13],
+
+    // 4
+    [1, 100, 80],
+    [2, 50, 32],
+    [2, 50, 24],
+    [4, 25, 9],
+
+    // 5
+    [1, 134, 108],
+    [2, 67, 43],
+    [2, 33, 15, 2, 34, 16],
+    [2, 33, 11, 2, 34, 12],
+
+    // 6
+    [2, 86, 68],
+    [4, 43, 27],
+    [4, 43, 19],
+    [4, 43, 15],
+
+    // 7
+    [2, 98, 78],
+    [4, 49, 31],
+    [2, 32, 14, 4, 33, 15],
+    [4, 39, 13, 1, 40, 14],
+
+    // 8
+    [2, 121, 97],
+    [2, 60, 38, 2, 61, 39],
+    [4, 40, 18, 2, 41, 19],
+    [4, 40, 14, 2, 41, 15],
+
+    // 9
+    [2, 146, 116],
+    [3, 58, 36, 2, 59, 37],
+    [4, 36, 16, 4, 37, 17],
+    [4, 36, 12, 4, 37, 13],
+
+    // 10
+    [2, 86, 68, 2, 87, 69],
+    [4, 69, 43, 1, 70, 44],
+    [6, 43, 19, 2, 44, 20],
+    [6, 43, 15, 2, 44, 16],
+
+    // 11
+    [4, 101, 81],
+    [1, 80, 50, 4, 81, 51],
+    [4, 50, 22, 4, 51, 23],
+    [3, 36, 12, 8, 37, 13],
+
+    // 12
+    [2, 116, 92, 2, 117, 93],
+    [6, 58, 36, 2, 59, 37],
+    [4, 46, 20, 6, 47, 21],
+    [7, 42, 14, 4, 43, 15],
+
+    // 13
+    [4, 133, 107],
+    [8, 59, 37, 1, 60, 38],
+    [8, 44, 20, 4, 45, 21],
+    [12, 33, 11, 4, 34, 12],
+
+    // 14
+    [3, 145, 115, 1, 146, 116],
+    [4, 64, 40, 5, 65, 41],
+    [11, 36, 16, 5, 37, 17],
+    [11, 36, 12, 5, 37, 13],
+
+    // 15
+    [5, 109, 87, 1, 110, 88],
+    [5, 65, 41, 5, 66, 42],
+    [5, 54, 24, 7, 55, 25],
+    [11, 36, 12, 7, 37, 13],
+
+    // 16
+    [5, 122, 98, 1, 123, 99],
+    [7, 73, 45, 3, 74, 46],
+    [15, 43, 19, 2, 44, 20],
+    [3, 45, 15, 13, 46, 16],
+
+    // 17
+    [1, 135, 107, 5, 136, 108],
+    [10, 74, 46, 1, 75, 47],
+    [1, 50, 22, 15, 51, 23],
+    [2, 42, 14, 17, 43, 15],
+
+    // 18
+    [5, 150, 120, 1, 151, 121],
+    [9, 69, 43, 4, 70, 44],
+    [17, 50, 22, 1, 51, 23],
+    [2, 42, 14, 19, 43, 15],
+
+    // 19
+    [3, 141, 113, 4, 142, 114],
+    [3, 70, 44, 11, 71, 45],
+    [17, 47, 21, 4, 48, 22],
+    [9, 39, 13, 16, 40, 14],
+
+    // 20
+    [3, 135, 107, 5, 136, 108],
+    [3, 67, 41, 13, 68, 42],
+    [15, 54, 24, 5, 55, 25],
+    [15, 43, 15, 10, 44, 16],
+
+    // 21
+    [4, 144, 116, 4, 145, 117],
+    [17, 68, 42],
+    [17, 50, 22, 6, 51, 23],
+    [19, 46, 16, 6, 47, 17],
+
+    // 22
+    [2, 139, 111, 7, 140, 112],
+    [17, 74, 46],
+    [7, 54, 24, 16, 55, 25],
+    [34, 37, 13],
+
+    // 23
+    [4, 151, 121, 5, 152, 122],
+    [4, 75, 47, 14, 76, 48],
+    [11, 54, 24, 14, 55, 25],
+    [16, 45, 15, 14, 46, 16],
+
+    // 24
+    [6, 147, 117, 4, 148, 118],
+    [6, 73, 45, 14, 74, 46],
+    [11, 54, 24, 16, 55, 25],
+    [30, 46, 16, 2, 47, 17],
+
+    // 25
+    [8, 132, 106, 4, 133, 107],
+    [8, 75, 47, 13, 76, 48],
+    [7, 54, 24, 22, 55, 25],
+    [22, 45, 15, 13, 46, 16],
+
+    // 26
+    [10, 142, 114, 2, 143, 115],
+    [19, 74, 46, 4, 75, 47],
+    [28, 50, 22, 6, 51, 23],
+    [33, 46, 16, 4, 47, 17],
+
+    // 27
+    [8, 152, 122, 4, 153, 123],
+    [22, 73, 45, 3, 74, 46],
+    [8, 53, 23, 26, 54, 24],
+    [12, 45, 15, 28, 46, 16],
+
+    // 28
+    [3, 147, 117, 10, 148, 118],
+    [3, 73, 45, 23, 74, 46],
+    [4, 54, 24, 31, 55, 25],
+    [11, 45, 15, 31, 46, 16],
+
+    // 29
+    [7, 146, 116, 7, 147, 117],
+    [21, 73, 45, 7, 74, 46],
+    [1, 53, 23, 37, 54, 24],
+    [19, 45, 15, 26, 46, 16],
+
+    // 30
+    [5, 145, 115, 10, 146, 116],
+    [19, 75, 47, 10, 76, 48],
+    [15, 54, 24, 25, 55, 25],
+    [23, 45, 15, 25, 46, 16],
+
+    // 31
+    [13, 145, 115, 3, 146, 116],
+    [2, 74, 46, 29, 75, 47],
+    [42, 54, 24, 1, 55, 25],
+    [23, 45, 15, 28, 46, 16],
+
+    // 32
+    [17, 145, 115],
+    [10, 74, 46, 23, 75, 47],
+    [10, 54, 24, 35, 55, 25],
+    [19, 45, 15, 35, 46, 16],
+
+    // 33
+    [17, 145, 115, 1, 146, 116],
+    [14, 74, 46, 21, 75, 47],
+    [29, 54, 24, 19, 55, 25],
+    [11, 45, 15, 46, 46, 16],
+
+    // 34
+    [13, 145, 115, 6, 146, 116],
+    [14, 74, 46, 23, 75, 47],
+    [44, 54, 24, 7, 55, 25],
+    [59, 46, 16, 1, 47, 17],
+
+    // 35
+    [12, 151, 121, 7, 152, 122],
+    [12, 75, 47, 26, 76, 48],
+    [39, 54, 24, 14, 55, 25],
+    [22, 45, 15, 41, 46, 16],
+
+    // 36
+    [6, 151, 121, 14, 152, 122],
+    [6, 75, 47, 34, 76, 48],
+    [46, 54, 24, 10, 55, 25],
+    [2, 45, 15, 64, 46, 16],
+
+    // 37
+    [17, 152, 122, 4, 153, 123],
+    [29, 74, 46, 14, 75, 47],
+    [49, 54, 24, 10, 55, 25],
+    [24, 45, 15, 46, 46, 16],
+
+    // 38
+    [4, 152, 122, 18, 153, 123],
+    [13, 74, 46, 32, 75, 47],
+    [48, 54, 24, 14, 55, 25],
+    [42, 45, 15, 32, 46, 16],
+
+    // 39
+    [20, 147, 117, 4, 148, 118],
+    [40, 75, 47, 7, 76, 48],
+    [43, 54, 24, 22, 55, 25],
+    [10, 45, 15, 67, 46, 16],
+
+    // 40
+    [19, 148, 118, 6, 149, 119],
+    [18, 75, 47, 31, 76, 48],
+    [34, 54, 24, 34, 55, 25],
+    [20, 45, 15, 61, 46, 16]
+  ];
+
+  const qrRSBlock = function(totalCount, dataCount) {
+    const _this = {};
+    _this.totalCount = totalCount;
+    _this.dataCount = dataCount;
+    return _this;
+  };
+
+  const _this = {};
+
+  const getRsBlockTable = function(typeNumber, errorCorrectionLevel) {
+
+    switch(errorCorrectionLevel) {
+    case QRErrorCorrectionLevel.L :
+      return RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 0];
+    case QRErrorCorrectionLevel.M :
+      return RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 1];
+    case QRErrorCorrectionLevel.Q :
+      return RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 2];
+    case QRErrorCorrectionLevel.H :
+      return RS_BLOCK_TABLE[(typeNumber - 1) * 4 + 3];
+    default :
+      return undefined;
+    }
+  };
+
+  _this.getRSBlocks = function(typeNumber, errorCorrectionLevel) {
+
+    const rsBlock = getRsBlockTable(typeNumber, errorCorrectionLevel);
+
+    if (typeof rsBlock == 'undefined') {
+      throw 'bad rs block @ typeNumber:' + typeNumber +
+          '/errorCorrectionLevel:' + errorCorrectionLevel;
+    }
+
+    const length = rsBlock.length / 3;
+
+    const list = [];
+
+    for (let i = 0; i < length; i += 1) {
+
+      const count = rsBlock[i * 3 + 0];
+      const totalCount = rsBlock[i * 3 + 1];
+      const dataCount = rsBlock[i * 3 + 2];
+
+      for (let j = 0; j < count; j += 1) {
+        list.push(qrRSBlock(totalCount, dataCount) );
+      }
+    }
+
+    return list;
+  };
+
+  return _this;
+}();
+
+//---------------------------------------------------------------------
+// qrBitBuffer
+//---------------------------------------------------------------------
+
+const qrBitBuffer = function() {
+
+  const _buffer = [];
+  let _length = 0;
+
+  const _this = {};
+
+  _this.getBuffer = function() {
+    return _buffer;
+  };
+
+  _this.getAt = function(index) {
+    const bufIndex = Math.floor(index / 8);
+    return ( (_buffer[bufIndex] >>> (7 - index % 8) ) & 1) == 1;
+  };
+
+  _this.put = function(num, length) {
+    for (let i = 0; i < length; i += 1) {
+      _this.putBit( ( (num >>> (length - i - 1) ) & 1) == 1);
+    }
+  };
+
+  _this.getLengthInBits = function() {
+    return _length;
+  };
+
+  _this.putBit = function(bit) {
+
+    const bufIndex = Math.floor(_length / 8);
+    if (_buffer.length <= bufIndex) {
+      _buffer.push(0);
+    }
+
+    if (bit) {
+      _buffer[bufIndex] |= (0x80 >>> (_length % 8) );
+    }
+
+    _length += 1;
+  };
+
+  return _this;
+};
+
+//---------------------------------------------------------------------
+// qrNumber
+//---------------------------------------------------------------------
+
+const qrNumber = function(data) {
+
+  const _mode = QRMode.MODE_NUMBER;
+  const _data = data;
+
+  const _this = {};
+
+  _this.getMode = function() {
+    return _mode;
+  };
+
+  _this.getLength = function(buffer) {
+    return _data.length;
+  };
+
+  _this.write = function(buffer) {
+
+    const data = _data;
+
+    let i = 0;
+
+    while (i + 2 < data.length) {
+      buffer.put(strToNum(data.substring(i, i + 3) ), 10);
+      i += 3;
+    }
+
+    if (i < data.length) {
+      if (data.length - i == 1) {
+        buffer.put(strToNum(data.substring(i, i + 1) ), 4);
+      } else if (data.length - i == 2) {
+        buffer.put(strToNum(data.substring(i, i + 2) ), 7);
+      }
+    }
+  };
+
+  const strToNum = function(s) {
+    let num = 0;
+    for (let i = 0; i < s.length; i += 1) {
+      num = num * 10 + chatToNum(s.charAt(i) );
+    }
+    return num;
+  };
+
+  const chatToNum = function(c) {
+    if ('0' <= c && c <= '9') {
+      return c.charCodeAt(0) - '0'.charCodeAt(0);
+    }
+    throw 'illegal char :' + c;
+  };
+
+  return _this;
+};
+
+//---------------------------------------------------------------------
+// qrAlphaNum
+//---------------------------------------------------------------------
+
+const qrAlphaNum = function(data) {
+
+  const _mode = QRMode.MODE_ALPHA_NUM;
+  const _data = data;
+
+  const _this = {};
+
+  _this.getMode = function() {
+    return _mode;
+  };
+
+  _this.getLength = function(buffer) {
+    return _data.length;
+  };
+
+  _this.write = function(buffer) {
+
+    const s = _data;
+
+    let i = 0;
+
+    while (i + 1 < s.length) {
+      buffer.put(
+        getCode(s.charAt(i) ) * 45 +
+        getCode(s.charAt(i + 1) ), 11);
+      i += 2;
+    }
+
+    if (i < s.length) {
+      buffer.put(getCode(s.charAt(i) ), 6);
+    }
+  };
+
+  const getCode = function(c) {
+
+    if ('0' <= c && c <= '9') {
+      return c.charCodeAt(0) - '0'.charCodeAt(0);
+    } else if ('A' <= c && c <= 'Z') {
+      return c.charCodeAt(0) - 'A'.charCodeAt(0) + 10;
+    } else {
+      switch (c) {
+      case '\u0020' : return 36;
+      case '$' : return 37;
+      case '%' : return 38;
+      case '*' : return 39;
+      case '+' : return 40;
+      case '-' : return 41;
+      case '.' : return 42;
+      case '/' : return 43;
+      case ':' : return 44;
+      default :
+        throw 'illegal char :' + c;
+      }
+    }
+  };
+
+  return _this;
+};
+
+//---------------------------------------------------------------------
+// qr8BitByte
+//---------------------------------------------------------------------
+
+const qr8BitByte = function(data) {
+
+  const _mode = QRMode.MODE_8BIT_BYTE;
+  const _data = data;
+  const _bytes = qrcode.stringToBytes(data);
+
+  const _this = {};
+
+  _this.getMode = function() {
+    return _mode;
+  };
+
+  _this.getLength = function(buffer) {
+    return _bytes.length;
+  };
+
+  _this.write = function(buffer) {
+    for (let i = 0; i < _bytes.length; i += 1) {
+      buffer.put(_bytes[i], 8);
+    }
+  };
+
+  return _this;
+};
+
+//---------------------------------------------------------------------
+// qrKanji
+//---------------------------------------------------------------------
+
+const qrKanji = function(data) {
+
+  const _mode = QRMode.MODE_KANJI;
+  const _data = data;
+
+  const stringToBytes = qrcode.stringToBytes;
+  !function(c, code) {
+    // self test for sjis support.
+    const test = stringToBytes(c);
+    if (test.length != 2 || ( (test[0] << 8) | test[1]) != code) {
+      throw 'sjis not supported.';
+    }
+  }('\u53cb', 0x9746);
+
+  const _bytes = stringToBytes(data);
+
+  const _this = {};
+
+  _this.getMode = function() {
+    return _mode;
+  };
+
+  _this.getLength = function(buffer) {
+    return ~~(_bytes.length / 2);
+  };
+
+  _this.write = function(buffer) {
+
+    const data = _bytes;
+
+    let i = 0;
+
+    while (i + 1 < data.length) {
+
+      let c = ( (0xff & data[i]) << 8) | (0xff & data[i + 1]);
+
+      if (0x8140 <= c && c <= 0x9FFC) {
+        c -= 0x8140;
+      } else if (0xE040 <= c && c <= 0xEBBF) {
+        c -= 0xC140;
+      } else {
+        throw 'illegal char at ' + (i + 1) + '/' + c;
+      }
+
+      c = ( (c >>> 8) & 0xff) * 0xC0 + (c & 0xff);
+
+      buffer.put(c, 13);
+
+      i += 2;
+    }
+
+    if (i < data.length) {
+      throw 'illegal char at ' + (i + 1);
+    }
+  };
+
+  return _this;
+};
+
+//=====================================================================
+// GIF Support etc.
+//
+
+//---------------------------------------------------------------------
+// byteArrayOutputStream
+//---------------------------------------------------------------------
+
+const byteArrayOutputStream = function() {
+
+  const _bytes = [];
+
+  const _this = {};
+
+  _this.writeByte = function(b) {
+    _bytes.push(b & 0xff);
+  };
+
+  _this.writeShort = function(i) {
+    _this.writeByte(i);
+    _this.writeByte(i >>> 8);
+  };
+
+  _this.writeBytes = function(b, off, len) {
+    off = off || 0;
+    len = len || b.length;
+    for (let i = 0; i < len; i += 1) {
+      _this.writeByte(b[i + off]);
+    }
+  };
+
+  _this.writeString = function(s) {
+    for (let i = 0; i < s.length; i += 1) {
+      _this.writeByte(s.charCodeAt(i) );
+    }
+  };
+
+  _this.toByteArray = function() {
+    return _bytes;
+  };
+
+  _this.toString = function() {
+    let s = '';
+    s += '[';
+    for (let i = 0; i < _bytes.length; i += 1) {
+      if (i > 0) {
+        s += ',';
+      }
+      s += _bytes[i];
+    }
+    s += ']';
+    return s;
+  };
+
+  return _this;
+};
+
+//---------------------------------------------------------------------
+// base64EncodeOutputStream
+//---------------------------------------------------------------------
+
+const base64EncodeOutputStream = function() {
+
+  let _buffer = 0;
+  let _buflen = 0;
+  let _length = 0;
+  let _base64 = '';
+
+  const _this = {};
+
+  const writeEncoded = function(b) {
+    _base64 += String.fromCharCode(encode(b & 0x3f) );
+  };
+
+  const encode = function(n) {
+    if (n < 0) {
+      throw 'n:' + n;
+    } else if (n < 26) {
+      return 0x41 + n;
+    } else if (n < 52) {
+      return 0x61 + (n - 26);
+    } else if (n < 62) {
+      return 0x30 + (n - 52);
+    } else if (n == 62) {
+      return 0x2b;
+    } else if (n == 63) {
+      return 0x2f;
+    } else {
+      throw 'n:' + n;
+    }
+  };
+
+  _this.writeByte = function(n) {
+
+    _buffer = (_buffer << 8) | (n & 0xff);
+    _buflen += 8;
+    _length += 1;
+
+    while (_buflen >= 6) {
+      writeEncoded(_buffer >>> (_buflen - 6) );
+      _buflen -= 6;
+    }
+  };
+
+  _this.flush = function() {
+
+    if (_buflen > 0) {
+      writeEncoded(_buffer << (6 - _buflen) );
+      _buffer = 0;
+      _buflen = 0;
+    }
+
+    if (_length % 3 != 0) {
+      // padding
+      const padlen = 3 - _length % 3;
+      for (let i = 0; i < padlen; i += 1) {
+        _base64 += '=';
+      }
+    }
+  };
+
+  _this.toString = function() {
+    return _base64;
+  };
+
+  return _this;
+};
+
+//---------------------------------------------------------------------
+// base64DecodeInputStream
+//---------------------------------------------------------------------
+
+const base64DecodeInputStream = function(str) {
+
+  const _str = str;
+  let _pos = 0;
+  let _buffer = 0;
+  let _buflen = 0;
+
+  const _this = {};
+
+  _this.read = function() {
+
+    while (_buflen < 8) {
+
+      if (_pos >= _str.length) {
+        if (_buflen == 0) {
+          return -1;
+        }
+        throw 'unexpected end of file./' + _buflen;
+      }
+
+      const c = _str.charAt(_pos);
+      _pos += 1;
+
+      if (c == '=') {
+        _buflen = 0;
+        return -1;
+      } else if (c.match(/^\s$/) ) {
+        // ignore if whitespace.
+        continue;
+      }
+
+      _buffer = (_buffer << 6) | decode(c.charCodeAt(0) );
+      _buflen += 6;
+    }
+
+    const n = (_buffer >>> (_buflen - 8) ) & 0xff;
+    _buflen -= 8;
+    return n;
+  };
+
+  const decode = function(c) {
+    if (0x41 <= c && c <= 0x5a) {
+      return c - 0x41;
+    } else if (0x61 <= c && c <= 0x7a) {
+      return c - 0x61 + 26;
+    } else if (0x30 <= c && c <= 0x39) {
+      return c - 0x30 + 52;
+    } else if (c == 0x2b) {
+      return 62;
+    } else if (c == 0x2f) {
+      return 63;
+    } else {
+      throw 'c:' + c;
+    }
+  };
+
+  return _this;
+};
+
+//---------------------------------------------------------------------
+// gifImage (B/W)
+//---------------------------------------------------------------------
+
+const gifImage = function(width, height) {
+
+  const _width = width;
+  const _height = height;
+  const _data = new Array(width * height);
+
+  const _this = {};
+
+  _this.setPixel = function(x, y, pixel) {
+    _data[y * _width + x] = pixel;
+  };
+
+  _this.write = function(out) {
+
+    //---------------------------------
+    // GIF Signature
+
+    out.writeString('GIF87a');
+
+    //---------------------------------
+    // Screen Descriptor
+
+    out.writeShort(_width);
+    out.writeShort(_height);
+
+    out.writeByte(0x80); // 2bit
+    out.writeByte(0);
+    out.writeByte(0);
+
+    //---------------------------------
+    // Global Color Map
+
+    // black
+    out.writeByte(0x00);
+    out.writeByte(0x00);
+    out.writeByte(0x00);
+
+    // white
+    out.writeByte(0xff);
+    out.writeByte(0xff);
+    out.writeByte(0xff);
+
+    //---------------------------------
+    // Image Descriptor
+
+    out.writeString(',');
+    out.writeShort(0);
+    out.writeShort(0);
+    out.writeShort(_width);
+    out.writeShort(_height);
+    out.writeByte(0);
+
+    //---------------------------------
+    // Local Color Map
+
+    //---------------------------------
+    // Raster Data
+
+    const lzwMinCodeSize = 2;
+    const raster = getLZWRaster(lzwMinCodeSize);
+
+    out.writeByte(lzwMinCodeSize);
+
+    let offset = 0;
+
+    while (raster.length - offset > 255) {
+      out.writeByte(255);
+      out.writeBytes(raster, offset, 255);
+      offset += 255;
+    }
+
+    out.writeByte(raster.length - offset);
+    out.writeBytes(raster, offset, raster.length - offset);
+    out.writeByte(0x00);
+
+    //---------------------------------
+    // GIF Terminator
+    out.writeString(';');
+  };
+
+  const bitOutputStream = function(out) {
+
+    const _out = out;
+    let _bitLength = 0;
+    let _bitBuffer = 0;
+
+    const _this = {};
+
+    _this.write = function(data, length) {
+
+      if ( (data >>> length) != 0) {
+        throw 'length over';
+      }
+
+      while (_bitLength + length >= 8) {
+        _out.writeByte(0xff & ( (data << _bitLength) | _bitBuffer) );
+        length -= (8 - _bitLength);
+        data >>>= (8 - _bitLength);
+        _bitBuffer = 0;
+        _bitLength = 0;
+      }
+
+      _bitBuffer = (data << _bitLength) | _bitBuffer;
+      _bitLength = _bitLength + length;
+    };
+
+    _this.flush = function() {
+      if (_bitLength > 0) {
+        _out.writeByte(_bitBuffer);
+      }
+    };
+
+    return _this;
+  };
+
+  const getLZWRaster = function(lzwMinCodeSize) {
+
+    const clearCode = 1 << lzwMinCodeSize;
+    const endCode = (1 << lzwMinCodeSize) + 1;
+    let bitLength = lzwMinCodeSize + 1;
+
+    // Setup LZWTable
+    const table = lzwTable();
+
+    for (let i = 0; i < clearCode; i += 1) {
+      table.add(String.fromCharCode(i) );
+    }
+    table.add(String.fromCharCode(clearCode) );
+    table.add(String.fromCharCode(endCode) );
+
+    const byteOut = byteArrayOutputStream();
+    const bitOut = bitOutputStream(byteOut);
+
+    // clear code
+    bitOut.write(clearCode, bitLength);
+
+    let dataIndex = 0;
+
+    let s = String.fromCharCode(_data[dataIndex]);
+    dataIndex += 1;
+
+    while (dataIndex < _data.length) {
+
+      const c = String.fromCharCode(_data[dataIndex]);
+      dataIndex += 1;
+
+      if (table.contains(s + c) ) {
+
+        s = s + c;
+
+      } else {
+
+        bitOut.write(table.indexOf(s), bitLength);
+
+        if (table.size() < 0xfff) {
+
+          if (table.size() == (1 << bitLength) ) {
+            bitLength += 1;
+          }
+
+          table.add(s + c);
+        }
+
+        s = c;
+      }
+    }
+
+    bitOut.write(table.indexOf(s), bitLength);
+
+    // end code
+    bitOut.write(endCode, bitLength);
+
+    bitOut.flush();
+
+    return byteOut.toByteArray();
+  };
+
+  const lzwTable = function() {
+
+    const _map = {};
+    let _size = 0;
+
+    const _this = {};
+
+    _this.add = function(key) {
+      if (_this.contains(key) ) {
+        throw 'dup key:' + key;
+      }
+      _map[key] = _size;
+      _size += 1;
+    };
+
+    _this.size = function() {
+      return _size;
+    };
+
+    _this.indexOf = function(key) {
+      return _map[key];
+    };
+
+    _this.contains = function(key) {
+      return typeof _map[key] != 'undefined';
+    };
+
+    return _this;
+  };
+
+  return _this;
+};
+
+const createDataURL = function(width, height, getPixel) {
+  const gif = gifImage(width, height);
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      gif.setPixel(x, y, getPixel(x, y) );
+    }
+  }
+
+  const b = byteArrayOutputStream();
+  gif.write(b);
+
+  const base64 = base64EncodeOutputStream();
+  const bytes = b.toByteArray();
+  for (let i = 0; i < bytes.length; i += 1) {
+    base64.writeByte(bytes[i]);
+  }
+  base64.flush();
+
+  return 'data:image/gif;base64,' + base64;
+};
+
+
+const stringToBytes = qrcode.stringToBytes;
+
+__exp(exports, { qrcode, stringToBytes });
 
   };
 
