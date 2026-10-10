@@ -58,23 +58,11 @@
 
 เสร็จแล้ว 🎉 (เพิ่มลงหน้าจอโฮมของมือถือได้ ใช้เป็นแอปเลย)
 
-### 1.4 อยากเปิดผ่านลิงก์ของ Apps Script แทน (ไม่บังคับ)
+**หน้าให้นักเรียนดูผล** อยู่ที่ `<ลิงก์ GitHub Pages>/docs/` ใช้ลิงก์ Apps Script ตัวเดียวกันจาก `config.js`
+เอาลิงก์ / QR / โปสเตอร์ติดหน้าห้องได้ที่แอป → ⚙️ ตั้งค่า → บัญชี → **ลิงก์ / QR สำหรับนักเรียน**
 
-ปกติเปิดแอปจากลิงก์ GitHub Pages ข้างบนได้เลย ข้อนี้ทำเฉพาะตอนอยากให้ลิงก์ `/exec`
-ของ Apps Script เสิร์ฟหน้าเว็บเองด้วย (Google จะบังคับล็อกอินให้ ไม่ต้องใช้รหัสลับ)
-
-เปิดชีต → แท็บ `⚙️ ตั้งค่า` → ช่อง `assets_url` ใส่ที่อยู่ของ **โฟลเดอร์ที่มี**
-`styles.css` **กับ** `app.bundle.js` **อยู่จริง** ซึ่งขึ้นกับว่าเอาไฟล์ขึ้น GitHub แบบไหน
-
-| เอาขึ้นแบบไหน | ใส่ `assets_url` ว่า |
-|---|---|
-| push ทั้งโปรเจกต์ (แนะนำ) | `https://ชื่อคุณ.github.io/ชื่อ-repo/docs/` |
-| อัปเฉพาะไฟล์ในโฟลเดอร์ `docs/` ไปไว้ที่ราก repo | `https://ชื่อคุณ.github.io/ชื่อ-repo/` |
-
-> **วิธีเช็คให้ชัวร์** เอาที่อยู่ที่จะใส่มาต่อท้ายด้วย `app.bundle.js` แล้วเปิดในเบราว์เซอร์
-> เห็นโค้ดยาว ๆ = ถูก · เจอ 404 = ผิดโฟลเดอร์
->
-> แก้ที่อยู่นี้แล้วรีเฟรชหน้าได้เลย ไม่ต้อง Deploy ใหม่
+> ใช้ Deployment ตัวเดียว (Who has access: **Anyone**) ทั้งครูและนักเรียน
+> ลิงก์ `/exec` มีไว้ให้แอปส่งข้อมูลเท่านั้น เปิดตรง ๆ ในเบราว์เซอร์จะได้หน้าบอกทาง
 
 ---
 
@@ -300,7 +288,6 @@ tools/
 ├── preflight.mjs      ตรวจก่อน build (build เรียกให้เอง)
 ├── check-sw.mjs       sw.js เก็บไฟล์ครบ + เวอร์ชัน/SHELL_HASH ตรงไหม (--fix อัป hash ให้)
 ├── bundle.mjs         รวม .gs → ALL-IN-ONE.gs
-├── build-webapp.mjs   → dist/app.bundle.js
 ├── build-pages.mjs    → docs/ (GitHub Pages)
 └── make-icons.ps1     สร้างไอคอนใหม่จาก icons/icon.svg (รันเมื่อเปลี่ยนโลโก้/สี)
 ```
@@ -323,18 +310,17 @@ tools/
 npm install     # ครั้งแรกครั้งเดียว — ติดตั้งเฉพาะเครื่องมือตรวจ
 npm test        # ตรวจ sw.js + สูตรคะแนน 2 ฝั่ง + คิวออฟไลน์
 npm run lint    # ตรวจโค้ดด้วย ESLint
-npm run build   # อัป SHELL_HASH + bundle + build-webapp + build-pages (docs/ ถูกย่อไฟล์)
+npm run build   # อัป SHELL_HASH + รวม .gs + build-pages (docs/ หน้านักเรียน · dev/demo-student.html)
 ```
 
 อยากรันทีละตัวก็ได้:
 
 ```bash
 node tools/bundle.mjs        # รวม apps-script/*.gs → ALL-IN-ONE.gs
-node tools/build-webapp.mjs  # → dist/app.bundle.js + apps-script/Index.html
 node tools/build-pages.mjs   # → docs/ (GitHub Pages)
 ```
 
-`build-webapp.mjs` กับ `build-pages.mjs` จะ **ตรวจก่อน build ทุกครั้ง** ถ้าไม่ผ่านจะไม่เขียนไฟล์ออกมาเลย
+`build-pages.mjs` จะ **ตรวจก่อน build ทุกครั้ง** ถ้าไม่ผ่านจะไม่เขียนไฟล์ออกมาเลย
 
 | ตรวจอะไร | ถ้าหลุดไปจะเป็นยังไง |
 |---|---|
@@ -350,13 +336,13 @@ node tools/build-pages.mjs   # → docs/ (GitHub Pages)
 ตอนแก้ค้างอยู่และยังไม่อยากให้ติด ใส่ `--skip-checks` ได้ (ห้ามใช้ตอนจะ deploy จริง)
 
 **CI อัตโนมัติ** — `.github/workflows/ci.yml` รันตรวจข้างบน + build แล้วเทียบว่า
-`dist/`/`docs/` ที่ commit ไว้ตรงกับผล build ล่าสุดไหม ทุกครั้งที่ push (ต้อง push repo นี้
+`docs/` กับ `ALL-IN-ONE.gs` ที่ commit ไว้ตรงกับผล build ล่าสุดไหม ทุกครั้งที่ push (ต้อง push repo นี้
 ขึ้น GitHub ก่อนถึงจะเห็นผลรันใน tab **Actions**) กันเคส "แก้โค้ดแล้วลืมรัน build ก่อน commit"
 
 > ⚠️ **ปล่อยเวอร์ชันใหม่ทุกครั้งต้องบวกเลข** ที่ `APP_VERSION` (`js/version.js`)
-> และ `VERSION` (`sw.js`) ให้ตรงกัน — ถ้าไม่บวก `app.bundle.js?v=...` จะเหมือนเดิม
-> เบราว์เซอร์กับ service worker จะหยิบของเก่ามาใช้ **โค้ดที่แก้จะไม่ถึงเครื่องครู**
-> (`check-sw.mjs` กันไว้ให้แล้ว แต่กันได้แค่ 2 เลขนี้ไม่ตรงกัน ไม่ได้กันตอนลืมบวกทั้งคู่)
+> `VERSION` (`sw.js`) และ `package.json` ให้ตรงกัน แล้วรัน `npm run build`
+> เครื่องครูรู้ว่ามีของใหม่จากการที่ `sw.js` เปลี่ยน — `SHELL_HASH` เปลี่ยนตามไฟล์ให้เองอยู่แล้ว
+> ส่วนเลขเวอร์ชันใช้บอกครูว่าตอนนี้ใช้รุ่นไหน (`check-sw.mjs` ตรวจว่า 3 ที่ตรงกัน)
 
 ### ไอคอนและภาพตอนแชร์ลิงก์
 

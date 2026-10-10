@@ -40,8 +40,8 @@ jobs:
         run: |
           node tools/bundle.mjs
           node tools/build-pages.mjs
-          if ! git diff --quiet -- docs apps-script/ALL-IN-ONE.gs; then
+          if ! git diff --quiet -- docs dev/demo-student.html apps-script/ALL-IN-ONE.gs; then
             echo "::error::docs/ หรือ ALL-IN-ONE.gs ที่ commit ไว้ไม่ตรงกับผล build ล่าสุด — รัน 'npm run build' แล้ว commit ผลลัพธ์ด้วย"
-            git diff --stat -- docs apps-script/ALL-IN-ONE.gs
+            git diff --stat -- docs dev/demo-student.html apps-script/ALL-IN-ONE.gs
             exit 1
           fi
