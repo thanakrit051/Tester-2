@@ -344,8 +344,7 @@ function secAcct() {
       row('ให้ดูสรุปผลภาคเรียน', 'คะแนนรวม /100 และเกรดทุกวิชา · ถ้ายังปิดคะแนนสอบส่วนใดอยู่ เกรดจะขึ้นว่า “รอ” · ปิดไว้นักเรียนยังดูงานและคะแนนรายชิ้นได้ตามปกติ',
         segInput('student_summary', [['on', 'เปิด'], ['off', 'ปิด']], 'off')),
       h('div', { class: 'btn-row', style: { marginTop: '12px' } },
-        h('button', { class: 'btn btn-soft btn-sm', onclick: showStudentLink }, '🎒 ลิงก์สำหรับนักเรียน'),
-        h('button', { class: 'btn btn-ghost btn-sm', onclick: showStudentHowTo }, '❓ ต้อง Deploy เพิ่มยังไง'))
+        h('button', { class: 'btn btn-soft btn-sm', onclick: showStudentLink }, '🎒 ลิงก์ / QR สำหรับนักเรียน'))
     )
   ];
 }
@@ -537,11 +536,22 @@ function mobileIndex() {
   );
 }
 
-/** ลิงก์หน้าดูผลของนักเรียน — ต้องมาจาก Deployment ที่ตั้งเป็น "Anyone" */
+/**
+ * ลิงก์หน้าดูผลของนักเรียน — อยู่ในโฟลเดอร์ docs/ ข้างหน้าครูบน GitHub Pages
+ *
+ * เดิมต่อ ?page=student ท้ายลิงก์ Apps Script ซึ่งหน้านั้นถูกย้ายมา GitHub นานแล้ว
+ * นักเรียนที่เปิดลิงก์เดิมเจอแค่ "ไม่พบหน้าของนักเรียน" (QR/โปสเตอร์ก็ชี้ไปที่เดียวกัน)
+ * สร้างจากที่อยู่ของหน้าครูที่เปิดอยู่ จึงถูกเสมอไม่ว่า repo จะชื่ออะไร
+ */
+const studentPageUrl = () => {
+  let dir = location.pathname;
+  // "/Tester-2" (ไม่มี / ปิดท้าย และไม่ใช่ชื่อไฟล์) = โฟลเดอร์ ต้องเติม / ไม่งั้น docs/ ไปต่อผิดชั้น
+  if (!dir.endsWith('/') && !/\.[a-z0-9]+$/i.test(dir)) dir += '/';
+  return new URL('docs/', location.origin + dir).href;
+};
+
 function showStudentLink() {
-  const base = state.webAppUrl || api.conn.url || '';
-  if (!base) return toast('ยังอ่านลิงก์ไม่ได้ — กด ⟳ ซิงค์ก่อนแล้วลองใหม่', 'err');
-  const link = base + (base.includes('?') ? '&' : '?') + 'page=student';
+  const link = studentPageUrl();
 
   modal((close) => h('div', null,
     h('h2', null, '🎒 ลิงก์สำหรับนักเรียน'),
@@ -565,12 +575,8 @@ function showStudentLink() {
         else toast('กดค้างที่ข้อความเพื่อคัดลอก');
       }
     }, 'คัดลอกลิงก์'),
-    h('div', {
-      class: 'hint',
-      style: { marginTop: '10px', background: 'var(--amber-soft)', color: 'var(--warn-ink)', padding: '10px 12px', borderRadius: '10px' }
-    },
-      '⚠️ ลิงก์นี้จะใช้ได้ก็ต่อเมื่อสร้าง Deployment ตัวที่ 2 แบบ "Anyone" แล้วเท่านั้น',
-      h('br'), 'ถ้าใช้ลิงก์ของครู นักเรียนจะโดน Google ขอให้ล็อกอินแล้วเข้าไม่ได้ — กดปุ่ม "ต้อง Deploy เพิ่มยังไง" ดูขั้นตอน')
+    h('div', { class: 'hint', style: { marginTop: '10px' } },
+      'นักเรียนกรอกเลขประจำตัวแล้วเห็นเฉพาะข้อมูลของตัวเอง · ปิดหน้านี้ได้ที่สวิตช์ "เปิดหน้าให้นักเรียนดู" ด้านบน')
   ));
 }
 
@@ -602,39 +608,6 @@ function printQrPoster(link) {
   ), { title: 'QR ดูคะแนน' });
 }
 
-function showStudentHowTo() {
-  const step = (n, title, body) => h('div', { style: { display: 'flex', gap: '11px', marginBottom: '14px' } },
-    h('div', {
-      style: {
-        width: '26px', height: '26px', borderRadius: '50%', flex: 'none',
-        background: 'var(--accent)', color: 'var(--on-accent)',
-        display: 'grid', placeContent: 'center', fontSize: '13px', fontWeight: '700'
-      }
-    }, String(n)),
-    h('div', { style: { flex: '1' } },
-      h('div', { style: { fontWeight: '600', fontSize: '14px' } }, title),
-      h('div', { style: { fontSize: '12.5px', color: 'var(--ink-2)', lineHeight: '1.6' } }, body)));
-
-  modal((close) => h('div', null,
-    h('h2', null, 'สร้างลิงก์ให้นักเรียน'),
-    h('div', { class: 'hint', style: { marginBottom: '14px' } },
-      'ทำครั้งเดียวจบ — ลิงก์ของครูกับของนักเรียนต้องแยกกัน เพราะสิทธิ์เข้าถึงต่างกัน'),
-    step(1, 'เปิด Apps Script', 'ในชีต → ส่วนขยาย → Apps Script'),
-    step(2, 'Deploy → New deployment', 'เลือกชนิด Web app (อย่ากดแก้ตัวเดิม — ต้องสร้าง "ตัวใหม่")'),
-    step(3, 'ตั้งค่า 2 ช่อง', 'Execute as: Me · Who has access: Anyone (ไม่ใช่ "Anyone with a Google account")'),
-    step(4, 'คัดลอก URL ที่ได้', 'จะเป็นคนละลิงก์กับของครู — เก็บไว้ใช้กับนักเรียน'),
-    step(5, 'ต่อท้ายด้วย ?page=student', 'เช่น https://script.google.com/.../exec?page=student'),
-    h('div', {
-      style: { background: 'var(--accent-soft)', color: 'var(--accent-ink)', padding: '11px 13px', borderRadius: '10px', fontSize: '12.5px', lineHeight: '1.6' }
-    },
-      'ลิงก์ของครูยังใช้เหมือนเดิมทุกอย่าง คนที่ไม่ใช่ครูเปิดลิงก์นักเรียนได้แค่หน้าดูผล ',
-      'กรอกเลขประจำตัวถูกถึงจะเห็น และเห็นทีละคนเท่านั้น'),
-    h('div', { style: { height: '12px' } }),
-    h('button', { class: 'btn btn-block', onclick: close }, 'เข้าใจแล้ว')
-  ));
-}
-
-/** ลิงก์สำหรับเปิดแอปบนเครื่องอื่น */
 /**
  * สลับจาก "เชื่อมด้วยรหัสลับ" มาเป็นบัญชี Google โดยไม่ต้องตัดการเชื่อมต่อ
  *
@@ -690,6 +663,7 @@ async function switchToGoogle(btn) {
   });
 }
 
+/** ลิงก์สำหรับเปิดแอปบนเครื่องอื่น */
 function showTransfer() {
   const embedded = api.MODE === 'embedded';
   const link = embedded ? (state.webAppUrl || '') : api.conn.transferLink();
