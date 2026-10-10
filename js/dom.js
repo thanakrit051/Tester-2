@@ -152,6 +152,37 @@ export function confirmBox(title, message, confirmLabel = 'ยืนยัน') 
   });
 }
 
+// ── พิมพ์ ───────────────────────────────────────────────────
+
+/**
+ * พิมพ์เฉพาะเนื้อหาที่ส่งมา ไม่ใช่ทั้งหน้าจอแอป
+ *
+ * วางเนื้อหาไว้ใน #print-area แล้วซ่อนอย่างอื่นทั้งหมดตอนพิมพ์ (ดู @media print ใน styles.css)
+ * พิมพ์เสร็จหรือกดยกเลิกแล้วเก็บกวาดคืนเอง
+ *
+ * @param landscape true = กระดาษแนวนอน (ใบเช็คชื่อมีหลายคอลัมน์วันที่)
+ */
+export function printPage(content, { title = '', landscape = false } = {}) {
+  const area = h('div', { id: 'print-area' }, content);
+  const page = h('style', null, `@page { size: A4 ${landscape ? 'landscape' : 'portrait'}; margin: 10mm; }`);
+  const oldTitle = document.title;
+
+  const done = () => {
+    window.removeEventListener('afterprint', done);
+    area.remove(); page.remove();
+    document.body.classList.remove('printing');
+    document.title = oldTitle;
+  };
+
+  document.head.append(page);
+  document.body.append(area);
+  document.body.classList.add('printing');
+  if (title) document.title = title;          // ชื่อไฟล์ตอนเลือก "บันทึกเป็น PDF"
+  window.addEventListener('afterprint', done);
+  // ให้เบราว์เซอร์วาดเนื้อหาใหม่ก่อนเปิดหน้าพิมพ์ ไม่งั้นบางเครื่องพิมพ์ออกมาเป็นหน้าเปล่า
+  setTimeout(() => { try { window.print(); } catch (e) { done(); } }, 60);
+}
+
 // ── ฟอร์แมต ─────────────────────────────────────────────────
 const TH_MONTH = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
 const TH_DAY = ['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์','เสาร์'];

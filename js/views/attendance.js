@@ -6,7 +6,7 @@
  * ไม่ถามครูตอนเช็ค (แก้ได้ในเมนู ⋯ ถ้าจำเป็น)
  */
 
-import { h, toast, todayISO, fmtDate, fmtDayFull, isToday, confirmBox, modal, matchStudent } from '../dom.js';
+import { h, toast, todayISO, fmtDate, fmtDayFull, isToday, confirmBox, modal, matchStudent, printPage } from '../dom.js';
 import { icon } from '../icons.js';
 import { state, emit, ensureColumn, setCells, getCell, deleteColumn, go, undoLastEdit } from '../state.js';
 import { ATT_CODES, ATT_NAMES, attStats } from '../score.js';
@@ -539,6 +539,11 @@ function openMenu(available, key) {
         onclick: () => { close(); addPeriod(available, ui.date); }
       }, '➕ เพิ่มคาบของวันนี้'),
 
+      h('button', {
+        class: 'btn btn-ghost btn-block',
+        onclick: () => { close(); printBlankSheet(); }
+      }, '🖨 พิมพ์ใบเช็คชื่อเปล่า'),
+
       // บน PC ไม่มีปุ่ม ‹ แบบมือถือ ทางเข้าหน้าประวัติจึงต้องอยู่ในเมนูนี้
       h('button', {
         class: 'btn btn-ghost btn-block',
@@ -575,6 +580,44 @@ function openMenu(available, key) {
       }, '🗑 ลบการเช็คครั้งนี้')
     )
   ));
+}
+
+/**
+ * ใบเช็คชื่อเปล่าสำหรับพิมพ์ — สำรองไว้ตอนเน็ตล่ม/มือถือแบตหมด หรือให้ครูสอนแทนใช้
+ * กระดาษแนวนอน ช่องวันที่ว่าง 15 ช่องให้เขียนเอง แล้วค่อยมากรอกลงแอปทีหลัง
+ */
+function printBlankSheet() {
+  const cls = state.cls;
+  const meta = cls.meta;
+  const room = [meta.grade, meta.room].filter(Boolean).join('/');
+  const cfg = state.config || {};
+  const N = 15;
+  const blanks = (tag) => Array.from({ length: N }, () => h(tag, { class: 'pg-day' }));
+
+  printPage([
+    h('div', { class: 'print-head' },
+      h('b', null, `ใบเช็คชื่อ · ${room ? room + ' · ' : ''}${meta.subject}${meta.subjectCode ? ' (' + meta.subjectCode + ')' : ''}`),
+      h('span', null, [`ภาคเรียนที่ ${cfg.term || '—'}/${cfg.year || '—'}`, cfg.teacher ? 'ครู ' + cfg.teacher : '']
+        .filter(Boolean).join(' · '))),
+    h('table', { class: 'print-grid' },
+      h('thead', null,
+        h('tr', null,
+          h('th', { class: 'pg-no' }, 'เลขที่'),
+          h('th', { class: 'pg-sid' }, 'เลขประจำตัว'),
+          h('th', { class: 'pg-name' }, 'ชื่อ-นามสกุล'),
+          blanks('th')),
+        h('tr', { class: 'pg-sub' },
+          h('th', { colspan: '3', style: { textAlign: 'right' } }, 'วันที่ / คาบ →'),
+          blanks('th'))),
+      h('tbody', null, cls.students.map(s => h('tr', null,
+        h('td', { class: 'pg-no' }, s.no),
+        h('td', { class: 'pg-sid' }, s.sid && !/^T\d+$/.test(s.sid) ? s.sid : ''),
+        h('td', { class: 'pg-name' }, s.name || ''),
+        blanks('td'))))),
+    h('div', { class: 'print-foot' },
+      h('span', null, 'ม = มา · ส = สาย · ล = ลา · ข = ขาด'),
+      h('span', null, 'ลงชื่อ ................................................ ผู้เช็คชื่อ'))
+  ], { title: `ใบเช็คชื่อ ${room} ${meta.subject}`, landscape: true });
 }
 
 function addPeriod(used, dateISO) {

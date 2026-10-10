@@ -1,6 +1,6 @@
 /* หน้าสรุปคะแนน — ตารางตรงกับหน้ากรอกของ SGS */
 
-import { h, modal, toast, nf } from '../dom.js';
+import { h, modal, toast, nf, printPage } from '../dom.js';
 import { state, emit, settings, recalcOnServer } from '../state.js';
 import { computeClass, BUCKETS, bucketColumns, parseWork } from '../score.js';
 
@@ -109,8 +109,32 @@ export function viewSummary() {
 
     h('div', { class: 'btn-row', style: { marginTop: '10px' } },
       h('button', { class: 'btn btn-ghost btn-sm', onclick: () => copyTable(rows, cols) }, '📋 คัดลอกทั้งตาราง'),
-      h('button', { class: 'btn btn-ghost btn-sm', onclick: () => downloadCSV(rows) }, '⬇️ CSV'))
+      h('button', { class: 'btn btn-ghost btn-sm', onclick: () => downloadCSV(rows) }, '⬇️ CSV'),
+      h('button', { class: 'btn btn-ghost btn-sm', onclick: () => printSummary(rows, cols, S, pend) }, '🖨 พิมพ์'))
   );
+}
+
+/**
+ * พิมพ์ตารางสรุป SGS — ส่งฝ่ายวิชาการ / แนบเซ็นรับรอง
+ * ใช้ตารางชุดเดียวกับบนจอ แต่ตัดปุ่ม/การคลิกออก และใส่หัวกระดาษบอกห้อง/ภาคเรียน
+ */
+function printSummary(rows, cols, S, pend) {
+  const meta = state.cls.meta;
+  const room = [meta.grade, meta.room].filter(Boolean).join('/');
+  const cfg = state.config || {};
+  const t = table(rows, cols, S, pend);
+  t.classList.add('print-grid');
+  t.querySelectorAll('[title]').forEach(el => el.removeAttribute('title'));
+  printPage([
+    h('div', { class: 'print-head' },
+      h('b', null, `สรุปคะแนน SGS · ${room ? room + ' · ' : ''}${meta.subject}${meta.subjectCode ? ' (' + meta.subjectCode + ')' : ''}`),
+      h('span', null, [`ภาคเรียนที่ ${cfg.term || '—'}/${cfg.year || '—'}`, cfg.teacher ? 'ครู ' + cfg.teacher : '', `${rows.length} คน`]
+        .filter(Boolean).join(' · '))),
+    t,
+    h('div', { class: 'print-foot' },
+      h('span', null, 'พิมพ์จาก AssignCheck · ' + new Date().toLocaleDateString('th-TH', { dateStyle: 'long' })),
+      h('span', null, 'ลงชื่อ ................................................ ครูผู้สอน'))
+  ], { title: `สรุป SGS ${room} ${meta.subject}`, landscape: true });
 }
 
 /** แถบหัวสีเข้ม — มีเฉพาะตอนอยู่ในโหมดกรอกทีละคน (ดีไซน์ 05 มือถือ) */
