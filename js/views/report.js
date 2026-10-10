@@ -4,11 +4,12 @@
  * ทุกกราฟมีตัวเลขกำกับและมีตารางข้อมูลควบเสมอ ไม่สื่อความหมายด้วยสีอย่างเดียว
  */
 
-import { h, toast, fmtDate, nf } from '../dom.js';
+import { h, fmtDate, nf, matchStudent } from '../dom.js';
 import { state, emit, settings, go, sync, refreshClass, fetchedAt } from '../state.js';
 import * as api from '../api.js';
 import { computeClass, parseWork, BUCKETS, ATT_CODES, passMarkOf, passOf } from '../score.js';
 import { openCopyList } from './chase.js';
+import { exportClassCSV } from './common.js';
 
 /* tab:    'class' ภาพรวม · 'follow' ตามงาน (ใครยังค้างชิ้นไหน) · 'student' รายคน
  * follow: ตัวกรองของแท็บตามงาน · phase: 0 ทั้งเทอม / 1 ก่อนกลางภาค / 2 หลังกลางภาค
@@ -54,7 +55,7 @@ export function viewReport() {
       h('button', { class: 'chip', 'data-on': ui.tab === 'student' ? '1' : '0', onclick: () => { ui.tab = 'student'; emit(); } }, 'รายคน'),
       h('button', {
         class: 'chip', style: { marginLeft: 'auto' },
-        onclick: () => exportReport(computeClass(cls, settings()))
+        onclick: () => exportClassCSV(computeClass(cls, settings()))
       }, '⤓ CSV')
     ),
     freshness(),
@@ -454,10 +455,9 @@ function studentReport() {
   if (!ui.sid || !rows.some(r => r.sid === ui.sid)) ui.sid = rows[0].sid;
   const r = rows.find(x => x.sid === ui.sid);
 
-  const q = ui.q.trim().toLowerCase();
-  const matches = q
-    ? cls.students.filter(s => s.name.toLowerCase().includes(q) || String(s.no) === q || s.sid.includes(q))
-    : [];
+  // กติกาเดียวกับช่องค้นหาหน้าเช็คชื่อ/กรอกคะแนน (เดิมพิมพ์ "3" ได้ทุกคนที่มีเลข 3 ในเลขประจำตัว)
+  const q = ui.q.trim();
+  const matches = q ? cls.students.filter(s => matchStudent(s, q)) : [];
 
   const att = attCount(r.sid);
 
@@ -581,31 +581,3 @@ function moveStudent(delta, rows) {
   emit();
 }
 
-// ── ส่งออก ──────────────────────────────────────────────────
-
-function exportReport(rows) {
-  const cls = state.cls;
-  const att = {};
-  cls.students.forEach(s => { att[s.sid] = attCount(s.sid); });
-
-  const head = ['เลขที่', 'เลขประจำตัว', 'ชื่อ-นามสกุล',
-    'มา', 'สาย', 'ลา', 'ขาด', '%เวลาเรียน',
-    ...BUCKETS.map(b => `${b.label} (SGS ${b.sgs})`),
-    'รวม', 'เกรด', 'ค้างตรวจ', 'ส่งช้า', 'หมายเหตุ'];
-
-  const lines = [head, ...rows.map(r => [
-    r.no, r.sid, r.name,
-    att[r.sid]['ม'], att[r.sid]['ส'], att[r.sid]['ล'], att[r.sid]['ข'], r.attN ? r.pct + '%' : '',
-    ...BUCKETS.map(b => (r['_has_' + b.id] ? nf(r[b.id]) : '')),
-    r.dataN ? nf(r.total) : '', r.grade, r.pending, r.late || 0, r.flag
-  ])];
-
-  const csv = '﻿' + lines.map(l => l.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\r\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-  const a = h('a', {
-    href: URL.createObjectURL(blob),
-    download: `รายงาน_${[cls.meta.grade, cls.meta.room].filter(Boolean).join('-')}_${cls.meta.subject}.csv`
-  });
-  document.body.append(a); a.click(); a.remove();
-  toast('ดาวน์โหลดแล้ว', 'ok');
-}

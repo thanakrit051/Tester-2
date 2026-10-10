@@ -15,6 +15,7 @@ import { icon } from '../icons.js';
 import { THEMES, getTheme, setTheme } from '../theme.js';
 import { readTimetable, openTimetableEditor } from './timetable.js';
 import { weeklyCount } from '../timetable.js';
+import { isWide } from './common.js';
 
 const SECTIONS = [
   { id: 'score', label: 'การคิดคะแนน' },
@@ -436,7 +437,7 @@ viewSettings.head = function () {
 };
 
 export function viewSettings() {
-  const wide = (() => { try { return matchMedia('(min-width: 900px)').matches; } catch (e) { return false; } })();
+  const wide = isWide();
   const sec = ui.sec || (wide ? 'score' : null);
 
   // มือถือ + ยังไม่ได้เลือกกลุ่ม → หน้าสรุปตามดีไซน์ 06 มือถือ
@@ -507,14 +508,6 @@ function mobileIndex() {
       })),
 
     h('div', { class: 'card' }, ttRow()),
-
-    h('div', { class: 'card' },
-      row('ธีม', 'ตามเครื่อง / สว่าง / มืด',
-        h('div', { class: 'seg seg-inline' },
-          THEMES.map(t => h('button', {
-            'data-on': getTheme() === t.id ? '1' : '0',
-            onclick: () => { setTheme(t.id); emit(); }
-          }, icon(t.ic, 'ico ico-sm'), t.label))))),
 
     h('div', { class: 'btn-row' },
       state.installPrompt && h('button', {

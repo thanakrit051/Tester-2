@@ -3,6 +3,7 @@
 import { h, modal, toast, nf, printPage, copyText } from '../dom.js';
 import { state, emit, settings, recalcOnServer } from '../state.js';
 import { computeClass, BUCKETS, bucketColumns, parseWork } from '../score.js';
+import { exportClassCSV } from './common.js';
 
 const ui = { phase: 0, fill: false, fi: 0 };   // phase 0 = ทั้งหมด · fill = โหมดกรอกทีละคน
 
@@ -109,7 +110,7 @@ export function viewSummary() {
 
     h('div', { class: 'btn-row', style: { marginTop: '10px' } },
       h('button', { class: 'btn btn-ghost btn-sm', onclick: () => copyTable(rows, cols) }, '📋 คัดลอกทั้งตาราง'),
-      h('button', { class: 'btn btn-ghost btn-sm', onclick: () => downloadCSV(rows) }, '⬇️ CSV'),
+      h('button', { class: 'btn btn-ghost btn-sm', onclick: () => exportClassCSV(rows) }, '⬇️ CSV'),
       h('button', { class: 'btn btn-ghost btn-sm', onclick: () => printSummary(rows, cols, S, pend) }, '🖨 พิมพ์'))
   );
 }
@@ -284,26 +285,6 @@ function copyTable(rows, cols) {
     ...cols.map(c => (r['_has_' + c.id] ? nf(r[c.id]) : '')),
     r.dataN ? nf(r.total) : ''].join('\t'));
   toClipboard([head, ...body].join('\n'), 'คัดลอกทั้งตารางแล้ว');
-}
-
-function downloadCSV(rows) {
-  const cls = state.cls;
-  const head = ['เลขที่', 'เลขประจำตัว', 'ชื่อ-นามสกุล',
-    ...SGS_COLS.map(c => c.head + (c.sub ? ` (${c.sub})` : '')),
-    'รวม', 'เกรด', '%เวลาเรียน', 'หมายเหตุ'];
-  const lines = [head, ...rows.map(r => [
-    r.no, r.sid, r.name,
-    ...SGS_COLS.map(c => (r['_has_' + c.id] ? nf(r[c.id]) : '')),
-    r.dataN ? nf(r.total) : '', r.grade, r.attN ? r.pct + '%' : '', r.flag
-  ])];
-  const csv = '﻿' + lines.map(l => l.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\r\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-  const a = h('a', {
-    href: URL.createObjectURL(blob),
-    download: `SGS_${[cls.meta.grade, cls.meta.room].filter(Boolean).join('-')}_${cls.meta.subject}.csv`
-  });
-  document.body.append(a); a.click(); a.remove();
-  toast('ดาวน์โหลดแล้ว', 'ok');
 }
 
 // ── ตรวจความพร้อม ───────────────────────────────────────────

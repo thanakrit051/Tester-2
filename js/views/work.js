@@ -4,16 +4,11 @@ import { h, modal, toast, confirmBox, nf, matchStudent } from '../dom.js';
 import { icon } from '../icons.js';
 import { store } from '../storage.js';
 import { openCopyList } from './chase.js';
-import { state, emit, loadClass, ensureColumn, setCells, getCell, deleteColumn, updateColumn, settings, undoLastEdit, addColumnToMany } from '../state.js';
+import { undoAction, isWide, classSelect } from './common.js';
+import { state, emit, loadClass, ensureColumn, setCells, getCell, deleteColumn, updateColumn, settings, addColumnToMany } from '../state.js';
 import { BUCKETS, NOT_SUBMITTED, RETAKE_KINDS, parseWork, formatWork, formatRetake, passMarkOf, passOf } from '../score.js';
 import { serverInfo } from '../api.js';
 import { serverSupports } from '../version.js';
-
-/** ปุ่ม "เลิกทำ" แปะท้าย toast — ใช้กับปุ่มที่แก้ทีเดียวหลายคน */
-const undoAction = () => ({
-  label: 'เลิกทำ',
-  onclick: () => { const n = undoLastEdit(); if (n) toast(`เลิกทำแล้ว · ${n} ช่อง`, 'ok'); }
-});
 
 /**
  * ดีไซน์แยก "ชนิดของคะแนน" กับ "ช่วง" ออกจากกัน (หน้า 03)
@@ -576,7 +571,7 @@ function openRetake(col, s, done) {
 function gradeScreen(col) {
   const students = state.cls.students;
   // ตารางเร็วมีบนมือถือเท่านั้น — บน PC แถวเป็นตารางบรรทัดเดียวอยู่แล้ว
-  const dense = ui.dense && !wide();
+  const dense = ui.dense && !isWide();
   const rows = [];
   const find = findBox(rows);
   students.forEach((s, i) => {
@@ -674,8 +669,6 @@ function gradeScreen(col) {
       rows)
   );
 }
-
-const wide = () => { try { return matchMedia('(min-width: 900px)').matches; } catch (e) { return false; } };
 
 /**
  * ช่อง "ไปที่เลขที่ / ชื่อ" ของหน้ากรอก
@@ -779,19 +772,14 @@ function studentScreen(col) {
     h('div', { class: 'pick2row' },
       h('label', { class: 'pickbox' },
         h('span', null, 'ห้อง'),
-        h('select', {
-          'aria-label': 'เลือกห้องเรียน',
-          onchange: async (e) => {
-            ui.si = 0;
-            await loadClass(e.target.value);
-            // คอลัมน์ของห้องเดิมใช้กับห้องใหม่ไม่ได้ ต้องชี้ไปชิ้นแรกของถังเดิมในห้องใหม่
-            const first = columnsIn(curBucket().id)[0];
-            ui.open = first ? first.key : null;
-            emit();
-          }
-        }, state.classes.map(c => h('option', {
-          value: c.classId, selected: c.classId === state.classId
-        }, `${[c.grade, c.room].filter(Boolean).join('/')} · ${c.subject}`)))),
+        classSelect(async (id) => {
+          ui.si = 0;
+          await loadClass(id);
+          // คอลัมน์ของห้องเดิมใช้กับห้องใหม่ไม่ได้ ต้องชี้ไปชิ้นแรกของถังเดิมในห้องใหม่
+          const first = columnsIn(curBucket().id)[0];
+          ui.open = first ? first.key : null;
+          emit();
+        })),
 
       h('label', { class: 'pickbox grow' },
         h('span', null, 'นักเรียน'),

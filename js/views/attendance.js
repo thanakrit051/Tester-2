@@ -8,14 +8,9 @@
 
 import { h, toast, todayISO, fmtDate, fmtDayFull, isToday, confirmBox, modal, matchStudent, printPage } from '../dom.js';
 import { icon } from '../icons.js';
-import { state, emit, ensureColumn, setCells, getCell, deleteColumn, go, undoLastEdit } from '../state.js';
+import { state, emit, ensureColumn, setCells, getCell, deleteColumn, go } from '../state.js';
 import { ATT_CODES, ATT_NAMES, attStats } from '../score.js';
-
-/** ปุ่ม "เลิกทำ" แปะท้าย toast — ใช้กับปุ่มที่แก้ทีเดียวหลายคน */
-const undoAction = () => ({
-  label: 'เลิกทำ',
-  onclick: () => { const n = undoLastEdit(); if (n) toast(`เลิกทำแล้ว · ${n} ช่อง`, 'ok'); }
-});
+import { undoAction } from './common.js';
 
 const ui = {
   // ดีไซน์ให้แตะ "เช็คชื่อ" แล้วเข้าหน้าเช็คของวันนี้เลย ไม่ต้องผ่านหน้าเลือกวัน

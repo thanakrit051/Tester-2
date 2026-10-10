@@ -37,6 +37,7 @@ const SHELL = [
   './js/timetable.js',
   './js/views/timetable.js',
   './js/views/chase.js',
+  './js/views/common.js',
   './js/vendor/qrcode.js',
   './js/views/health.js',
   './js/views/setup.js',
@@ -53,7 +54,7 @@ const SHELL = [
  * แก้ไฟล์ใดก็ตามในชุดนี้แล้ว ค่านี้ต้องเปลี่ยนตาม (รัน node tools/check-sw.mjs --fix)
  * เพราะเบราว์เซอร์รู้ว่ามีโค้ดใหม่จากการที่ไฟล์ sw.js นี้เปลี่ยนเท่านั้น
  * ถ้าแก้โค้ดแต่ sw.js เหมือนเดิมทุกไบต์ เครื่องครูจะไม่มีวันได้ของใหม่ */
-const SHELL_HASH = '2e79d2b58f5a43a9';
+const SHELL_HASH = '5fc71121caa423db';
 
 /* ชื่อแคชผูกกับทั้งเลขเวอร์ชันและลายนิ้วมือ ไฟล์เปลี่ยน = ได้แคชชุดใหม่แยกจากของเดิมเสมอ */
 const CACHE = VERSION + '-' + SHELL_HASH;

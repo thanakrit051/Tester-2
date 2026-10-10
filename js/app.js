@@ -2,10 +2,11 @@
 
 import { h, mount, toast, closeTopModal, copyText } from './dom.js';
 import * as api from './api.js';
-import { state, subscribe, bootAll, loadClass, sync, isSyncing, go, pushView } from './state.js';
+import { state, subscribe, bootAll, sync, isSyncing, go, pushView } from './state.js';
 import { auth, restoreSession } from './auth.js';
 import { icon } from './icons.js';
 import { applyTheme, watchSystemTheme } from './theme.js';
+import { isWide as wide, classSelect } from './views/common.js';
 
 import { viewSetup }      from './views/setup.js';
 import { viewHome }       from './views/home.js';
@@ -185,10 +186,7 @@ window.addEventListener('unhandledrejection', (e) => {
 
 // ── เปลือกหน้าจอ ────────────────────────────────────────────
 
-/** จอกว้าง = เมนูไปอยู่ในแถบหัวสีเข้ม (ตามดีไซน์ PC) · จอแคบ = เมนูล่างจอ */
-const wide = () => {
-  try { return matchMedia('(min-width: 900px)').matches; } catch (e) { return false; }
-};
+/* จอกว้าง = เมนูไปอยู่ในแถบหัวสีเข้ม (ตามดีไซน์ PC) · จอแคบ = เมนูล่างจอ — wide() มาจาก common.js */
 
 /**
  * ป้ายบอกสถานะซิงค์ — แยกออกมาเพราะเปลี่ยนบ่อยกว่าส่วนอื่นของแถบหัวมาก
@@ -277,28 +275,13 @@ function nav() {
 function classChip() {
   if (!state.classes.length) return null;
   if (!['att', 'work', 'report', 'summary'].includes(state.view)) return null;
-  return h('div', { class: 'class-chip' },
-    h('select', {
-      'aria-label': 'เลือกห้องเรียน',
-      value: state.classId,
-      onchange: (e) => loadClass(e.target.value)
-    }, state.classes.map(c => h('option', { value: c.classId, selected: c.classId === state.classId },
-      `${[c.grade, c.room].filter(Boolean).join('/')} ${c.subject}`)))
-  );
+  return h('div', { class: 'class-chip' }, classSelect());
 }
 
 function classPicker() {
   if (!state.classes.length) return null;
   if (!['att', 'work', 'report', 'summary'].includes(state.view)) return null;
-  return h('div', { class: 'class-pick' },
-    icon('book'),
-    h('select', {
-      'aria-label': 'เลือกห้องเรียน',
-      value: state.classId,
-      onchange: (e) => loadClass(e.target.value)
-    }, state.classes.map(c => h('option', { value: c.classId, selected: c.classId === state.classId },
-      `${[c.grade, c.room].filter(Boolean).join('/')} · ${c.subject}`)))
-  );
+  return h('div', { class: 'class-pick' }, icon('book'), classSelect());
 }
 
 function render() {
