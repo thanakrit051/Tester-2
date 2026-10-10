@@ -44,11 +44,35 @@ const SHELL = [
   './js/views/settings.js'
 ];
 
+/* ลายนิ้วมือของไฟล์ทั้งชุดใน SHELL (ยกเว้น config.js) — tools/check-sw.mjs คำนวณให้
+ *
+ * แก้ไฟล์ใดก็ตามในชุดนี้แล้ว ค่านี้ต้องเปลี่ยนตาม (รัน node tools/check-sw.mjs --fix)
+ * เพราะเบราว์เซอร์รู้ว่ามีโค้ดใหม่จากการที่ไฟล์ sw.js นี้เปลี่ยนเท่านั้น
+ * ถ้าแก้โค้ดแต่ sw.js เหมือนเดิมทุกไบต์ เครื่องครูจะไม่มีวันได้ของใหม่ */
+const SHELL_HASH = 'd2958690ddbe9c63';
+
+/* ชื่อแคชผูกกับทั้งเลขเวอร์ชันและลายนิ้วมือ ไฟล์เปลี่ยน = ได้แคชชุดใหม่แยกจากของเดิมเสมอ */
+const CACHE = VERSION + '-' + SHELL_HASH;
+
+/* ไฟล์ที่ครูแก้เองได้บน GitHub โดยไม่ผ่านเครื่องมือของโปรเจกต์ (ลิงก์ Apps Script)
+ * ให้ตามของบนเว็บเสมอ ไม่งั้นแก้ลิงก์แล้วเครื่องเก่าจะไม่เห็นจนกว่าจะออกเวอร์ชันใหม่ */
+const LIVE = new Set(['./config.js']);
+
+/* ตอนพัฒนาบนเครื่องตัวเอง ให้โหลดสดเสมอ ไม่ต้องบวกเวอร์ชันทุกครั้งที่แก้ */
+const DEV = ['localhost', '127.0.0.1', '[::1]'].includes(self.location.hostname);
+
 self.addEventListener('install', (e) => {
   e.waitUntil((async () => {
-    const cache = await caches.open(VERSION);
-    // ใช้ทีละไฟล์ ถ้าไฟล์ใดพลาดจะไม่ทำให้ทั้งชุดล้ม
-    await Promise.all(SHELL.map(u => cache.add(u).catch(() => {})));
+    const cache = await caches.open(CACHE);
+    /* ต้องได้ครบทั้งชุดเท่านั้น — ขาดไฟล์เดียวให้การติดตั้งล้มทั้งก้อน
+     *
+     * ของเดิมยอมให้บางไฟล์พลาดได้ ผลคือแคชเวอร์ชันใหม่ขาดโมดูล แล้วแอปไปดึงตัวที่ขาด
+     * จากเน็ต (หรือเปิดไม่ขึ้นถ้าไม่มีเน็ต) · ล้มทั้งก้อนแปลว่าเครื่องครูใช้ชุดเดิมต่อ
+     * แล้วเบราว์เซอร์จะลองติดตั้งใหม่เองรอบหน้าที่เปิดแอป
+     *
+     * cache: 'reload' = ข้ามแคช HTTP ของเบราว์เซอร์ ไปเอาจากเซิร์ฟเวอร์จริง
+     * GitHub Pages บอกให้เก็บไฟล์ไว้ 10 นาที ถ้าไม่ข้าม ชุดใหม่อาจได้ไฟล์เก่าปนมา */
+    await cache.addAll(SHELL.map(u => new Request(u, { cache: 'reload' })));
     // จงใจไม่เรียก skipWaiting() ตรงนี้
     //
     // ของเดิมสลับไปใช้โค้ดใหม่ทันทีที่ดาวน์โหลดเสร็จ ซึ่งเกิดขึ้นได้ระหว่างที่
@@ -63,7 +87,7 @@ self.addEventListener('install', (e) => {
 self.addEventListener('activate', (e) => {
   e.waitUntil((async () => {
     const keys = await caches.keys();
-    await Promise.all(keys.filter(k => k !== VERSION).map(k => caches.delete(k)));
+    await Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)));
     await self.clients.claim();
   })());
 });
@@ -76,24 +100,52 @@ self.addEventListener('fetch', (e) => {
   // อย่าแคชคำขอไป Apps Script หรือโดเมนอื่น — ต้องได้ข้อมูลสดเสมอ
   if (url.origin !== self.location.origin) return;
 
-  e.respondWith((async () => {
-    const cached = await caches.match(req);
-    const network = fetch(req).then((res) => {
-      if (res && res.status === 200 && res.type === 'basic') {
-        caches.open(VERSION).then(c => c.put(req, res.clone())).catch(() => {});
-      }
-      return res;
-    }).catch(() => null);
+  const rel = './' + url.pathname.slice(new URL(self.registration.scope).pathname.length);
+  const isPage = req.mode === 'navigate';
 
-    // มีในแคช → ตอบทันที แล้วอัปเดตเบื้องหลัง
-    if (cached) { void network; return cached; }   // ปล่อยให้อัปเดตเบื้องหลังต่อไป
-    const res = await network;
-    if (res) return res;
-    // ออฟไลน์และไม่มีในแคช → ถ้าเป็นการเปิดหน้า ให้ตกกลับไปที่หน้าแอป
-    if (req.mode === 'navigate') return caches.match('./index.html');
-    return new Response('offline', { status: 503, statusText: 'offline' });
+  if (DEV) { e.respondWith(fromNetwork(req, isPage)); return; }
+
+  if (LIVE.has(rel)) {
+    // ตอบจากแคชทันที (ไฟล์นี้บล็อกการวาดหน้า รอเน็ตไม่ได้) แล้วอัปเดตไว้ให้รอบหน้า
+    e.respondWith((async () => {
+      const cached = await caches.match(req);
+      const fresh = fetch(req, { cache: 'no-cache' }).then(async (res) => {
+        if (res && res.ok) await (await caches.open(CACHE)).put(req, res.clone());
+        return res;
+      }).catch(() => null);
+      if (cached) { e.waitUntil(fresh); return cached; }
+      return (await fresh) || offline();
+    })());
+    return;
+  }
+
+  /* ไฟล์อื่นทั้งหมด: ใช้ของในแคชของเวอร์ชันนี้ ห้ามเขียนทับระหว่างใช้งาน
+   *
+   * ของเดิมเอาไฟล์ที่เพิ่งโหลดจากเน็ตไปเขียนทับแคชของเวอร์ชันเดิมทุกครั้งที่เปิดแอป
+   * หลังขึ้นเวอร์ชันใหม่ แคชเดียวกันจึงมีทั้งโมดูลเก่าและใหม่ปนกัน
+   * (ไฟล์ไหนโหลดพลาด หรือเซิร์ฟเวอร์ยังส่งของเก่าค้างอยู่ ก็ค้างเป็นของเก่า)
+   * ตอนนี้ของใหม่เข้ามาทางเดียว คือการติดตั้ง sw.js ตัวใหม่ทั้งชุด */
+  e.respondWith((async () => {
+    const cached = await caches.match(req, { ignoreSearch: isPage });
+    return cached || fromNetwork(req, isPage);
   })());
 });
+
+async function fromNetwork(req, isPage) {
+  try {
+    return await fetch(req);
+  } catch (err) {
+    const cached = await caches.match(req, { ignoreSearch: isPage });
+    if (cached) return cached;
+    // ออฟไลน์และไม่มีในแคช → ถ้าเป็นการเปิดหน้า ให้ตกกลับไปที่หน้าแอป
+    if (isPage) return (await caches.match('./index.html')) || offline();
+    return offline();
+  }
+}
+
+function offline() {
+  return new Response('offline', { status: 503, statusText: 'offline' });
+}
 
 self.addEventListener('message', (e) => {
   if (e.data === 'skipWaiting') self.skipWaiting();

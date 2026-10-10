@@ -11,6 +11,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import crypto from 'node:crypto';
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const read = (p) => fs.readFileSync(path.join(root, p), 'utf8');
@@ -36,6 +37,30 @@ const needed = moduleGraph('js/app.js');
 
 const missing = [...needed].filter(f => !shell.has(f)).sort();
 
+/* ไฟล์ในรายการต้องมีอยู่จริง — sw.js ติดตั้งแบบ "ได้ครบทั้งชุดหรือไม่เอาเลย"
+ * ไฟล์เดียวที่ 404 จะทำให้เครื่องครูไม่ได้เวอร์ชันใหม่อีกเลย */
+const ghost = [...shell].filter(f => f && !fs.existsSync(path.join(root, f))).sort();
+
+/* ลายนิ้วมือของไฟล์ทั้งชุด (ยกเว้น config.js ที่ sw.js ตามของสดเองอยู่แล้ว)
+ * อ่านแบบตัด CR ทิ้ง ผลจะเท่ากันไม่ว่า git บนเครื่องไหนจะแปลง line ending หรือไม่ */
+const LIVE = new Set(['config.js']);
+const hash = crypto.createHash('sha256');
+[...shell].filter(f => f && !LIVE.has(f) && !ghost.includes(f)).sort().forEach(f => {
+  const buf = fs.readFileSync(path.join(root, f));
+  const text = /\.(js|css|html|svg|webmanifest|json)$/.test(f);
+  hash.update(f + String.fromCharCode(10));
+  hash.update(text ? buf.toString('utf8').split(String.fromCharCode(13)).join('') : buf);
+});
+const wantHash = hash.digest('hex').slice(0, 16);
+const haveHash = (sw.match(/SHELL_HASH\s*=\s*'([^']*)'/) || [])[1];
+
+if (process.argv.includes('--fix') && haveHash !== wantHash) {
+  fs.writeFileSync(path.join(root, 'sw.js'),
+    sw.replace(/SHELL_HASH\s*=\s*'[^']*'/, `SHELL_HASH = '${wantHash}'`));
+  console.log(`🔧 อัป SHELL_HASH ใน sw.js เป็น ${wantHash}`);
+}
+const hashOk = haveHash === wantHash || process.argv.includes('--fix');
+
 // เวอร์ชันของ sw ต้องขยับตาม APP_VERSION ไม่งั้นแคชเก่าไม่ถูกล้าง
 const appVer = (read('js/version.js').match(/APP_VERSION\s*=\s*'([^']+)'/) || [])[1];
 const swVer  = (sw.match(/VERSION\s*=\s*'ac-v([^']+)'/) || [])[1];
@@ -48,6 +73,16 @@ if (missing.length) {
   bad = true;
   console.error('❌ sw.js ขาดไฟล์ที่แอปต้องใช้ ' + missing.length + ' ไฟล์ (เปิดตอนไม่มีเน็ตจะไม่ขึ้น):');
   missing.forEach(f => console.error('   · ./' + f));
+}
+if (ghost.length) {
+  bad = true;
+  console.error('❌ sw.js มีไฟล์ที่ไม่มีอยู่จริง ' + ghost.length + ' ไฟล์ (ติดตั้งไม่ผ่าน = เครื่องครูไม่ได้ของใหม่):');
+  ghost.forEach(f => console.error('   · ./' + f));
+}
+if (!hashOk) {
+  bad = true;
+  console.error('❌ ไฟล์ของแอปเปลี่ยน แต่ SHELL_HASH ใน sw.js ยังเป็นค่าเก่า');
+  console.error('   รัน  node tools/check-sw.mjs --fix  ไม่งั้นเครื่องครูจะไม่รู้ว่ามีของใหม่');
 }
 if (appVer !== swVer) {
   bad = true;
