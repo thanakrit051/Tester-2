@@ -327,6 +327,7 @@ function handle_(req, embedded) {
    */
   // ซ่อมระดับชั้น/ห้องที่หายของทุกห้อง — ทำครั้งเดียวหลังอัปโค้ด (ดู healMetaOnce_)
   try { healMetaOnce_(); } catch (e) { console.error('healMetaOnce_: ' + e); }
+  try { ensureWarmOnce_(); } catch (e) { console.error('ensureWarmOnce_: ' + e); }
 
   if (readOnlyReq_(action, pl)) return run_(action, pl, cfg, user, session);
 

@@ -36,6 +36,9 @@ function setupWorkbook() {
     console.error('ตั้งสำรองอัตโนมัติไม่สำเร็จ: ' + backupErr);
   }
 
+  // ปลุกระบบไว้ช่วงเวลาเรียน (ดู 08_KeepWarm.gs)
+  try { ensureWarmTrigger_(); } catch (e) { console.error('ตั้งทริกเกอร์ปลุกระบบไม่สำเร็จ: ' + e); }
+
   /* อัปโครงแท็บห้องเรียนที่สร้างไว้ก่อนมีแถว "เกณฑ์ผ่าน"
    *
    * คำสั่งเขียนแต่ละตัวอัปให้เองอยู่แล้ว (ensureLayout_) แต่กว่าจะครบทุกห้อง
@@ -78,13 +81,17 @@ function setupWorkbook() {
       'วิธีแก้: Apps Script → ไอคอนนาฬิกา ⏰ → + Add Trigger\n' +
       'เลือกฟังก์ชัน scheduledBackup · Time-driven · Week timer · Sunday · 3am';
 
+  var warmMsg = warmTriggerOn_()
+    ? '\n⏰ ปลุกระบบช่วงเวลาเรียน: เปิดอยู่ (จ-ศ 06:30-16:30 ทุก 10 นาที)'
+    : '\n⚠️ ยังตั้งทริกเกอร์ปลุกระบบไม่ได้ (เปิดแอปตอนเช้าจะช้ากว่าปกติ)';
+
   var upgradeMsg = upgraded
     ? '\n\n🆕 เพิ่มแถว "เกณฑ์ผ่าน" ให้แท็บห้องเรียนแล้ว ' + upgraded + ' ห้อง\n' +
       '   (แถวที่ 7 ใต้แถวคะแนนเต็ม — เว้นว่างไว้ = ไม่ตรวจเกณฑ์)'
     : '';
 
   try {
-    SpreadsheetApp.getUi().alert('ติดตั้งเรียบร้อย ✅\n\n' + backupMsg + upgradeMsg +
+    SpreadsheetApp.getUi().alert('ติดตั้งเรียบร้อย ✅\n\n' + backupMsg + warmMsg + upgradeMsg +
       '\n\nดูขั้นตอนถัดไปได้ที่แท็บ "' + SHEET_HELP + '"');
   } catch (e) { /* เรียกจากสคริปต์ ไม่มี UI */ }
 }
