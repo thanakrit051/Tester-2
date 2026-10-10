@@ -49,14 +49,10 @@
 
   // ── เรียกเซิร์ฟเวอร์ ──────────────────────────────────────
   //
-  // หน้านี้ทำงานได้ 2 ที่ โดยไม่ต้องแก้โค้ด
-  //   1. Apps Script เสิร์ฟเอง  → คุยผ่าน google.script.run
-  //   2. GitHub Pages           → คุยผ่าน fetch ไปที่ URL ใน config.js
+  // หน้านี้อยู่บน GitHub Pages (docs/) คุยผ่าน fetch ไปที่ URL ใน config.js
   //
   // ที่ต้องส่งเป็น text/plain เพราะถ้าใช้ application/json เบราว์เซอร์จะยิง
   // preflight (OPTIONS) ก่อน ซึ่ง Apps Script ตอบไม่ได้ แล้วจะติด CORS
-  var EMBEDDED = !!(window.google && google.script && google.script.run);
-
   function parseRes(raw, resolve, reject) {
     var res;
     try { res = JSON.parse(raw); } catch (e) { reject(new Error('อ่านคำตอบจากเซิร์ฟเวอร์ไม่ได้')); return; }
@@ -68,16 +64,6 @@
     var body = JSON.stringify({ action: 'studentGet', payload: { sid: sid } });
 
     return new Promise(function (resolve, reject) {
-      if (EMBEDDED) {
-        google.script.run
-          .withSuccessHandler(function (raw) { parseRes(raw, resolve, reject); })
-          .withFailureHandler(function (err) {
-            reject(new Error((err && err.message) || 'เชื่อมต่อไม่ได้ ลองใหม่อีกครั้ง'));
-          })
-          .apiCall(body);
-        return;
-      }
-
       var url = String(window.AC_API || '').trim();
       if (!url) {
         reject(new Error('ยังไม่ได้ตั้งค่าที่อยู่ของระบบ — ครูต้องใส่ลิงก์ Apps Script ในไฟล์ config.js'));

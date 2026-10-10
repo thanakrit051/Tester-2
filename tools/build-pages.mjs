@@ -5,13 +5,13 @@
  *
  * ได้ไฟล์
  *   docs/index.html      หน้านักเรียน (ไม่ต้องแก้)
- *   docs/config.js       ใส่ลิงก์ Apps Script ตรงนี้ที่เดียว
  *   docs/icons/          ไอคอน
+ *
+ * ลิงก์ Apps Script อ่านจาก config.js ที่รากโปรเจกต์ (../config.js) — ไฟล์เดียวกับหน้าครู
+ * เดิมมี docs/config.js อีกไฟล์ ค่าเดียวกันเป๊ะ เปลี่ยนลิงก์ทีต้องจำแก้ 2 ที่
  *
  * หน้าครูไม่ต้อง build — GitHub Pages เสิร์ฟ index.html + js/ ที่รากโปรเจกต์ตรง ๆ
  *
- * แยก config ออกมา เพราะเวลาอัปเดตหน้าเว็บจะได้ทับ index.html ได้เลย
- * โดยไม่ต้องกลัวว่าลิงก์ที่ตั้งไว้จะหาย
  */
 import './preflight.mjs';   // ไม่ผ่าน = ไม่ build (ข้ามด้วย --skip-checks)
 import fs from 'node:fs';
@@ -74,7 +74,7 @@ ${minCss(read('styles.css') + read('student/student.css'))}
 
 <div id="app" hidden></div>
 
-<script src="./config.js"></script>
+<script src="../config.js"></script>
 <script>
 ${minJs(read('student/app.js'))}
 </script>
@@ -82,28 +82,12 @@ ${minJs(read('student/app.js'))}
 </html>
 `;
 
-const config = `/* ══════════════════════════════════════════════════════════
-   ตั้งค่าที่เดียว — วางลิงก์ Apps Script ของคุณลงในเครื่องหมายคำพูด
-
-   เอาลิงก์มาจากไหน:
-     Apps Script → Deploy → Manage deployments
-     → เลือกอันที่ตั้ง Who has access เป็น "Anyone"
-     → คัดลอก Web app URL (ลงท้ายด้วย /exec)
-
-   ⚠️ ต้องเป็น deployment ที่ตั้งเป็น "Anyone" เท่านั้น
-      ถ้าใช้ลิงก์ของครู นักเรียนจะเปิดไม่ได้
-   ══════════════════════════════════════════════════════════ */
-
-window.AC_API = '';
-`;
-
 const docs = path.join(root, 'docs');
 fs.mkdirSync(docs, { recursive: true });
 fs.writeFileSync(path.join(docs, 'index.html'), html, 'utf8');
 
-// อย่าทับ config เดิม ไม่งั้นลิงก์ที่ครูตั้งไว้จะหายทุกครั้งที่ build
-const cfgPath = path.join(docs, 'config.js');
-if (!fs.existsSync(cfgPath)) fs.writeFileSync(cfgPath, config, 'utf8');
+// docs/config.js เลิกใช้แล้ว (อ่าน ../config.js แทน) — ลบสำเนาเก่าทิ้ง
+fs.rmSync(path.join(docs, 'config.js'), { force: true });
 
 // บอก GitHub Pages ว่าไม่ต้องเอา Jekyll มาประมวลผล
 fs.writeFileSync(path.join(docs, '.nojekyll'), '', 'utf8');
@@ -118,5 +102,4 @@ fs.cpSync(path.join(root, 'icons'), path.join(docs, 'icons'), {
 });
 
 console.log(`✅ docs/index.html      ${(html.length / 1024).toFixed(1)} KB   หน้านักเรียน`);
-console.log(`   docs/config.js       ${fs.existsSync(cfgPath) ? 'มีอยู่แล้ว (ไม่ทับ)' : 'สร้างใหม่'}`);
 console.log(`   docs/icons/          ${fs.readdirSync(path.join(docs, 'icons')).length} ไฟล์   ไอคอน`);
