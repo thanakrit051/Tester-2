@@ -15,7 +15,7 @@ export const NEEDS_SERVER = '2.17.0';
 
 /** เวอร์ชันฝั่งชีตที่มาคู่กับหน้าเว็บรุ่นนี้ (= SERVER_VERSION ใน 00_Constants.gs)
  *  สูงกว่านี้ = ครู deploy โค้ดชีตใหม่กว่าหน้าเว็บที่เปิดอยู่ · ต่ำกว่า = ยังไม่ได้ deploy ของใหม่ */
-export const SERVER_BUILT_FOR = '2.18.0';
+export const SERVER_BUILT_FOR = '2.19.0';
 
 /** เทียบเวอร์ชันแบบ semver ง่าย ๆ — คืน -1 / 0 / 1 */
 export function cmpVersion(a, b) {

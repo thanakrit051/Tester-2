@@ -23,7 +23,7 @@
 // ── เวอร์ชัน ────────────────────────────────────────────────
 // ⚠️ ต้องตรงกับ APP_VERSION ใน js/version.js
 //    ถ้าเลขไม่ตรง หน้าเว็บจะขึ้นแถบเตือนให้ผู้ใช้อัปเดต/Deploy ใหม่
-var SERVER_VERSION = '2.18.0';
+var SERVER_VERSION = '2.19.0';
 
 // ── ชื่อแท็บระบบ ────────────────────────────────────────────
 var SHEET_CONFIG  = '⚙️ ตั้งค่า';
@@ -121,7 +121,6 @@ var CONFIG_DEFAULTS = [
   ['ทั่วไป', 'student_mid',     'on',  'คะแนนสอบกลางภาคให้นักเรียนเห็น: on = เปิด | off = ปิด (ปิดแล้วคะแนนสะสมไม่รวมส่วนนี้ และเกรดขึ้นว่า "รอ")'],
   ['ทั่วไป', 'student_fin',     'on',  'คะแนนสอบปลายภาคให้นักเรียนเห็น: on = เปิด | off = ปิด (ปิดแล้วคะแนนสะสมไม่รวมส่วนนี้ และเกรดขึ้นว่า "รอ")'],
   ['ทั่วไป', 'timetable',      '',   'ตารางสอน — ตั้งจากในแอป (⚙️ ตั้งค่า → การเช็คชื่อ → ตารางสอน) ไม่ต้องแก้ช่องนี้เอง'],
-  ['ทั่วไป', 'assets_url',     '',   'โฟลเดอร์ที่มี styles.css กับ app.bundle.js อยู่ เช่น https://ชื่อคุณ.github.io/ชื่อ-repo/ (ถ้าอัปเฉพาะไฟล์ในโฟลเดอร์ docs) หรือ .../ชื่อ-repo/docs/ (ถ้า push ทั้งโปรเจกต์)'],
 
   ['น้ำหนักคะแนน', 'w_work1', '10', 'ส่งงาน ก่อนกลางภาค → SGS ช่อง 1'],
   ['น้ำหนักคะแนน', 'w_quiz1', '10', 'สอบเก็บคะแนน ก่อนกลางภาค → SGS ช่อง 2'],
@@ -1611,88 +1610,31 @@ function recalcAllClasses() {
  */
 
 /**
- * ข้อมูลสาธารณะ — ไม่มีความลับ ใช้ให้เครื่องใหม่รู้ว่าต้องล็อกอินด้วย Client ID ไหน
- * (Google Client ID ถูกออกแบบมาให้เปิดเผยได้อยู่แล้ว)
- */
-/**
- * เปิด URL นี้ = ได้หน้าเว็บแอปเลย (ไม่ต้องมีโฮสต์ภายนอก)
- * ต่อท้าย ?api=1 ถ้าต้องการข้อมูลแบบ JSON (ใช้ตอนเปิดจากโฮสต์อื่น)
- */
-/**
- * ต่อไฟล์ย่อยกลับเป็นก้อนเดียว — เรียกจากเทมเพลตด้วย <?!= include('Js1') ?>
- * (โค้ดหน้าเว็บถูกหั่นเป็นไฟล์เล็ก เพราะตัวแก้ไขของ Apps Script วางไฟล์ยาวได้ไม่ครบ)
- */
-function include(name) {
-  return HtmlService.createHtmlOutputFromFile(name).getContent();
-}
-
-/**
- * ที่อยู่ของไฟล์หน้าตา/โค้ดหน้าเว็บ (โฮสต์ไว้บน GitHub Pages)
+ * เปิดลิงก์ /exec ตรง ๆ ในเบราว์เซอร์
  *
- * เก็บไว้ในชีตแทนที่จะฝังในไฟล์ HTML เพราะ
- *   1. ย้ายที่อยู่ได้โดยไม่ต้องวางไฟล์ใหม่
- *   2. ไฟล์ Index.html เล็กมาก จึงวางลง Apps Script ได้ครบเสมอ
- *      (ปัญหาที่เจอ: ไฟล์ยาว ๆ วางแล้วตัวอักษรหายไปเงียบ ๆ นับพันตัว)
+ * หน้าครูกับหน้านักเรียนอยู่บน GitHub Pages ทั้งคู่ (ตั้งแต่ 3.14 เลิกให้ Apps Script เสิร์ฟหน้าเว็บเอง)
+ * ลิงก์นี้มีไว้ให้หน้าเว็บเรียก API เท่านั้น ใครเปิดตรง ๆ ได้หน้าบอกทางแทนหน้าขาว
+ *
+ *   ?api=1 = ข้อมูลสาธารณะเป็น JSON (เวอร์ชัน · Client ID ของปุ่มเข้าสู่ระบบด้วย Google)
+ *            ไม่มีความลับ — Google Client ID ถูกออกแบบมาให้เปิดเผยได้อยู่แล้ว
  */
-function assetsBase_(cfg) {
-  var u = String((cfg || getConfig_()).assets_url || '').trim();
-  if (!u) return '';
-  if (u.indexOf('https://') !== 0) return '';          // อนุญาตเฉพาะ https
-  if (u.charAt(u.length - 1) !== '/') u += '/';
-  return u.replace(/["'<>\s]/g, '');                   // กันอักขระที่ทำให้แท็กเพี้ยน
-}
-
-/** หน้าบอกวิธีตั้งค่า ตอนที่ยังไม่ได้ใส่ assets_url */
-function setupNeededPage_() {
-  return HtmlService.createHtmlOutput(
-    '<div style="font-family:system-ui,sans-serif;max-width:460px;margin:60px auto;padding:0 20px;' +
-    'line-height:1.8;color:#56635d">' +
-    '<div style="font-size:19px;font-weight:700;color:#131917;margin-bottom:10px">ยังตั้งค่าไม่ครบ</div>' +
-    '<div style="font-size:14px">หน้าเว็บนี้โหลดหน้าตาและโค้ดจาก GitHub Pages ' +
-    'แต่ยังไม่ได้บอกว่าอยู่ที่ไหน</div>' +
-    '<div style="font-size:14px;margin-top:16px"><b style="color:#131917">วิธีแก้</b><br>' +
-    'เปิด Google Sheet → แท็บ <b>⚙️ ตั้งค่า</b> → หาแถว <code>assets_url</code><br>' +
-    'ใส่ที่อยู่ GitHub Pages ของคุณ เช่น<br>' +
-    '<code style="background:#eef1ef;padding:3px 7px;border-radius:6px;display:inline-block;margin-top:6px">' +
-    'https://ชื่อคุณ.github.io/ชื่อ-repo/</code><br>' +
-    '<span style="font-size:12.5px">ต้องเป็นโฟลเดอร์ที่มี <b>styles.css</b> กับ <b>app.bundle.js</b> อยู่จริง<br>' +
-    'ถ้า push ทั้งโปรเจกต์ขึ้น GitHub ให้ลงท้ายด้วย <b>/docs/</b></span><br><br>' +
-    'แล้วรีเฟรชหน้านี้ (ไม่ต้อง Deploy ใหม่)</div></div>')
-    .setTitle('AssignCheck — ตั้งค่า');
-}
-
 function doGet(e) {
   var p = (e && e.parameter) || {};
   if (p.api === '1') return apiInfo_();
 
-  // ?page=student = หน้าให้นักเรียนดูผลตัวเอง (ถ้าย้ายไป GitHub แล้วจะไม่มีไฟล์นี้)
-  if (p.page === 'student' || p.s === '1') {
-    try {
-      return HtmlService.createHtmlOutputFromFile('Student')
-        .setTitle('ผลการเรียนของฉัน')
-        .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover')
-        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
-    } catch (err) {
-      return HtmlService.createHtmlOutput(
-        '<div style="font-family:sans-serif;text-align:center;padding:60px 20px;color:#56635d">' +
-        '<div style="font-size:17px;font-weight:700;color:#131917">ไม่พบหน้าของนักเรียนในที่นี้</div>' +
-        '<div style="margin-top:8px;font-size:13.5px">หน้าสำหรับนักเรียนถูกย้ายไปไว้ที่ GitHub Pages แล้ว ' +
-        'ให้ใช้ลิงก์นั้นแทน</div></div>');
-    }
-  }
-
-  var assets = assetsBase_(getConfig_());
-  if (!assets) return setupNeededPage_();
-
-  var t = HtmlService.createTemplateFromFile('Index');
-  t.assets = assets;
-  return t.evaluate()
-    .setTitle('AssignCheck')
-    // หน้านี้อยู่ใน iframe ของ Google แท็บจึงไม่อ่าน <link rel="icon"> ในไฟล์
-    // ต้องบอกทางนี้ทางเดียว ไม่งั้นครูเห็นไอคอน Google Drive บนแท็บ
-    .setFaviconUrl(assets + 'icons/favicon-32.png')
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover')
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  // ลิงก์เก่าที่อาจยังค้างในบุ๊กมาร์ก/กลุ่มไลน์ (หน้าครู · หน้านักเรียน ?page=student)
+  var student = p.page === 'student' || p.s === '1';
+  return HtmlService.createHtmlOutput(
+    '<div style="font-family:system-ui,sans-serif;max-width:440px;margin:60px auto;padding:0 20px;' +
+    'line-height:1.8;color:#56635d;text-align:center">' +
+    '<div style="font-size:18px;font-weight:700;color:#131917;margin-bottom:8px">' +
+    (student ? 'หน้าดูผลของนักเรียนย้ายที่แล้ว' : 'ลิงก์นี้ไม่ใช่หน้าแอป') + '</div>' +
+    '<div style="font-size:14px">' +
+    (student
+      ? 'ขอลิงก์ใหม่หรือสแกน QR จากครูประจำวิชา'
+      : 'AssignCheck เปิดจากลิงก์ GitHub Pages ของโรงเรียน<br>ลิงก์นี้มีไว้ให้แอปส่งข้อมูลเข้าชีตเท่านั้น') +
+    '</div></div>')
+    .setTitle('AssignCheck');
 }
 
 function apiInfo_() {
@@ -1824,16 +1766,6 @@ function sameText_(a, b) {
   return diff === 0;
 }
 
-/**
- * ทางเข้าสำหรับหน้าเว็บที่ Apps Script เสิร์ฟเอง (google.script.run)
- * ผู้ใช้ผ่านหน้าล็อกอินของ Google มาแล้ว จึงรู้อีเมลได้เลย ไม่ต้องใช้รหัสลับ
- */
-function apiCall(bodyJson) {
-  var req;
-  try { req = JSON.parse(bodyJson || '{}'); }
-  catch (err) { return JSON.stringify({ ok: false, error: 'อ่านคำขอไม่ได้' }); }
-  return handle_(req, true).getContent();
-}
 
 function doPost(e) {
   var req;
@@ -1842,17 +1774,11 @@ function doPost(e) {
   } catch (err) {
     return json_({ ok: false, error: 'อ่านคำขอไม่ได้ (JSON ไม่ถูกต้อง)' });
   }
-  return handle_(req, false);
+  return handle_(req);
 }
 
-/** อีเมลของผู้ใช้ที่กำลังเปิดหน้าเว็บอยู่ (โหมด Apps Script เสิร์ฟเอง) */
-function activeEmail_() {
-  var email = '';
-  try { email = String(Session.getActiveUser().getEmail() || '').toLowerCase(); } catch (e) {}
-  return email;
-}
 
-function handle_(req, embedded) {
+function handle_(req) {
 
   var cfg = getConfig_();
   if (!cfg.apiKey) return json_({ ok: false, error: 'ยังไม่ได้ติดตั้ง — เปิด Sheet แล้วกดเมนู 📗 AssignCheck → ติดตั้ง' });
@@ -1874,45 +1800,30 @@ function handle_(req, embedded) {
     }
   }
 
-  // ผ่านได้ 4 ทาง เรียงตามความสะดวก
-  //   1) เปิดจากหน้าเว็บที่ Apps Script เสิร์ฟเอง — Google ล็อกอินให้แล้ว
-  //   2) บัตรผ่านที่ชีตออกให้เอง (ตรวจในเครื่อง ไม่ต้องยิงออกเน็ต)
-  //   3) ID token จาก Google Sign-In — ผ่านแล้วออกบัตรผ่านให้
-  //   4) รหัสลับ (วิธีสำรอง)
+  // ผ่านได้ 3 ทาง เรียงตามความสะดวก
+  //   1) บัตรผ่านที่ชีตออกให้เอง (ตรวจในเครื่อง ไม่ต้องยิงออกเน็ต)
+  //   2) ID token จาก Google Sign-In — ผ่านแล้วออกบัตรผ่านให้
+  //   3) รหัสลับ (วิธีสำรอง)
   var user;
   var session = null;   // บัตรผ่านใบใหม่ที่จะส่งกลับไปให้หน้าเว็บเก็บ (ถ้ามี)
 
-  if (embedded) {
-    var email = activeEmail_();
-    if (!email) {
-      return json_({
-        ok: false, code: 'AUTH',
-        error: 'ระบุตัวตนไม่ได้ — ตั้ง Deploy เป็น "Who has access: Anyone with a Google account" แล้ว Deploy ใหม่'
-      });
+  try {
+    var held = verifySession_(req.session, cfg);
+    if (held) {
+      user = { email: held.email, name: held.email };
+      if (sessionDue_(held.exp)) session = issueSession_(held.email, cfg);
+    } else {
+      user = verifyIdToken_(req.idToken, cfg);
+      if (user) session = issueSession_(user.email, cfg);
     }
-    if (!isAllowedEmail_(email, cfg)) {
-      return json_({ ok: false, code: 'FORBIDDEN', error: 'บัญชี ' + email + ' ไม่มีสิทธิ์ใช้ไฟล์นี้' });
-    }
-    user = { email: email, name: email };
-  } else {
-    try {
-      var held = verifySession_(req.session, cfg);
-      if (held) {
-        user = { email: held.email, name: held.email };
-        if (sessionDue_(held.exp)) session = issueSession_(held.email, cfg);
-      } else {
-        user = verifyIdToken_(req.idToken, cfg);
-        if (user) session = issueSession_(user.email, cfg);
-      }
-    } catch (err) {
-      return json_({ ok: false, error: String(err.message || err), code: 'FORBIDDEN' });
-    }
-    if (!user && String(req.key || '') !== String(cfg.apiKey)) {
-      return json_({
-        ok: false, code: 'AUTH',
-        error: (req.session || req.idToken) ? 'เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่' : 'ยังไม่ได้เข้าสู่ระบบ'
-      });
-    }
+  } catch (err) {
+    return json_({ ok: false, error: String(err.message || err), code: 'FORBIDDEN' });
+  }
+  if (!user && String(req.key || '') !== String(cfg.apiKey)) {
+    return json_({
+      ok: false, code: 'AUTH',
+      error: (req.session || req.idToken) ? 'เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่' : 'ยังไม่ได้เข้าสู่ระบบ'
+    });
   }
 
   var action = String(req.action || '');
@@ -1991,11 +1902,8 @@ function dispatch_(action, p, cfg) {
     case 'ping':
       return { year: cfg.year, term: cfg.term, teacher: cfg.teacher, user: p.__user || null };
 
-    case 'bootstrap': {
-      var appUrl = '';
-      try { appUrl = ScriptApp.getService().getUrl() || ''; } catch (e) {}
-      return { config: publicConfig_(cfg), classes: listClasses_(), webAppUrl: appUrl };
-    }
+    case 'bootstrap':
+      return { config: publicConfig_(cfg), classes: listClasses_() };
 
     case 'saveConfig': {
       Object.keys(p.entries || {}).forEach(function (k) {

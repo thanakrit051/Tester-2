@@ -79,7 +79,7 @@ vm.runInContext(
   fs.readFileSync(path.join(gs, '00_Constants.gs'), 'utf8') + '\n' +
   fs.readFileSync(path.join(gs, '04_Api.gs'), 'utf8'), ctx);
 
-const send = (req) => JSON.parse(ctx.handle_(req, false).getContent());
+const send = (req) => JSON.parse(ctx.handle_(req).getContent());
 const googleSays = (email) => ({
   aud: cfg.oauth_client_id, email, email_verified: 'true', name: 'ครูทดสอบ',
   exp: String(Math.floor(Date.now() / 1000) + 3600)
