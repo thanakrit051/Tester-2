@@ -1,6 +1,8 @@
 /* หน้ากรอกงานและคะแนนสอบ (ส่งงาน · สอบเก็บคะแนน · กลางภาค · ปลายภาค) */
 
-import { h, modal, toast, confirmBox, nf } from '../dom.js';
+import { h, modal, toast, confirmBox, nf, matchStudent } from '../dom.js';
+import { icon } from '../icons.js';
+import { store } from '../storage.js';
 import { state, emit, loadClass, ensureColumn, setCells, getCell, deleteColumn, updateColumn, settings, undoLastEdit } from '../state.js';
 import { BUCKETS, NOT_SUBMITTED, RETAKE_KINDS, parseWork, formatWork, formatRetake, passMarkOf, passOf } from '../score.js';
 import { serverInfo } from '../api.js';
@@ -18,19 +20,26 @@ const undoAction = () => ({
  * รวมกันได้ 8 ถัง เท่ากับ 8 ช่องของ SGS เหมือนเดิม
  * กลางภาค/ปลายภาคมีช่วงเดียว จึงบังคับช่วงให้เอง
  */
+/* ic = ไอคอนเส้นใน js/icons.js (ชุดเดียวกับแถบเมนู) · emoji ใช้เฉพาะหน้าว่างเปล่า
+ * ของเดิมใช้อีโมจิบนปุ่ม ซึ่งแต่ละเครื่องวาดไม่เหมือนกันและไม่เข้ากับไอคอนส่วนอื่นของแอป */
 const KINDS = [
-  { kind: 'WORK', ic: '📝', label: 'ส่งงาน' },
-  { kind: 'QUIZ', ic: '✍️', label: 'สอบเก็บ' },
-  { kind: 'MID',  ic: '📄', label: 'กลางภาค', fixed: 1 },
-  { kind: 'FIN',  ic: '📕', label: 'ปลายภาค', fixed: 2 }
+  { kind: 'WORK', ic: 'doc',    emoji: '📝', label: 'ส่งงาน' },
+  { kind: 'QUIZ', ic: 'pencil', emoji: '✍️', label: 'สอบเก็บ' },
+  { kind: 'MID',  ic: 'exam',   emoji: '📄', label: 'กลางภาค', fixed: 1 },
+  { kind: 'FIN',  ic: 'flag',   emoji: '📕', label: 'ปลายภาค', fixed: 2 }
 ];
+
+const DENSE_KEY = 'ac.workDense';
 
 const ui = {
   kind: 'WORK',      // ชนิดคะแนนที่เลือกอยู่
   phase: 1,          // ช่วง 1 = ก่อนกลางภาค · 2 = หลังกลางภาค
   open: null,        // key ของชิ้นงานที่กำลังกรอก (โหมดรายชิ้นงาน)
   by: 'item',        // 'item' = กรอกทีละชิ้นงาน · 'student' = กรอกทีละคน
-  si: 0              // ลำดับนักเรียนในโหมดรายคน
+  si: 0,             // ลำดับนักเรียนในโหมดรายคน
+  q: '',             // คำค้น "ไปที่เลขที่/ชื่อ" ในหน้ากรอก
+  // ตารางเร็ว (มือถือ): แถวละคน มีแค่ป้ายสถานะกับช่องคะแนน — จำไว้ในเครื่อง
+  dense: store.get(DENSE_KEY) === '1'
 };
 
 const kindOf = (k) => KINDS.find(x => x.kind === k) || KINDS[0];
@@ -184,7 +193,7 @@ function bucketBar(openFirst) {
           jump();
         }
       },
-        h('span', { class: 'kc-ic' }, k.ic),
+        h('span', { class: 'kc-ic' }, icon(k.ic)),
         h('span', { class: 'kc-label' }, k.label),
         h('span', { class: 'kc-w' }, b ? S.weight[b.id] : 0));
     })),
@@ -224,7 +233,7 @@ function openItemPicker(cur) {
           if (k.fixed) { openFixedExam(); emit(); return; }
           openItemPicker(cur);
         }
-      }, `${k.ic} ${k.label}`))),
+      }, icon(k.ic), k.label))),
     !kindOf(ui.kind).fixed && h('div', { class: 'chips', style: { marginBottom: '10px' } },
       [[1, 'ก่อนกลางภาค'], [2, 'หลังกลางภาค']].map(([v, l]) => h('button', {
         class: 'chip', 'data-on': curPhase() === v ? '1' : '0',
@@ -263,7 +272,7 @@ function listScreen() {
       cols.length
         ? h('div', { class: 'card card-tight' }, cols.map(itemRow))
         : h('div', { class: 'card empty' },
-            h('div', { class: 'empty-icon' }, kindOf(b.kind).ic),
+            h('div', { class: 'empty-icon' }, kindOf(b.kind).emoji),
             h('div', null, `ยังไม่ได้กรอกคะแนน${b.label}`),
             h('button', {
               class: 'btn', style: { marginTop: '12px' },
@@ -325,7 +334,10 @@ function itemRow(col) {
           `เต็ม ${col.max} · ${words(col).done} ${t.done}/${t.total}`,
           t.late > 0 ? ` · ส่งช้า ${t.late}` : '',
           t.miss > 0 ? ` · ${words(col).miss} ${t.miss}` : '',
-          t.retake > 0 ? ` · สอบซ่อม ${t.retake}` : '')),
+          t.retake > 0 ? ` · สอบซ่อม ${t.retake}` : ''),
+        // ความคืบหน้าแบบเห็นปราดเดียว — ตัวเลข 18/20 ต้องอ่าน แถบไม่ต้อง
+        h('div', { class: 'mini-prog', 'aria-hidden': 'true' },
+          h('i', { style: { width: (t.total ? Math.round((t.total - t.none) / t.total * 100) : 0) + '%' } }))),
       t.none === 0
         ? h('span', { class: 'badge g' }, 'ครบ')
         : h('span', { class: 'badge a' }, `ค้าง ${t.none}`)
@@ -374,7 +386,7 @@ const statusBtnsOf = (col) => (isExam(col)
  * @param head โหนดฝั่งซ้ายของแถว ต่างกันตามโหมด (เลขที่+ชื่อ หรือ ชื่องาน+กำหนดส่ง)
  * @param nextInput ฟังก์ชันหาช่องถัดไปตอนกด Enter
  */
-function scoreRow(col, s, { head, nextInput } = {}) {
+function scoreRow(col, s, { head, nextInput, dense = false } = {}) {
   const W = words(col);
 
   // ต่ำกว่าเกณฑ์ผ่าน = ขึ้นสีแดงทันทีตอนกรอก ครูจะได้เห็นว่าใครต้องซ่อมโดยไม่ต้องไปเปิดรายงาน
@@ -421,6 +433,20 @@ function scoreRow(col, s, { head, nextInput } = {}) {
 
   const group = h('div', { class: 'st-group' }, btns);
 
+  /* ตารางเร็ว: ปุ่มสถานะ 3 ปุ่มยุบเป็นป้ายเดียว แตะวน ยังไม่ตรวจ → ส่ง → ช้า → ไม่ส่ง
+   * ปกติไม่ต้องแตะเลย เพราะพิมพ์คะแนน = นับว่าส่ง (ดู onchange ข้างบน)
+   * ช่องสอบซ่อมแตะแล้วเปิดกล่องสอบซ่อม เหมือนปุ่มในแบบการ์ด */
+  const cycle = ['none', ...statusBtnsOf(col).map(b => b.st).filter(st => st !== 'retake')];
+  const pill = dense && h('button', {
+    class: 'st-pill',
+    onclick: () => {
+      const now = parseWork(getCell(col.key, s.sid));
+      if (now.retake) return openRetake(col, s, paint);
+      apply(cycle[(cycle.indexOf(now.status) + 1) % cycle.length]);
+    }
+  });
+  const pillText = { none: '—', ok: isExam(col) ? 'สอบแล้ว' : 'ส่ง', late: 'ช้า', miss: W.missShort, retake: 'ซ่อม' };
+
   function write(value) {
     setCells([{ key: col.key, sid: s.sid, value }], { quiet: true });
     paint();
@@ -444,6 +470,11 @@ function scoreRow(col, s, { head, nextInput } = {}) {
       b.dataset.on = b.dataset.st === st ? '1' : '0';
       if (b.dataset.st === 'retake') b.replaceChildren(...retakeFace(w));
     });
+    if (pill) {
+      pill.dataset.st = st;
+      pill.textContent = pillText[st];
+      pill.setAttribute('aria-label', `สถานะ ${s.name || 'เลขที่ ' + s.no}: ${st === 'none' ? 'ยังไม่ตรวจ' : pillText[st]} — แตะเพื่อเปลี่ยน`);
+    }
     inp.value = scored ? String(w.score) : '';
     inp.placeholder = w.status === 'miss' ? W.missShort : '';
     inp.title = w.retake ? `คะแนนสอบซ่อม · ครั้งแรก ${origText(w)}` : '';
@@ -455,13 +486,14 @@ function scoreRow(col, s, { head, nextInput } = {}) {
 
   // ฝั่งซ้าย+คะแนนบรรทัดบน · ปุ่มสถานะเต็มความกว้างบรรทัดล่าง
   // (แบบเดิมยัดทุกอย่างบรรทัดเดียว ชื่อนักเรียนเลยถูกบีบจนอ่านไม่ออกบนมือถือ)
-  const row = h('div', { class: 'work-row' },
+  const row = h('div', { class: 'work-row' + (dense ? ' dense' : ''), 'data-sid': s.sid },
     h('div', { class: 'work-head' },
       head || null,
+      pill || null,
       h('div', { class: 'score-cell' }, inp,
         h('span', { class: 'score-max', title: mark === null ? null : `ผ่านที่ ${mark}` },
           '/' + col.max + (mark === null ? '' : ` · ผ่าน ${mark}`)))),
-    group
+    dense ? null : group
   );
   paint();
   row.__input = inp;
@@ -542,12 +574,22 @@ function openRetake(col, s, done) {
 
 function gradeScreen(col) {
   const students = state.cls.students;
+  // ตารางเร็วมีบนมือถือเท่านั้น — บน PC แถวเป็นตารางบรรทัดเดียวอยู่แล้ว
+  const dense = ui.dense && !wide();
   const rows = [];
+  const find = findBox(rows);
   students.forEach((s, i) => {
     rows.push(scoreRow(col, s, {
+      dense,
       head: [h('div', { class: 'stu-no' }, s.no), h('div', { class: 'work-name' }, s.name || '—')],
-      nextInput: () => rows[i + 1] && rows[i + 1].__input
+      nextInput: () => {
+        /* กำลังค้นหาอยู่ = ครูหยิบกระดาษทีละแผ่นแบบไม่เรียงเลขที่
+         * กด Enter แล้วกลับไปช่องค้นหาที่ล้างแล้ว พร้อมพิมพ์เลขที่ของแผ่นถัดไปเลย */
+        if (ui.q.trim()) return find.reset();
+        return rows.slice(i + 1).find(r => !r.hidden)?.__input;
+      }
     }));
+    rows[i].hidden = !matchStudent(s, ui.q);
   });
 
   const W = words(col);
@@ -594,6 +636,11 @@ function gradeScreen(col) {
 
     // ── ปุ่มลัดทั้งห้อง (มือถือ — บน PC อยู่ในเมนู ⋯ ของแถบชิ้นงาน) ──
     h('div', { class: 'card pc-hide', style: { padding: '10px 12px' } },
+      h('div', { class: 'dense-seg', role: 'group', 'aria-label': 'รูปแบบการกรอก' },
+        [[false, 'การ์ด'], [true, 'ตารางเร็ว']].map(([v, label]) => h('button', {
+          'data-on': ui.dense === v ? '1' : '0', 'aria-pressed': ui.dense === v ? 'true' : 'false',
+          onclick: () => { ui.dense = v; store.set(DENSE_KEY, v ? '1' : '0'); emit(); }
+        }, label))),
       h('div', { class: 'btn-row' },
         h('button', {
           class: 'btn btn-soft btn-sm',
@@ -612,13 +659,71 @@ function gradeScreen(col) {
         }, '↺ ล้าง')
       )),
 
-    // ── รายชื่อ: มือถือ = การ์ดใบละคน · PC = ตาราง 4 คอลัมน์ ──
-    h('div', { class: 'work-list' },
+    find.el,
+    dense && h('div', { class: 'enter-hint' }, h('kbd', null, 'Enter ↵'),
+      ui.q.trim() ? 'บันทึกแล้วกลับมาค้นหาแผ่นถัดไป' : 'พิมพ์คะแนนแล้วกด ระบบเลื่อนไปคนถัดไปให้'),
+
+    // ── รายชื่อ: มือถือ = การ์ดใบละคน (หรือตารางเร็ว) · PC = ตาราง 4 คอลัมน์ ──
+    h('div', { class: 'work-list' + (dense ? ' dense' : '') },
       h('div', { class: 'work-thead' },
         h('div', null, 'เลขที่'), h('div', null, 'ชื่อ-นามสกุล'),
         h('div', null, isExam(col) ? 'สถานะการสอบ' : 'สถานะการส่ง'), h('div', null, 'คะแนน')),
       rows)
   );
+}
+
+const wide = () => { try { return matchMedia('(min-width: 900px)').matches; } catch (e) { return false; } };
+
+/**
+ * ช่อง "ไปที่เลขที่ / ชื่อ" ของหน้ากรอก
+ *
+ * ตรวจงานจริงกระดาษไม่ได้เรียงเลขที่ ครูต้องเลื่อนหาคนในรายชื่อ 40 คนทุกแผ่น
+ * พิมพ์เลขที่แล้ว Enter = กระโดดไปช่องคะแนนของคนนั้นเลย
+ * กรองด้วยการซ่อนแถว ไม่วาดหน้าใหม่ แป้นพิมพ์มือถือจึงไม่หุบระหว่างพิมพ์
+ */
+function findBox(rows) {
+  const input = h('input', {
+    type: 'search', value: ui.q, placeholder: 'ไปที่เลขที่ หรือชื่อ',
+    'aria-label': 'ไปที่นักเรียน', enterkeyhint: 'go', autocomplete: 'off',
+    oninput: (e) => { ui.q = e.target.value; apply(); },
+    onkeydown: (e) => {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      const first = rows.find(r => !r.hidden);
+      if (first) { first.__input.focus(); first.__input.select(); }
+    }
+  });
+  const clearBtn = h('button', {
+    class: 'find-clear', 'aria-label': 'ล้างคำค้น', hidden: !ui.q,
+    onclick: () => { reset(); }
+  }, icon('close'));
+  const none = h('div', { class: 'card empty att-nomatch', hidden: true }, 'ไม่พบนักเรียนที่ค้นหา');
+
+  function apply() {
+    const bySid = new Map(state.cls.students.map(s => [String(s.sid), s]));
+    let shown = 0;
+    rows.forEach(r => {
+      const s = bySid.get(r.dataset.sid);
+      r.hidden = !(s && matchStudent(s, ui.q));
+      if (!r.hidden) shown++;
+    });
+    none.hidden = shown > 0 || !ui.q.trim();
+    clearBtn.hidden = !ui.q;
+    const hint = document.querySelector('.enter-hint');
+    if (hint && hint.lastChild) {
+      hint.lastChild.textContent = ui.q.trim()
+        ? 'บันทึกแล้วกลับมาค้นหาแผ่นถัดไป' : 'พิมพ์คะแนนแล้วกด ระบบเลื่อนไปคนถัดไปให้';
+    }
+  }
+  function reset() {
+    ui.q = ''; input.value = ''; apply();
+    input.focus();
+    return null;    // ให้ตัวเรียก (Enter ในช่องคะแนน) ไม่ต้องย้ายโฟกัสต่อ
+  }
+  return {
+    el: h('div', null, h('label', { class: 'find-box' }, icon('search'), input, clearBtn), none),
+    reset
+  };
 }
 
 /**

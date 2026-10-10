@@ -1518,3 +1518,62 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
   .att-list .stu-sid { line-height: 1.3; }
   .att-list > .card.empty { margin: 0; box-shadow: none; }
 }
+
+/* ══ v3.13 · ไอคอนเส้นในแถบถังคะแนน (แทนอีโมจิ) ═════════════ */
+.kind-cell .kc-ic { display: grid; place-content: center; }
+.kind-cell .kc-ic .ico { width: 20px; height: 20px; color: var(--accent); }
+.kind-cell[data-on="1"] .kc-ic .ico { color: var(--lime); }
+.chips .chip .ico { width: 16px; height: 16px; vertical-align: -3px; margin-right: 4px; }
+
+/* ══ v3.13 · กรอกคะแนนแบบตารางเร็ว (มือถือ) ══════════════════
+   แบบการ์ดเดิมสูงราว 125px ต่อคน (ชื่อ + ช่องคะแนน + ปุ่ม 3 ปุ่มอีกบรรทัด)
+   ตารางเร็วเหลือแถวละ ~52px บรรทัดเดียว: เลขที่ · ชื่อ · ป้ายสถานะ · คะแนน */
+.dense-seg {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 3px; padding: 3px;
+  border-radius: 12px; background: var(--surface-2); border: 1px solid var(--line-2);
+  margin-bottom: 10px;
+}
+.dense-seg button {
+  min-height: 38px; border-radius: 9px; font-size: 13.5px; font-weight: 600; color: var(--ink-2);
+}
+.dense-seg button[data-on="1"] { background: var(--surface); color: var(--ink); box-shadow: var(--sh-1); }
+
+.enter-hint {
+  display: flex; align-items: center; gap: 8px; margin: -2px 2px 10px;
+  font-size: 12.5px; color: var(--ink-2);
+}
+.enter-hint kbd {
+  font: inherit; font-weight: 700; color: var(--ink); padding: 1px 7px;
+  border: 1px solid var(--line-2); border-radius: 6px; background: var(--surface);
+}
+
+.work-list.dense {
+  background: var(--surface); border-radius: 16px; overflow: hidden; box-shadow: var(--sh-1);
+}
+.work-row.dense {
+  margin: 0; padding: 4px 10px; border-radius: 0; border-top: 1px solid var(--line);
+  min-height: 52px; display: flex; align-items: center;
+}
+.work-list.dense .work-thead + .work-row { border-top: 0; }
+.work-row.dense .work-head { margin: 0; flex: 1; min-width: 0; gap: 8px; }
+.work-row.dense .stu-no { width: 26px; height: 26px; font-size: 12px; }
+.work-row.dense .score-inp { width: 60px; min-height: 42px; font-size: 16px; }
+.work-row.dense .score-max { display: none; }
+.st-pill {
+  flex: none; min-width: 64px; min-height: 32px; padding: 0 10px; border-radius: 999px;
+  font-size: 13px; font-weight: 700; background: var(--surface-2); color: var(--ink-3);
+}
+.st-pill[data-st="ok"]     { background: var(--ok-soft);    color: #116b32; }
+.st-pill[data-st="late"]   { background: var(--late-soft);  color: #a34b06; }
+.st-pill[data-st="miss"]   { background: var(--miss-soft);  color: var(--st-miss); }
+.st-pill[data-st="retake"] { background: var(--purple-soft); color: var(--purple); }
+[data-theme="dark"] .st-pill[data-st="ok"]   { color: var(--st-ok); }
+[data-theme="dark"] .st-pill[data-st="late"] { color: var(--st-late); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .st-pill[data-st="ok"]   { color: var(--st-ok); }
+  :root:not([data-theme="light"]) .st-pill[data-st="late"] { color: var(--st-late); }
+}
+
+/* แถบความคืบหน้าบาง ๆ ใต้ชิ้นงานแต่ละชิ้น (นับที่ตรวจแล้ว รวมคนไม่ส่ง) */
+.mini-prog { height: 5px; border-radius: 3px; background: var(--surface-3); overflow: hidden; margin-top: 6px; max-width: 220px; }
+.mini-prog i { display: block; height: 100%; border-radius: 3px; background: var(--accent); }
