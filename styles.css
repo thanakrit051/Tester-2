@@ -1697,3 +1697,18 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
   background: var(--surface-2); border-radius: 4px 16px 16px 16px; padding: 12px 14px;
   max-height: 40vh; overflow-y: auto; user-select: text; -webkit-user-select: text;
 }
+
+/* ══ v3.13 · สุ่มเรียกชื่อ ══════════════════════════════════ */
+.find-row { display: flex; gap: 8px; align-items: flex-start; }
+.find-row > .find-box { flex: 1; min-width: 0; }
+.dice-btn {
+  flex: none; width: 44px; height: 44px; border-radius: 12px; font-size: 20px;
+  background: var(--surface); border: 1px solid var(--line-2);
+}
+.pick-card {
+  display: grid; justify-items: center; gap: 4px; text-align: center;
+  padding: 26px 14px; margin-bottom: 10px; border-radius: 18px;
+  background: var(--hero); color: #fff;
+}
+.pick-sub { font-size: 14px; color: var(--hero-ink); }
+.pick-name { font-size: 28px; font-weight: 700; line-height: 1.3; }

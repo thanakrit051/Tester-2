@@ -368,7 +368,10 @@ function checkScreen() {
         h('button', { class: 'icon-btn', onclick: () => openMenu(available, key) }, '⋯'))
     ),
 
-    searchBox(),
+    h('div', { class: 'find-row' }, searchBox(), h('button', {
+      class: 'dice-btn', 'aria-label': 'สุ่มเรียกชื่อ', title: 'สุ่มเรียกชื่อ',
+      onclick: () => openPicker(key)
+    }, '🎲')),
 
     // ── แถวกรอง + ตัวนับ (ตามดีไซน์ วางอยู่เหนือรายชื่อ) ──
     h('div', { class: 'filter-row', style: { display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '10px' } },
@@ -425,6 +428,7 @@ function studentRow(s, key) {
           const group = e.currentTarget.parentElement;
           [...group.children].forEach(b => { b.dataset.on = (b.dataset.code === next) ? '1' : '0'; });
           refreshStats(key);
+          buzz();
         }
       }, code))
     )
@@ -463,6 +467,60 @@ function applySearch() {
   if (none) none.hidden = shown > 0 || !ui.q.trim();
   const clr = document.querySelector('.find-box .find-clear');
   if (clr) clr.hidden = !ui.q;
+}
+
+/**
+ * สั่นสั้น ๆ ตอนแตะปุ่มเช็คชื่อ — ครูเช็คเร็ว ๆ มักไม่ได้มองจอทุกครั้งที่กด
+ * ได้เฉพาะมือถือ Android (iPhone ที่เปิดผ่านเว็บไม่รองรับ เครื่องที่ไม่รองรับก็แค่เงียบไป)
+ */
+function buzz() {
+  try { if (navigator.vibrate) navigator.vibrate(12); } catch (e) { /* ไม่รองรับ */ }
+}
+
+/* คนที่สุ่มไปแล้วในรอบนี้ — ไม่ให้ซ้ำจนกว่าจะครบทุกคน (ปิดแอปแล้วเริ่มนับใหม่) */
+const picked = new Map();   // classId → Set(sid)
+
+/**
+ * สุ่มเรียกชื่อ — ข้ามคนที่ขาด/ลาในคาบที่เปิดอยู่ และไม่สุ่มซ้ำคนเดิมจนกว่าจะครบรอบ
+ */
+function openPicker(key) {
+  const cls = state.cls;
+  const away = (s) => ['ข', 'ล'].includes(String(getCell(key, s.sid) || ''));
+  const pool = cls.students.filter(s => !away(s));
+  if (!pool.length) return toast('ไม่มีนักเรียนให้สุ่ม', 'err');
+
+  const id = state.classId;
+  if (!picked.has(id)) picked.set(id, new Set());
+  const seen = picked.get(id);
+
+  modal((close) => {
+    const name = h('div', { class: 'pick-name' });
+    const sub = h('div', { class: 'pick-sub' });
+    const left = h('div', { class: 'hint', style: { textAlign: 'center' } });
+
+    const roll = () => {
+      let fresh = pool.filter(s => !seen.has(s.sid));
+      if (!fresh.length) { seen.clear(); fresh = pool; }
+      const s = fresh[Math.floor(Math.random() * fresh.length)];
+      seen.add(s.sid);
+      name.textContent = s.name || '—';
+      sub.textContent = `เลขที่ ${s.no}`;
+      const n = pool.filter(x => !seen.has(x.sid)).length;
+      left.textContent = n ? `เหลือ ${n} คนที่ยังไม่ถูกเรียกรอบนี้` : 'ครบทุกคนแล้ว — กดอีกครั้งเริ่มรอบใหม่';
+      buzz();
+    };
+    roll();
+
+    return h('div', null,
+      h('h2', null, '🎲 สุ่มเรียกชื่อ'),
+      h('div', { class: 'pick-card' }, sub, name),
+      left,
+      h('div', { class: 'hint', style: { textAlign: 'center', marginBottom: '12px' } },
+        'ไม่สุ่มคนที่ขาด/ลาในคาบนี้ · ไม่ซ้ำคนเดิมจนกว่าจะครบทุกคน'),
+      h('div', { class: 'btn-row' },
+        h('button', { class: 'btn btn-ghost', style: { flex: '1' }, onclick: close }, 'ปิด'),
+        h('button', { class: 'btn', style: { flex: '2' }, onclick: roll }, 'สุ่มคนต่อไป')));
+  });
 }
 
 // ── เมนู ⋯ เก็บของที่ไม่ค่อยได้ใช้ ──────────────────────────
