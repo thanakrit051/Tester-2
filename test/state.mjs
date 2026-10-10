@@ -42,7 +42,7 @@ globalThis.fetch = async () => {
 };
 
 const api = await import('../js/api.js');
-const { state, loadClass, refreshClass, fetchedAt, setCells, sync } = await import('../js/state.js');
+const { state, loadClass, refreshClass, fetchedAt, setCells, sync, addColumnToMany } = await import('../js/state.js');
 
 api.conn.save('https://script.google.com/macros/s/x/exec', 'KEY');
 
@@ -184,5 +184,19 @@ await reading;
 ok(state.cls.values['ATT|1|A1']['002'] === 'ส', 'ของที่อ่านค้างมาเก่ากว่าที่เพิ่งเขียน ทับช่องที่ครูเพิ่งกดหาย');
 ok(fetchedAt('C1') === 0, 'ทิ้งของเก่าแล้วต้องให้รอบหน้าดึงใหม่');
 waitForTest = null;
+
+// ── 6. เพิ่มชิ้นงานเดียวกันลงหลายห้อง ────────────────────────
+// ทุกห้องต้องได้รหัสเดียวกัน · ห้องที่มีสำเนาในเครื่องเห็นทันที · ห้องที่เปิดอยู่ไม่ถูกส่งซ้ำ
+api.queue.clear();
+api.cache.set('class.C2', { ...clsOf({}), meta: { classId: 'C2', subject: 'คณิตศาสตร์' } });
+const key = addColumnToMany({ kind: 'WORK', half: 1, label: 'ใบงานที่ 5', max: 10 }, ['C2', 'C3', 'C1']);
+const adds = api.queue.all().filter(j => j.action === 'addColumn');
+ok(adds.length === 3, 'ควรเข้าคิว 3 ห้อง (ห้องนี้ + C2 + C3) ไม่ใช่ ' + adds.length);
+ok(new Set(adds.map(j => j.payload.id)).size === 1, 'แต่ละห้องได้รหัสชิ้นงานไม่ตรงกัน');
+ok(adds.filter(j => j.payload.classId === 'C1').length === 1, 'ห้องที่เปิดอยู่ถูกส่งซ้ำ');
+ok(state.cls.columns.some(c => c.key === key), 'ห้องที่เปิดอยู่ไม่เห็นชิ้นงานใหม่');
+ok(api.cache.get('class.C2').columns.some(c => c.key === key), 'ห้องที่มีสำเนาในเครื่องไม่เห็นชิ้นงานใหม่ทันที');
+ok(api.cache.get('class.C3') === null, 'ห้องที่ไม่เคยเปิดไม่ควรถูกสร้างสำเนาขึ้นมาเอง');
+api.queue.clear();
 
 console.log(`✅ การโหลดห้องเรียนผ่านครบ (${pass} ข้อ)`);

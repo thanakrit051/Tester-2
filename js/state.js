@@ -618,6 +618,39 @@ export function ensureColumn(p, { quiet = false } = {}) {
   return { key: spec.key, created: true };
 }
 
+/**
+ * เพิ่มชิ้นงานเดียวกันลงห้องที่เลือกอยู่ + ห้องอื่นอีกหลายห้องในครั้งเดียว
+ *
+ * ครูที่สอนวิชาเดียวกันหลายห้อง (คณิต ม.1/1–1/5) เดิมต้องสร้าง "ใบงานที่ 3"
+ * ซ้ำทีละห้อง เปิดห้อง → กดเพิ่ม → พิมพ์ชื่อ/คะแนนเต็ม วนไปทุกห้อง
+ *
+ * ทุกห้องได้รหัสชิ้นงานเดียวกัน · งานเข้าคิวเดียวกับการเพิ่มปกติ (ออฟไลน์ได้)
+ * และถูกส่งขึ้นชีตพร้อมกันในรอบซิงค์เดียว
+ * ห้องที่มีสำเนาในเครื่องอยู่แล้วเห็นชิ้นงานใหม่ทันทีตอนสลับไป
+ * ห้องที่ยังไม่เคยเปิดได้จาก withPending ตอนโหลด
+ *
+ * @returns key ของชิ้นงานในห้องที่เปิดอยู่
+ */
+export function addColumnToMany(p, otherClassIds = []) {
+  const spec = makeColumnSpec({ ...p, id: p.id || uid(String(p.kind)[0].toLowerCase()) });
+  const { key } = ensureColumn({ ...p, id: spec.id }, { quiet: true });
+  const { payload, ...col } = spec;
+
+  for (const id of otherClassIds) {
+    if (!id || id === state.classId) continue;
+    api.queue.push('addColumn', { classId: id, ...payload });
+    const cached = api.cache.get('class.' + id);
+    if (cached && Array.isArray(cached.columns) && !cached.columns.some(c => c.key === key)) {
+      cached.columns = sortColumns([...cached.columns, { ...col }]);
+      cached.values = cached.values || {};
+      cached.values[key] = cached.values[key] || {};
+      api.cache.set('class.' + id, cached);
+    }
+  }
+  scheduleSync();
+  return key;
+}
+
 export async function updateColumn(key, patch) {
   const col = state.cls.columns.find(c => c.key === key);
   // ฝั่งชีตรับ '' = ล้างเกณฑ์ทิ้ง แต่ในเครื่องเก็บเป็น null ให้เหมือนตอนอ่านกลับมา

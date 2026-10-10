@@ -3,7 +3,7 @@
 import { h, modal, toast, confirmBox, nf, matchStudent } from '../dom.js';
 import { icon } from '../icons.js';
 import { store } from '../storage.js';
-import { state, emit, loadClass, ensureColumn, setCells, getCell, deleteColumn, updateColumn, settings, undoLastEdit } from '../state.js';
+import { state, emit, loadClass, ensureColumn, setCells, getCell, deleteColumn, updateColumn, settings, undoLastEdit, addColumnToMany } from '../state.js';
 import { BUCKETS, NOT_SUBMITTED, RETAKE_KINDS, parseWork, formatWork, formatRetake, passMarkOf, passOf } from '../score.js';
 import { serverInfo } from '../api.js';
 import { serverSupports } from '../version.js';
@@ -911,8 +911,16 @@ function openItemForm(edit) {
     placeholder: 'เว้นว่าง = ไม่ตรวจ'
   });
 
+  // เพิ่มลงห้องอื่นด้วย — เฉพาะตอนเพิ่มใหม่ (แก้ไขยังทำทีละห้องเหมือนเดิม)
+  const rooms = edit ? null : roomPicker(() => {
+    const n = rooms.picked().length + 1;
+    save.textContent = n > 1 ? `เพิ่มลง ${n} ห้อง` : 'เพิ่มรายการ';
+  });
+  let save;
+
   modal((close) => {
-    const save = h('button', { class: 'btn btn-block' }, edit ? 'บันทึก' : 'เพิ่มรายการ');
+    save = h('button', { class: 'btn btn-block' }, edit ? 'บันทึก' : 'เพิ่มรายการ');
+    if (rooms) rooms.refresh();
     save.onclick = async () => {
       const l = label.value.trim(), m = Number(max.value), d = desc.value.trim();
       if (!l) return toast('ตั้งชื่อรายการก่อน', 'err');
@@ -930,8 +938,9 @@ function openItemForm(edit) {
       try {
         if (edit) await updateColumn(edit.key, { label: l, max: m, desc: d, pass: p });
         else {
-          const { key } = ensureColumn({ kind: b.kind, half: b.half, label: l, max: m, desc: d, pass: p });
-          ui.open = key;
+          const others = rooms ? rooms.picked() : [];
+          ui.open = addColumnToMany({ kind: b.kind, half: b.half, label: l, max: m, desc: d, pass: p }, others);
+          if (others.length) toast(`เพิ่ม "${l}" ลง ${others.length + 1} ห้องแล้ว`, 'ok', 2600);
         }
         close(); emit();
       } catch (e) { toast(e.message, 'err'); }
@@ -946,9 +955,70 @@ function openItemForm(edit) {
           `ใส่คะแนนเต็มจริงได้เลย ระบบจะเทียบสัดส่วนเป็น ${settings().weight[curBucket().id]} คะแนนของ SGS ให้เอง`)),
       h('div', { class: 'field' }, h('label', null, 'เกณฑ์ผ่าน (คะแนนดิบ)'), pass,
         h('div', { class: 'hint' }, passHint(Number(max.value) || 0))),
+      rooms && rooms.el,
       save
     );
   });
+}
+
+/**
+ * รายการห้องให้ติ๊กว่าจะเพิ่มชิ้นงานนี้ลงห้องไหนบ้าง
+ *
+ * ห้องที่สอนวิชาเดียวกัน (รหัสวิชาตรงกัน หรือชื่อวิชาตรงกันถ้าไม่มีรหัส) ติ๊กไว้ให้เลย
+ * — เกือบทุกครั้งครูให้งานชิ้นเดียวกันทุกห้องที่สอนวิชานั้น
+ * ห้องวิชาอื่นซ่อนไว้ กดเปิดดูได้ (นาน ๆ ครั้งถึงจะใช้ และติ๊กพลาดแล้วต้องไปลบทีละห้อง)
+ */
+function roomPicker(onChange) {
+  const me = state.classes.find(c => c.classId === state.classId) || state.cls?.meta || {};
+  const others = state.classes.filter(c => c.classId !== state.classId);
+  if (!others.length) return null;
+
+  const code = String(me.subjectCode || '').trim();
+  const sameSubject = (c) => code
+    ? String(c.subjectCode || '').trim() === code
+    : String(c.subject || '').trim() === String(me.subject || '').trim();
+  const same = others.filter(sameSubject);
+  const rest = others.filter(c => !sameSubject(c));
+
+  const boxes = [];
+  const item = (c, on) => {
+    const cb = h('input', { type: 'checkbox', checked: on, onchange: () => onChange() });
+    cb.dataset.id = c.classId;
+    boxes.push(cb);
+    return h('label', { class: 'room-row' }, cb,
+      h('span', { class: 'room-main' },
+        h('b', null, `${[c.grade, c.room].filter(Boolean).join('/') || '—'} · ${c.subject}`),
+        h('small', null, `${c.studentCount || 0} คน${c.subjectCode ? ' · ' + c.subjectCode : ''}`)),
+      on && h('span', { class: 'room-tag' }, 'วิชาเดียวกัน'));
+  };
+
+  const restBox = rest.length ? h('div', { class: 'room-list', hidden: true }, rest.map(c => item(c, false))) : null;
+  const el = h('div', { class: 'field room-pick' },
+    h('label', null, 'เพิ่มลงห้องไหนบ้าง'),
+    h('div', { class: 'room-list' },
+      h('label', { class: 'room-row', 'data-me': '1' },
+        h('input', { type: 'checkbox', checked: true, disabled: true }),
+        h('span', { class: 'room-main' },
+          h('b', null, `${[me.grade, me.room].filter(Boolean).join('/') || '—'} · ${me.subject || ''}`),
+          h('small', null, 'ห้องที่เปิดอยู่')),
+        h('span', { class: 'room-tag', 'data-me': '1' }, 'ห้องนี้')),
+      same.map(c => item(c, true))),
+    restBox && h('button', {
+      type: 'button', class: 'room-more', 'aria-expanded': 'false',
+      onclick: (e) => {
+        restBox.hidden = !restBox.hidden;
+        e.currentTarget.setAttribute('aria-expanded', String(!restBox.hidden));
+        e.currentTarget.textContent = (restBox.hidden ? '▸ ' : '▾ ') + `ห้องวิชาอื่น (${rest.length})`;
+      }
+    }, `▸ ห้องวิชาอื่น (${rest.length})`),
+    restBox,
+    h('div', { class: 'hint' }, 'ชื่อ คะแนนเต็ม และเกณฑ์ผ่านเหมือนกันทุกห้อง · แก้แยกรายห้องทีหลังได้'));
+
+  return {
+    el,
+    picked: () => boxes.filter(b => b.checked).map(b => b.dataset.id),
+    refresh: onChange
+  };
 }
 
 function openItemMenu(col) {
