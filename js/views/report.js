@@ -8,6 +8,7 @@ import { h, toast, fmtDate, nf } from '../dom.js';
 import { state, emit, settings, go, sync, refreshClass, fetchedAt } from '../state.js';
 import * as api from '../api.js';
 import { computeClass, parseWork, BUCKETS, ATT_CODES, passMarkOf, passOf } from '../score.js';
+import { openCopyList } from './chase.js';
 
 /* tab:    'class' ภาพรวม · 'follow' ตามงาน (ใครยังค้างชิ้นไหน) · 'student' รายคน
  * follow: ตัวกรองของแท็บตามงาน · phase: 0 ทั้งเทอม / 1 ก่อนกลางภาค / 2 หลังกลางภาค
@@ -404,24 +405,32 @@ function followCard(c, g, groups, S) {
     h('span', null, `${st.no}. ${st.name || '—'}`),
     (w.status === 'ok' || w.status === 'late') && h('b', null, (w.retake ? 'ซ่อม ' : '') + nf(w.score)));
 
-  const copy = async () => {
+  /* ข้อความตามงานไปวางในไลน์ — ใช้กล่องเดียวกับหน้างาน/คะแนน (เลือกใส่ชื่อหรือแค่เลขที่ได้)
+   * กลุ่ม "ยังไม่ตรวจ" ไม่ส่งออก เพราะเป็นงานค้างของครู ไม่ใช่ของนักเรียน */
+  const copy = () => {
     const room = [cls.meta.grade, cls.meta.room].filter(Boolean).join('/');
-    const text = [
-      `${c.label} · ${[room, cls.meta.subject].filter(Boolean).join(' ')}`,
-      ...groups.flatMap(({ k, list }) => [
-        '',
-        `${exam ? k.exam : k.work} (${list.length} คน)`,
-        ...list.map(({ st }) => `${st.no}. ${st.name || '—'}`)
-      ])
-    ].join('\n');
-    try { await navigator.clipboard.writeText(text); toast('คัดลอกรายชื่อแล้ว — วางในไลน์ได้เลย', 'ok'); }
-    catch (e) { toast('คัดลอกไม่ได้ในเบราว์เซอร์นี้', 'err'); }
+    openCopyList({
+      title: 'ตามงาน · ' + c.label,
+      sub: [room, cls.meta.subject].filter(Boolean).join(' · '),
+      topic: `${c.label} · ${[room, cls.meta.subject].filter(Boolean).join(' ')}`,
+      groups: groups.filter(({ k }) => k.id !== 'none').map(({ k, list }) => {
+        const label = exam ? k.exam : k.work;
+        return {
+          id: k.id, label, names: k.id === 'miss',
+          head: (n) => `${label} ${n} คน`,
+          people: list.map(({ st, w }) => ({
+            no: st.no, name: st.name,
+            extra: k.id !== 'miss' && (w.status === 'ok' || w.status === 'late') ? `${nf(w.score)}/${c.max}` : ''
+          }))
+        };
+      })
+    });
   };
 
   return h('div', { class: 'card follow-card' },
     h('div', { class: 'rep-head' },
       h('h3', null, c.label),
-      groups.length > 0 && h('button', { class: 'rep-fresh-btn', onclick: copy }, '⧉ คัดลอกรายชื่อ')),
+      groups.some(({ k }) => k.id !== 'none') && h('button', { class: 'rep-fresh-btn', onclick: copy }, '📣 คัดลอกไปไลน์')),
     h('div', { class: 'follow-meta' },
       bucketName(c)
         + (mark !== null ? ` · ผ่านที่ ${nf(mark)}` : '')

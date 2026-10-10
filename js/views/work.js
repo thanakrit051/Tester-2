@@ -3,6 +3,7 @@
 import { h, modal, toast, confirmBox, nf, matchStudent } from '../dom.js';
 import { icon } from '../icons.js';
 import { store } from '../storage.js';
+import { openCopyList } from './chase.js';
 import { state, emit, loadClass, ensureColumn, setCells, getCell, deleteColumn, updateColumn, settings, undoLastEdit, addColumnToMany } from '../state.js';
 import { BUCKETS, NOT_SUBMITTED, RETAKE_KINDS, parseWork, formatWork, formatRetake, passMarkOf, passOf } from '../score.js';
 import { serverInfo } from '../api.js';
@@ -608,6 +609,7 @@ function gradeScreen(col) {
       }, `${c.label} · เต็ม ${c.max}`)),
       !isFixedKind(col.kind) && h('button', { class: 'item-pill add', onclick: () => openItemForm() }, '+ เพิ่มงาน'),
       h('div', { style: { marginLeft: 'auto', display: 'flex', gap: '8px' } },
+        h('button', { class: 'btn btn-ghost btn-sm', onclick: () => chase(col) }, '📣 ตามงาน'),
         h('button', { class: 'btn btn-ghost btn-sm', onclick: () => openPaste(col) }, '📋 วางจาก Excel'),
         h('button', { class: 'icon-btn', title: 'ตัวเลือกเพิ่มเติม', onclick: () => openItemMenu(col) }, '⋯'))
     ),
@@ -656,7 +658,8 @@ function gradeScreen(col) {
             setCells(state.cls.students.map(s => ({ key: col.key, sid: s.sid, value: '' })));
             toast('ล้างคะแนนแล้ว', 'ok', 1400, undoAction());
           }
-        }, '↺ ล้าง')
+        }, '↺ ล้าง'),
+        h('button', { class: 'btn btn-ghost btn-sm', onclick: () => chase(col) }, '📣 ตามงาน')
       )),
 
     find.el,
@@ -1021,6 +1024,45 @@ function roomPicker(onChange) {
   };
 }
 
+/** ตามงานชิ้นนี้ — รายชื่อคนที่ยังไม่ส่ง / ยังไม่ผ่านเกณฑ์ เป็นข้อความพร้อมวางในไลน์ */
+function chase(col) {
+  const S = settings();
+  const meta = state.cls.meta;
+  const room = [meta.grade, meta.room].filter(Boolean).join('/');
+  const mark = passMarkOf(col, S);
+
+  const missing = [], failing = [];
+  let unchecked = 0;
+  for (const s of state.cls.students) {
+    const raw = getCell(col.key, s.sid);
+    const w = parseWork(raw);
+    if (w.status === 'none' || w.status === 'miss') {
+      missing.push({ no: s.no, name: s.name });
+      if (w.status === 'none') unchecked++;
+    } else if (mark !== null && passOf(col, raw, S) === false) {
+      failing.push({ no: s.no, name: s.name, extra: `${nf(w.score)}/${col.max}` });
+    }
+  }
+
+  openCopyList({
+    title: 'ตามงาน · ' + col.label,
+    sub: `${room ? room + ' · ' : ''}${meta.subject} · เต็ม ${col.max}`,
+    topic: `${col.label} · ${room ? room + ' ' : ''}${meta.subject}`,
+    groups: [
+      {
+        id: 'miss', label: isExam(col) ? 'ยังไม่สอบ' : 'ยังไม่ส่ง', people: missing,
+        head: (n) => `${isExam(col) ? 'ยังไม่ได้สอบ' : 'ยังไม่ส่ง'} ${n} คน`,
+        // "ยังไม่ตรวจ" อาจส่งแล้วแต่ครูยังไม่ได้กรอก — เตือนก่อนประกาศชื่อในกลุ่ม
+        note: unchecked ? `รวม ${unchecked} คนที่ยังไม่ได้ตรวจ — ถ้าตรวจงานที่ส่งมายังไม่ครบ ตรวจก่อนแล้วค่อยคัดลอก` : ''
+      },
+      {
+        id: 'fail', label: 'ยังไม่ผ่าน', people: failing, names: false,
+        head: (n) => `ยังไม่ผ่านเกณฑ์ ${n} คน (ต่ำกว่า ${nf(mark)}/${col.max}) แก้แล้วส่งใหม่ได้`
+      }
+    ].filter(g => g.id !== 'fail' || mark !== null)
+  });
+}
+
 function openItemMenu(col) {
   const t = tally(col);
   modal((close) => h('div', null,
@@ -1030,6 +1072,7 @@ function openItemMenu(col) {
     h('div', { style: { display: 'grid', gap: '8px' } },
       h('button', { class: 'btn btn-ghost btn-block', onclick: () => { close(); ui.open = col.key; emit(); } }, '📝 กรอกคะแนน'),
       h('button', { class: 'btn btn-ghost btn-block', onclick: () => { close(); openItemForm(col); } }, '✏️ แก้ไขชื่อ / รายละเอียด / คะแนนเต็ม'),
+      h('button', { class: 'btn btn-ghost btn-block', onclick: () => { close(); chase(col); } }, '📣 ตามงาน · คัดลอกรายชื่อไปไลน์'),
       h('button', {
         class: 'btn btn-ghost btn-block',
         onclick: () => {
