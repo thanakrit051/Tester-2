@@ -75,6 +75,21 @@ function enterCheck(dateISO, period, { markAllPresent = false } = {}) {
   emit();
 }
 
+/**
+ * เปิดหน้าเช็คชื่อของวันนี้ที่คาบนี้เลย — ใช้จากการ์ด "ตอนนี้" ของหน้าแรก (ตารางสอน)
+ * ใส่ไว้เป็น pending ด้วย ไม่งั้นคาบที่ยังไม่มีในชีตจะถูกสลับกลับไปคาบแรกของวัน (ดู resolve)
+ */
+export function startCheckAt(period) {
+  const d = todayISO();
+  ui.mode = 'check';
+  ui.date = d;
+  ui.period = period;
+  ui.halfOverride = null;
+  ui.pending = { date: d, period };
+  ui.onlyBlank = false;
+  ui.q = '';
+}
+
 // ── หน้าเข้าสู่การเช็ค ──────────────────────────────────────
 
 export function viewAttendance() {
@@ -150,7 +165,8 @@ viewAttendance.head = function () {
       h('button', { class: 'ph-back', 'aria-label': 'กลับ', onclick: () => { ui.mode = 'list'; emit(); } }, '‹'),
       h('div', { class: 'ph-grow' },
         h('div', { class: 'ph-title' },
-          fmtDate(ui.date) + (available.length > 1 ? ` · คาบ ${ui.period}` : '')),
+          // คาบเดียวของวันก็บอกเลขคาบถ้าไม่ใช่คาบ 1 (มาจากตารางสอน) ครูจะได้มั่นใจว่าเช็คถูกคาบ
+          fmtDate(ui.date) + (available.length > 1 || ui.period !== 1 ? ` · คาบ ${ui.period}` : '')),
         h('div', { class: 'ph-sub' },
           `${[cls.meta.grade, cls.meta.room].filter(Boolean).join('/')} ${cls.meta.subject}`)),
       h('div', { class: 'ph-badge' }, `${done}/${cls.students.length}`),

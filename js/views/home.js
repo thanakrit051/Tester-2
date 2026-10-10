@@ -2,15 +2,31 @@
 
 import { h, modal, toast, confirmBox, todayISO } from '../dom.js';
 import {
-  state, go, loadClass, createClass, updateClassMeta, deleteClass, setStudents, settings, bootAll
+  state, go, emit, loadClass, createClass, updateClassMeta, deleteClass, setStudents, settings, bootAll
 } from '../state.js';
 import { computeClass } from '../score.js';
+import * as api from '../api.js';
+import { store } from '../storage.js';
+import { DAYS, currentSlot, slotsOn, hasTimetable } from '../timetable.js';
+import { readTimetable, openTimetableEditor } from './timetable.js';
+import { startCheckAt } from './attendance.js';
 
 export function viewHome() {
+  // ตารางสอน → รู้ว่าตอนนี้ควรสอนห้องไหน (ไม่ได้ตั้ง = หน้าแรกแบบเดิมทุกอย่าง)
+  const tt = readTimetable();
+  const known = new Set(state.classes.map(c => c.classId));
+  const nowDate = new Date();
+  const cur = currentSlot(tt, nowDate, known);
+  const today = slotsOn(tt, nowDate.getDay(), known);
+  watchClock(hasTimetable(tt));
+
   // ลำดับตามดีไซน์: เปิดแอปมาต้องเห็น "สิ่งที่ต้องทำต่อ" ก่อน
   // แล้วค่อยเป็นรายการห้องไว้สลับ
   return h('div', { class: 'page' },
-    state.cls && overviewCard(),
+    cur && nowCard(cur),
+    today.length > 0 && todayCard(today, cur),
+    state.cls && overviewCard(!cur),
+    !hasTimetable(tt) && ttTip(),
 
     h('div', { style: { display: 'flex', alignItems: 'center', gap: '12px', margin: '18px 0 12px' } },
       h('div', { style: { fontSize: '15px', fontWeight: '700', flex: '1' } },
@@ -68,7 +84,7 @@ function classCard(c) {
   );
 }
 
-function overviewCard() {
+function overviewCard(showHero = true) {
   const rows = computeClass(state.cls, settings());
   if (!rows.length) {
     return h('div', { class: 'card empty' },
@@ -117,7 +133,7 @@ function overviewCard() {
   }
 
   return h('div', null,
-    hero,
+    showHero && hero,
 
     // ดีไซน์วาง "ค้างอยู่" กับตัวเลขสรุปเคียงกันบน PC · ซ้อนกันบนมือถือ
     h('div', { class: 'home-grid' },
@@ -139,6 +155,106 @@ function overviewCard() {
           'ยังไม่ได้เช็คชื่อหรือกรอกคะแนน — ตัวเลขจะขึ้นเมื่อเริ่มบันทึกข้อมูล'))
     )
   );
+}
+
+// ── ตารางสอน: การ์ด "ตอนนี้" + คาบของวันนี้ ─────────────────
+
+const classOf = (id) => state.classes.find(c => c.classId === id);
+const roomOf = (c) => [c.grade, c.room].filter(Boolean).join('/') || '—';
+
+/** เช็คชื่อคาบนี้ของห้องนี้วันนี้ไปแล้วหรือยัง · null = ไม่รู้ (ยังไม่เคยโหลดห้องนั้นในเครื่องนี้) */
+function checkedAt(classId, period) {
+  const cls = classId === state.classId ? state.cls : api.cache.get('class.' + classId);
+  if (!cls || !Array.isArray(cls.columns)) return null;
+  const d = todayISO();
+  return cls.columns.some(c => c.kind === 'ATT' && c.date === d && Number(c.period) === period);
+}
+
+/** สลับไปห้องของคาบนั้น แล้วเปิดหน้าที่ต้องการ — ไม่รอเน็ต (แคชวาดให้ก่อน) */
+function openSlot(slot, view) {
+  if (slot.classId !== state.classId) loadClass(slot.classId);
+  if (view === 'att') startCheckAt(slot.period);
+  go(view);
+}
+
+function nowCard(r) {
+  const { slot } = r;
+  const c = classOf(slot.classId);
+  const done = checkedAt(slot.classId, slot.period);
+  const isNow = r.state === 'now';
+  const when = isNow
+    ? (r.left > 0 ? `เหลือ ${r.left} นาที` : 'เพิ่งหมดคาบ')
+    : (r.until <= 90 ? `อีก ${r.until} นาที` : `เริ่ม ${slot.start} น.`);
+
+  return h('div', { class: 'hero now-card' },
+    h('div', { class: 'now-top' },
+      h('span', { class: 'now-pill' + (isNow ? '' : ' next') }, h('i'), isNow ? `กำลังสอน · คาบ ${slot.period}` : `คาบถัดไป · คาบ ${slot.period}`),
+      h('span', { class: 'now-time' }, `${slot.start}–${slot.end}`)),
+    h('div', { class: 'hero-title' }, `${roomOf(c)} · ${c.subject}`),
+    h('div', { class: 'hero-meta' },
+      `${c.studentCount || 0} คน · ` + (done ? 'เช็คชื่อคาบนี้แล้ว ✓' : 'ยังไม่ได้เช็คชื่อคาบนี้')),
+    h('div', { class: 'now-prog' },
+      h('div', { class: 'now-track' }, h('i', { style: { width: (isNow ? r.pct : 0) + '%' } })),
+      h('span', null, when)),
+    h('div', { class: 'hero-actions' },
+      h('button', { class: 'btn', onclick: () => openSlot(slot, 'att') },
+        done ? 'ดูการเช็คชื่อ' : '✓ เช็คชื่อคาบนี้'),
+      h('button', { class: 'hero-alt', onclick: () => openSlot(slot, 'work') }, 'กรอกคะแนน'))
+  );
+}
+
+function todayCard(slots, cur) {
+  const day = DAYS.find(d => d.d === new Date().getDay());
+  const t = new Date().getHours() * 60 + new Date().getMinutes();
+  return h('div', { class: 'card card-tight today-card' },
+    h('div', { class: 'today-head' },
+      h('b', null, `วันนี้ · ${day ? day.name : ''}`),
+      h('button', { class: 'today-edit', onclick: openTimetableEditor }, 'ตารางสอน')),
+    slots.map(slot => {
+      const c = classOf(slot.classId);
+      const done = checkedAt(slot.classId, slot.period);
+      const isCur = !!cur && cur.slot.period === slot.period;
+      const past = t >= slot.e;
+      const [txt, tone] = done ? ['เช็คแล้ว ✓', 'ok']
+        : isCur ? [cur.state === 'now' ? 'ตอนนี้' : 'ถัดไป', 'cur']
+        : past ? ['ยังไม่เช็ค', 'late']
+        : [slot.s - t <= 60 ? `อีก ${slot.s - t} นาที` : `${slot.start} น.`, ''];
+      return h('button', {
+        class: 'today-row', 'data-cur': isCur ? '1' : '0', 'data-past': past && !isCur ? '1' : '0',
+        onclick: () => openSlot(slot, 'att')
+      },
+        h('span', { class: 'today-when' }, h('b', null, `คาบ ${slot.period}`), h('small', null, slot.start)),
+        h('span', { class: 'today-what' }, `${roomOf(c)} · ${c.subject}`),
+        h('span', { class: 'today-state', 'data-tone': tone }, txt));
+    }));
+}
+
+/** ชวนตั้งตารางสอน — ปิดได้ จำไว้ในเครื่อง */
+const TT_TIP = 'ac.ttTip';
+function ttTip() {
+  if (!state.classes.length || store.get(TT_TIP) === 'off') return null;
+  return h('div', { class: 'tt-tip' },
+    h('button', { class: 'tt-tip-main', onclick: openTimetableEditor },
+      h('b', null, 'ตั้งตารางสอน'),
+      h('span', null, 'หน้าแรกจะบอกว่าตอนนี้ต้องสอนห้องไหน กดเดียวเข้าเช็คชื่อได้เลย')),
+    h('button', {
+      class: 'icon-btn', 'aria-label': 'ไม่ต้องแสดงอีก',
+      onclick: () => { store.set(TT_TIP, 'off'); emit(); }
+    }, '✕'));
+}
+
+/* วาดหน้าแรกใหม่ทุกนาทีเพื่อให้การ์ด "ตอนนี้" เดินตามเวลา
+ * เฉพาะตอนตั้งตารางสอนไว้ อยู่หน้าแรก และครูไม่ได้พิมพ์อะไรค้างอยู่ */
+let clock = null;
+function watchClock(on) {
+  if (!on || clock) return;
+  clock = setInterval(() => {
+    if (state.view !== 'home' || document.hidden) return;
+    if (document.querySelector('.modal-back')) return;
+    const el = document.activeElement;
+    if (el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) return;
+    emit();
+  }, 60000);
 }
 
 const stat = (cls, num, lbl) => h('div', { class: 'stat ' + cls },

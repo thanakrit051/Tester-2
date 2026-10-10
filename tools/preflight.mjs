@@ -56,5 +56,6 @@ if (process.argv.includes('--skip-checks')) {
   await import('../test/classsheet.mjs');
   await import('../test/config.mjs');
   await import('../test/session.mjs');
+  await import('../test/timetable.mjs');
   console.log('');
 }

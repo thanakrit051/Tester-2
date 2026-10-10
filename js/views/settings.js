@@ -12,6 +12,8 @@ import * as api from '../api.js';
 import { auth, renderSignInButton } from '../auth.js';
 import { icon } from '../icons.js';
 import { THEMES, getTheme, setTheme } from '../theme.js';
+import { readTimetable, openTimetableEditor } from './timetable.js';
+import { weeklyCount } from '../timetable.js';
 
 const SECTIONS = [
   { id: 'score', label: 'การคิดคะแนน' },
@@ -227,7 +229,8 @@ function secAtt() {
       row('เกณฑ์เวลาเรียนขั้นต่ำ (มส)', 'ต่ำกว่านี้ระบบติดธง "มส" ให้อัตโนมัติ',
         numInput('att_min_pct', { suffix: '%' })),
       row('นับ "ลา" เป็นเวลาเรียน', 'ผลต่อการคิด % เวลาเรียน ไม่ใช่คะแนน',
-        segInput('att_count_ลา', [['TRUE', 'นับ'], ['FALSE', 'ไม่นับ']]))
+        segInput('att_count_ลา', [['TRUE', 'นับ'], ['FALSE', 'ไม่นับ']])),
+      ttRow()
     ),
 
     h('div', { class: 'card' },
@@ -240,6 +243,14 @@ function secAtt() {
            row('หักต่อการขาด 1 คาบ', null, numInput('att_d_ขาด', { step: '0.05' }))]
     )
   ];
+}
+
+/** ตารางสอน — หน้าแรกใช้บอกว่าตอนนี้สอนห้องไหน (ดู js/views/timetable.js) */
+function ttRow() {
+  const n = weeklyCount(readTimetable());
+  return row('ตารางสอน',
+    n ? `ตั้งไว้ ${n} คาบ/สัปดาห์ · หน้าแรกบอกว่าตอนนี้สอนห้องไหน` : 'ตั้งครั้งเดียว หน้าแรกจะบอกว่าตอนนี้ต้องสอนห้องไหน',
+    h('button', { class: 'btn btn-soft btn-sm', onclick: openTimetableEditor }, n ? 'แก้ตารางสอน' : 'ตั้งตารางสอน'));
 }
 
 // ── กลุ่มที่ 3: บัญชีและการเชื่อมต่อ ────────────────────────
@@ -500,6 +511,8 @@ function mobileIndex() {
             h('div', { class: 'list-sub', style: sm.c ? { color: sm.c } : null }, sm.t)),
           h('span', { class: 'list-chevron' }, '›'));
       })),
+
+    h('div', { class: 'card' }, ttRow()),
 
     h('div', { class: 'card' },
       row('ธีม', 'ตามเครื่อง / สว่าง / มืด',
