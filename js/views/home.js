@@ -96,8 +96,8 @@ function overviewCard() {
         `${rows.length} คน · ` + (attToday ? 'เช็คชื่อวันนี้แล้ว' : 'ยังไม่ได้เช็คชื่อวันนี้'))),
     h('div', { class: 'hero-actions' },
       h('button', { class: 'btn', onclick: () => go('att') },
-        attToday ? 'เปิดหน้าเช็คชื่อ' : '✓ เริ่มเช็คชื่อวันนี้'),
-      h('button', { class: 'hero-alt', onclick: () => go('work') }, 'กรอกงาน / คะแนน'))
+        attToday ? 'เช็คชื่อ' : '✓ เช็คชื่อวันนี้'),
+      h('button', { class: 'hero-alt', onclick: () => go('work') }, 'กรอกคะแนน'))
   );
 
   // ── สิ่งที่ยังค้าง ──

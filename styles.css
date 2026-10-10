@@ -1459,3 +1459,21 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
   .netbar[data-on="1"] { animation: none; background: var(--lime); background-size: 100% 100%; }
 }
 
+
+/* ══ v3.13 · หน้าแรกบนมือถือกระชับขึ้น ═══════════════════════
+   ของเดิมการ์ดหัว + ปุ่มสองปุ่มซ้อนกันกินจอแรกไปเกือบครึ่ง
+   รายการ "ค้างอยู่" ที่ครูต้องรู้จึงถูกดันลงไปจนต้องเลื่อนหา */
+@media (max-width: 899px) {
+  .hero { padding: 16px; border-radius: 20px; }
+  .hero-meta { margin-bottom: 12px; }
+  .hero-actions { grid-template-columns: 1fr 1fr; }
+  .hero .btn { padding: 12px 10px; }
+  .hero-alt { margin-top: 0; display: flex; align-items: center; justify-content: center; }
+  /* ตัวเลขสรุป 4 ช่องแถวเดียว — ตัวเลขสั้นอยู่แล้ว ไม่ต้องเปลืองสองแถว */
+  .stats-card .stats { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+  .stats-card .stat-num { font-size: 20px; }
+  .stats-card .stat-lbl { font-size: 11.5px; line-height: 1.3; }
+}
+/* แตะง่ายขึ้น — ของเดิมสูงแค่ ~30px */
+.todo-row { min-height: 44px; padding: 4px 0; border-top: 1px solid var(--line); }
+.todo-row:first-of-type { border-top: 0; }
