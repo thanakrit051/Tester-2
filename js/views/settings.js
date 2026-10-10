@@ -6,7 +6,8 @@
  * ครูจะได้ไม่ต้องจำว่ากดบันทึกหรือยัง — ดีไซน์ยึดข้อนี้เป็นหลัก
  */
 
-import { h, toast, confirmBox, modal } from '../dom.js';
+import { h, toast, confirmBox, modal, printPage } from '../dom.js';
+import { qrcode } from '../vendor/qrcode.js';
 import { state, saveConfig, sync, bootAll, go, emit } from '../state.js';
 import * as api from '../api.js';
 import { auth, renderSignInButton } from '../auth.js';
@@ -545,7 +546,12 @@ function showStudentLink() {
   modal((close) => h('div', null,
     h('h2', null, '🎒 ลิงก์สำหรับนักเรียน'),
     h('div', { class: 'hint', style: { marginBottom: '10px' } },
-      'แปะไว้ในกลุ่มไลน์ห้อง หรือทำเป็น QR ติดหน้าห้องก็ได้'),
+      'แปะไว้ในกลุ่มไลน์ห้อง หรือพิมพ์ QR ติดหน้าห้องให้นักเรียนสแกน'),
+    h('div', { class: 'qr-box', html: qrSvg(link) }),
+    h('button', {
+      class: 'btn btn-ghost btn-block', style: { marginBottom: '10px' },
+      onclick: () => { close(); printQrPoster(link); }
+    }, '🖨 พิมพ์ QR ติดหน้าห้อง (A4)'),
     h('textarea', {
       rows: 4, value: link, readonly: true,
       style: { fontFamily: 'ui-monospace, monospace', fontSize: '11.5px' },
@@ -566,6 +572,34 @@ function showStudentLink() {
       '⚠️ ลิงก์นี้จะใช้ได้ก็ต่อเมื่อสร้าง Deployment ตัวที่ 2 แบบ "Anyone" แล้วเท่านั้น',
       h('br'), 'ถ้าใช้ลิงก์ของครู นักเรียนจะโดน Google ขอให้ล็อกอินแล้วเข้าไม่ได้ — กดปุ่ม "ต้อง Deploy เพิ่มยังไง" ดูขั้นตอน')
   ));
+}
+
+/**
+ * QR ของลิงก์ เป็น SVG — สร้างในเครื่องด้วย js/vendor/qrcode.js
+ * ไม่ส่งลิงก์ไปให้เว็บสร้าง QR ภายนอก (ไม่ต้องมีเน็ต และลิงก์ไม่รั่วไปที่อื่น)
+ * ระดับแก้ผิด M: สแกนติดแม้กระดาษยับ/แสงสะท้อนนิดหน่อย โดย QR ไม่แน่นเกินไป
+ */
+function qrSvg(text) {
+  const q = qrcode(0, 'M');
+  q.addData(text);
+  q.make();
+  return q.createSvgTag({ cellSize: 4, margin: 8, scalable: true, title: 'QR ลิงก์หน้าดูผลของนักเรียน' });
+}
+
+/** โปสเตอร์ A4 ติดหน้าห้อง — QR ใหญ่ + วิธีใช้สั้น ๆ */
+function printQrPoster(link) {
+  const cfg = state.config || {};
+  printPage(h('div', { class: 'qr-poster' },
+    h('div', { class: 'qr-poster-title' }, 'ดูคะแนนของตัวเอง'),
+    h('div', { class: 'qr-poster-sub' },
+      [cfg.teacher ? 'ครู' + cfg.teacher : '', `ภาคเรียนที่ ${cfg.term || '—'}/${cfg.year || '—'}`].filter(Boolean).join(' · ')),
+    h('div', { class: 'qr-poster-code', html: qrSvg(link) }),
+    h('ol', { class: 'qr-poster-steps' },
+      h('li', null, 'เปิดกล้องมือถือ แล้วสแกน QR นี้'),
+      h('li', null, 'กรอกเลขประจำตัวนักเรียน'),
+      h('li', null, 'ดูคะแนนเก็บ งานที่ยังไม่ส่ง และเวลาเรียนได้เลย')),
+    h('div', { class: 'qr-poster-link' }, link)
+  ), { title: 'QR ดูคะแนน' });
 }
 
 function showStudentHowTo() {

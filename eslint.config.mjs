@@ -38,6 +38,7 @@ export default defineConfig([
     'dist/**',
     'docs/**',
     'node_modules/**',
+    'js/vendor/**',          // โค้ดของคนอื่นที่คัดลอกมาทั้งไฟล์ (ดูหัวไฟล์)
     'apps-script/Index.html',
     'dev/**'                       // หน้าทดลองดูดีไซน์ ไม่ได้ deploy
   ]),

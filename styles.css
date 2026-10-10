@@ -1748,3 +1748,20 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
   #print-area .dot-pend { display: none; }
   #print-area .print-grid div { color: #000 !important; }
 }
+
+/* ══ v3.13 · QR ลิงก์หน้านักเรียน ═══════════════════════════ */
+.qr-box {
+  width: 200px; max-width: 70%; margin: 4px auto 12px; padding: 6px;
+  background: #fff; border-radius: 14px; box-shadow: var(--sh-1);
+}
+.qr-box svg, .qr-poster-code svg { display: block; width: 100%; height: auto; }
+@media print {
+  #print-area .qr-poster { text-align: center; padding-top: 12mm; }
+  #print-area .qr-poster-title { font-size: 34pt; font-weight: 700; }
+  #print-area .qr-poster-sub { font-size: 14pt; margin-top: 2mm; }
+  #print-area .qr-poster-code { width: 120mm; margin: 12mm auto; }
+  #print-area .qr-poster-steps {
+    display: inline-block; text-align: left; font-size: 15pt; line-height: 1.8; margin: 0;
+  }
+  #print-area .qr-poster-link { margin-top: 12mm; font-size: 8.5pt; color: #444; word-break: break-all; }
+}
