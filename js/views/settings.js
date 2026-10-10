@@ -277,15 +277,9 @@ function secAcct() {
               ? 'ตอนนี้เชื่อมด้วยรหัสลับ — เปลี่ยนไปใช้บัญชี Google จะย้ายเครื่องได้ง่ายกว่า'
               : 'ยังไม่ได้เข้าสู่ระบบ'),
 
-      api.MODE === 'embedded' && h('div',
-        { style: { fontSize: '12.5px', color: 'var(--ink-2)', marginBottom: '10px', lineHeight: '1.6' } },
-        'Google เป็นคนตรวจสอบให้ก่อนเปิดหน้านี้ ไม่ต้องใช้รหัสผ่านของแอป', h('br'),
-        'อยากสลับบัญชี → ออกจากบัญชี Google ในเบราว์เซอร์ แล้วเปิดลิงก์แอปใหม่'),
-
       h('div', { class: 'btn-row' },
-        h('button', { class: 'btn btn-soft btn-sm', onclick: showTransfer },
-          api.MODE === 'embedded' ? '🔗 ลิงก์เปิดแอป' : '📱 ย้ายไปเครื่องอื่น'),
-        api.MODE === 'remote' && !auth.signedIn && h('button', {
+        h('button', { class: 'btn btn-soft btn-sm', onclick: showTransfer }, '📱 ย้ายไปเครื่องอื่น'),
+        !auth.signedIn && h('button', {
           class: 'btn btn-soft btn-sm',
           onclick: (e) => switchToGoogle(e.currentTarget)
         }, '🔐 เข้าสู่ระบบด้วย Google'),
@@ -297,7 +291,7 @@ function secAcct() {
             e.prompt(); await e.userChoice;
           }
         }, '⬇️ ติดตั้งเป็นแอป'),
-        p && api.MODE === 'remote' && h('button', {
+        p && h('button', {
           class: 'btn btn-ghost btn-sm',
           onclick: async () => {
             if (!await confirmBox('ออกจากระบบ?', 'ข้อมูลที่ยังไม่ได้ซิงค์จะยังอยู่ในเครื่อง', 'ออกจากระบบ')) return;
@@ -309,7 +303,7 @@ function secAcct() {
 
     h('div', { class: 'card' },
       h('div', { style: { fontSize: '17px', fontWeight: '700', marginBottom: '12px' } }, 'การเชื่อมต่อกับชีต'),
-      api.MODE === 'remote' && h('div',
+      h('div',
         { style: { fontSize: '12.5px', color: 'var(--ink-2)', wordBreak: 'break-all', marginBottom: '10px' } },
         h('b', null, 'Web App: '), api.conn.url || '—'),
       h('div', { style: { fontSize: '13px', marginBottom: '12px' } },
@@ -319,7 +313,7 @@ function secAcct() {
                     : h('span', { class: 'badge g' }, 'ข้อมูลตรงกันแล้ว')),
       h('div', { class: 'btn-row' },
         h('button', { class: 'btn btn-soft btn-sm', onclick: () => sync({ loud: true }) }, '⟳ ซิงค์เดี๋ยวนี้'),
-        api.MODE === 'remote' && h('button', {
+        h('button', {
           class: 'btn btn-danger btn-sm',
           onclick: async () => {
             if (!await confirmBox('ตัดการเชื่อมต่อ?', 'ต้องยืนยันตัวตนใหม่อีกครั้ง และแคชในเครื่องนี้จะถูกล้าง', 'ตัดการเชื่อมต่อ')) return;
@@ -531,8 +525,7 @@ function mobileIndex() {
           e.prompt(); await e.userChoice;
         }
       }, '⬇️ ติดตั้งเป็นแอป'),
-      h('button', { class: 'btn btn-ghost btn-sm', style: { flex: '1' }, onclick: showTransfer },
-        api.MODE === 'embedded' ? '🔗 ลิงก์เปิดแอป' : '📱 ย้ายไปเครื่องอื่น'))
+      h('button', { class: 'btn btn-ghost btn-sm', style: { flex: '1' }, onclick: showTransfer }, '📱 ย้ายไปเครื่องอื่น'))
   );
 }
 
@@ -665,19 +658,12 @@ async function switchToGoogle(btn) {
 
 /** ลิงก์สำหรับเปิดแอปบนเครื่องอื่น */
 function showTransfer() {
-  const embedded = api.MODE === 'embedded';
-  const link = embedded ? (state.webAppUrl || '') : api.conn.transferLink();
-
-  if (embedded && !link) {
-    return toast('ยังอ่านลิงก์ไม่ได้ — กด ⟳ ซิงค์ก่อนแล้วลองใหม่', 'err');
-  }
+  const link = api.conn.transferLink();
 
   modal((close) => h('div', null,
-    h('h2', null, embedded ? '🔗 ลิงก์เปิดแอป' : '📱 ย้ายไปใช้บนเครื่องอื่น'),
+    h('h2', null, '📱 ย้ายไปใช้บนเครื่องอื่น'),
     h('div', { class: 'hint', style: { marginBottom: '10px' } },
-      embedded
-        ? 'เปิดลิงก์นี้บนมือถือหรือเครื่องอื่นได้เลย — Google จะให้ล็อกอินก่อน แล้วเข้าใช้ได้ทันที'
-        : 'ส่งลิงก์นี้ไปเปิดบนเครื่องใหม่ (ไลน์หาตัวเอง / อีเมล) แล้วระบบจะตั้งค่าให้อัตโนมัติ'),
+      'ส่งลิงก์นี้ไปเปิดบนเครื่องใหม่ (ไลน์หาตัวเอง / อีเมล) แล้วระบบจะตั้งค่าให้อัตโนมัติ'),
     h('textarea', {
       rows: 4, value: link, readonly: true,
       style: { fontFamily: 'ui-monospace, monospace', fontSize: '11.5px' },
@@ -692,8 +678,6 @@ function showTransfer() {
       }
     }, 'คัดลอกลิงก์'),
     h('div', { class: 'hint', style: { marginTop: '10px' } },
-      embedded
-        ? '💡 บนมือถือ เปิดลิงก์แล้วกด "เพิ่มลงในหน้าจอหลัก" จะเปิดได้เหมือนแอป'
-        : '⚠️ ลิงก์นี้มีสิทธิ์เข้าถึงข้อมูลทั้งหมด อย่าส่งให้คนอื่นหรือโพสต์สาธารณะ')
+      '⚠️ ลิงก์นี้มีสิทธิ์เข้าถึงข้อมูลทั้งหมด อย่าส่งให้คนอื่นหรือโพสต์สาธารณะ')
   ));
 }

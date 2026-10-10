@@ -22,15 +22,6 @@ const lsKeys = () => store.keys();
 export const storagePersistent = () => store.persistent;
 
 /**
- * โหมดการทำงาน
- *   'embedded' = หน้าเว็บถูกเสิร์ฟโดย Apps Script เอง — คุยผ่าน google.script.run
- *                Google บังคับล็อกอินให้แล้ว ไม่ต้องมี URL/รหัสลับ
- *   'remote'   = หน้าเว็บอยู่คนละที่ (GitHub Pages / localhost) — คุยผ่าน fetch
- */
-export const MODE = (typeof google !== 'undefined' && google.script && google.script.run)
-  ? 'embedded' : 'remote';
-
-/**
  * ลิงก์ตั้งต้นจาก config.js (ถ้ามี) — ใช้เมื่อเครื่องนี้ยังไม่เคยตั้งค่าเอง
  *
  * เครื่องใหม่จะได้ไม่ต้องไปคัดลอกลิงก์ Apps Script มาวางก่อนทุกครั้ง
@@ -47,11 +38,8 @@ export const conn = {
   get url() { return lsGet(LS.url) || defaultUrl(); },
   get key() { return lsGet(LS.key) || ''; },
   /** พร้อมใช้เมื่อมี URL และมีวิธียืนยันตัวตนอย่างน้อย 1 อย่าง */
-  get ready() { return MODE === 'embedded' || !!(this.url && (this.key || auth.signedIn)); },
-  get method() {
-    if (MODE === 'embedded') return 'embedded';
-    return auth.signedIn ? 'google' : (this.key ? 'key' : 'none');
-  },
+  get ready() { return !!(this.url && (this.key || auth.signedIn)); },
+  get method() { return auth.signedIn ? 'google' : (this.key ? 'key' : 'none'); },
   save(url, key) {
     lsSet(LS.url, String(url || '').trim());
     if (key !== undefined) lsSet(LS.key, String(key || '').trim());
@@ -124,16 +112,8 @@ export class OfflineError extends Error {}
  * ยิงคำสั่งไปที่ Apps Script
  * ใช้ Content-Type: text/plain เพื่อเลี่ยง CORS preflight
  */
-/** ส่งคำขอออกไป — เลือกช่องทางตามโหมด คืนค่าเป็นข้อความดิบ */
+/** ส่งคำขอออกไป คืนค่าเป็นข้อความดิบ */
 function post(body) {
-  if (MODE === 'embedded') {
-    return new Promise((resolve, reject) => {
-      google.script.run
-        .withSuccessHandler(resolve)
-        .withFailureHandler((err) => reject(new OfflineError(err && err.message || 'เรียกเซิร์ฟเวอร์ไม่สำเร็จ')))
-        .apiCall(JSON.stringify(body));
-    });
-  }
   return fetch(conn.url, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -189,7 +169,7 @@ export async function call(action, payload = {}, { quiet = false } = {}) {
     /* ชีตไม่รับบัตรผ่าน/token ที่ส่งไป → ทิ้งเลย ไม่งั้น conn.ready ยังเป็น true ตลอด
      * แอปจะยิงของที่ใช้ไม่ได้ซ้ำไปเรื่อย ๆ และไม่มีวันพาครูไปหน้าเข้าสู่ระบบ
      * (บัตรที่ถูกยกเลิกเพราะครูสร้างรหัสลับใหม่ ในเครื่องยังดูไม่หมดอายุไปอีกเป็นเดือน) */
-    if (body.code === 'AUTH' && MODE === 'remote') auth.expire();
+    if (body.code === 'AUTH') auth.expire();
     throw new ApiError(body.error || 'เกิดข้อผิดพลาด', body.code);
   }
   return body.data;

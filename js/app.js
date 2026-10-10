@@ -440,9 +440,8 @@ setTimeout(() => {
   }
 }, 20000);
 
-// ── PWA: ใช้ได้เฉพาะตอนเสิร์ฟจากโฮสต์ปกติ ──────────────────
-// โหมดที่ Apps Script เสิร์ฟเอง อยู่ใน iframe ปิด ลงทะเบียน service worker ไม่ได้
-if (api.MODE === 'remote' && 'serviceWorker' in navigator && location.protocol !== 'file:') {
+// ── PWA ─────────────────────────────────────────────────────
+if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js').then(watchUpdate).catch(() => {});
   });
@@ -498,7 +497,7 @@ window.addEventListener('appinstalled', () => { state.installPrompt = null; safe
     /* ต่อเซสชัน Google ให้เองก่อนตัดสินว่าต้องไปหน้าเข้าสู่ระบบไหม
      * (ดูเหตุผลเต็มที่ restoreSession ใน js/auth.js — สรุปคือ token อายุ 1 ชั่วโมง
      * ปิดแท็บแล้วกลับมาใหม่วันหลังจึงต้องกดล็อกอินซ้ำทุกครั้งโดยไม่จำเป็น) */
-    if (api.MODE === 'remote' && !api.conn.ready) await restoreSession();
+    if (!api.conn.ready) await restoreSession();
 
     if (api.conn.ready) {
       try {

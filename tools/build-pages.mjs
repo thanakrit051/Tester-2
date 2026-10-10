@@ -3,11 +3,12 @@
  *
  * รัน:  node tools/build-pages.mjs
  *
- * ได้ไฟล์ 4 อัน
+ * ได้ไฟล์
  *   docs/index.html      หน้านักเรียน (ไม่ต้องแก้)
  *   docs/config.js       ใส่ลิงก์ Apps Script ตรงนี้ที่เดียว
- *   docs/styles.css      หน้าตาของทั้งระบบ — ฝั่งครูก็มาดึงไฟล์นี้
- *   docs/app.bundle.js   โค้ดของแอปฝั่งครู
+ *   docs/icons/          ไอคอน
+ *
+ * หน้าครูไม่ต้อง build — GitHub Pages เสิร์ฟ index.html + js/ ที่รากโปรเจกต์ตรง ๆ
  *
  * แยก config ออกมา เพราะเวลาอัปเดตหน้าเว็บจะได้ทับ index.html ได้เลย
  * โดยไม่ต้องกลัวว่าลิงก์ที่ตั้งไว้จะหาย
@@ -22,10 +23,8 @@ const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const read = (p) => fs.readFileSync(path.join(root, p), 'utf8')
   .split(String.fromCharCode(13, 10)).join(String.fromCharCode(10));
 
-/* ย่อไฟล์ก่อนขึ้นเว็บ — ตัดคอมเมนต์กับช่องว่างออก (คอมเมนต์ภาษาไทยกินที่ 3 ไบต์ต่อตัวอักษร)
- *
- * ได้ประโยชน์จริงตอนเปิดแอปผ่านลิงก์ Apps Script ซึ่งไม่มี service worker
- * ต้องโหลด app.bundle.js กับ styles.css จาก GitHub ใหม่ทุกครั้งที่แคชของเบราว์เซอร์หมดอายุ (10 นาที)
+/* ย่อหน้านักเรียนก่อนขึ้นเว็บ — ตัดคอมเมนต์กับช่องว่างออก (คอมเมนต์ภาษาไทยกินที่ 3 ไบต์ต่อตัวอักษร)
+ * หน้านี้ไม่มี service worker นักเรียนโหลดใหม่ทุกครั้งที่เปิด ยิ่งเล็กยิ่งเปิดเร็วบนเน็ตมือถือ
  *
  * target ล็อกไว้ที่ไวยากรณ์รุ่นเดียวกับต้นฉบับ ไม่งั้นตัวย่ออาจเปลี่ยนเป็นไวยากรณ์ใหม่กว่า
  * (เช่น a = a || b → a ||= b) ที่ iPad/มือถือรุ่นเก่าในโรงเรียนอ่านไม่ออก */
@@ -109,22 +108,15 @@ if (!fs.existsSync(cfgPath)) fs.writeFileSync(cfgPath, config, 'utf8');
 // บอก GitHub Pages ว่าไม่ต้องเอา Jekyll มาประมวลผล
 fs.writeFileSync(path.join(docs, '.nojekyll'), '', 'utf8');
 
-// ไฟล์ที่ฝั่งครู (Apps Script) จะมาดึงไปใช้
-// ต้นฉบับที่อ่านง่ายอยู่ที่ styles.css กับ dist/app.bundle.js — ที่นี่เป็นตัวย่อสำหรับขึ้นเว็บเท่านั้น
-fs.writeFileSync(path.join(docs, 'styles.css'), minCss(read('styles.css')), 'utf8');
-fs.writeFileSync(path.join(docs, 'app.bundle.js'), minJs(read('dist/app.bundle.js')), 'utf8');
+// เก็บกวาดไฟล์ที่เคยสร้างไว้ให้โหมด Apps Script เสิร์ฟหน้าครู (เลิกใช้แล้วตั้งแต่ 3.14)
+for (const old of ['styles.css', 'app.bundle.js']) fs.rmSync(path.join(docs, old), { force: true });
 
-// ไอคอนต้องมาอยู่ใต้ docs/ ด้วย 2 เหตุผล
-//   1. หน้านักเรียนอยู่โฟลเดอร์นี้ จึงอ้าง ./icons/ ได้ตรง ๆ
-//   2. ฝั่ง Apps Script ดึงไฟล์จาก assets_url ซึ่งชี้มาที่โฟลเดอร์นี้
-//      (04_Api.gs เรียก setFaviconUrl(assets + 'icons/favicon-32.png'))
+// ไอคอนต้องมาอยู่ใต้ docs/ ด้วย — หน้านักเรียนอ้าง ./icons/ ตรง ๆ
 fs.cpSync(path.join(root, 'icons'), path.join(docs, 'icons'), {
   recursive: true,
   filter: (src) => !src.endsWith('.md')   // README ของโฟลเดอร์ไอคอนไม่ต้องขึ้นเว็บ
 });
 
 console.log(`✅ docs/index.html      ${(html.length / 1024).toFixed(1)} KB   หน้านักเรียน`);
-console.log(`   docs/styles.css      ${(fs.statSync(path.join(docs, 'styles.css')).size / 1024).toFixed(1)} KB   หน้าตา (ครูใช้ด้วย)`);
-console.log(`   docs/app.bundle.js   ${(fs.statSync(path.join(docs, 'app.bundle.js')).size / 1024).toFixed(1)} KB   โค้ดแอปครู`);
 console.log(`   docs/config.js       ${fs.existsSync(cfgPath) ? 'มีอยู่แล้ว (ไม่ทับ)' : 'สร้างใหม่'}`);
-console.log(`   docs/icons/          ${fs.readdirSync(path.join(docs, 'icons')).length} ไฟล์   ไอคอน (Apps Script ใช้ด้วย)`);
+console.log(`   docs/icons/          ${fs.readdirSync(path.join(docs, 'icons')).length} ไฟล์   ไอคอน`);

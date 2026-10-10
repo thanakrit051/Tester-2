@@ -12,7 +12,6 @@ export const state = {
   view: 'home',
   stale: false,           // true = ข้อมูลมาจากแคช ยังไม่ได้ซิงค์
   loadingClass: '',       // classId ที่กำลังรอข้อมูลจากชีตอยู่ ('' = ไม่ได้รออะไร)
-  webAppUrl: '',          // ลิงก์เปิดแอป (โหมด Apps Script เสิร์ฟเอง)
   user: null,             // บัญชีที่กำลังใช้งาน { email, name }
   /* รู้จริงไหมว่ามีห้องอะไรบ้าง (ได้คำตอบจากชีต หรือมีสำเนาในเครื่อง)
    * false + classes ว่าง = "ยังไม่รู้" ไม่ใช่ "ไม่มีห้อง" — หน้าแรกต้องไม่บอกว่ายังไม่มีห้องเรียน
@@ -483,7 +482,6 @@ function applyBootstrap(d) {
   state.config = d.config || {};
   // ได้ของไม่ครบรูป → เก็บรายชื่อห้องเดิมไว้ ดีกว่าล้างทิ้งจนหน้าแรกว่างเปล่า
   if (Array.isArray(d.classes)) { state.classes = d.classes; state.classesKnown = true; state.classesError = ''; }
-  state.webAppUrl = d.webAppUrl || '';
   state.user = api.serverInfo.user || null;
   state.stale = false;
   api.cache.set('bootstrap', d);

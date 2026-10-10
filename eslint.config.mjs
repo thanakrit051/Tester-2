@@ -8,7 +8,7 @@
  *
  * รัน:  npm run lint
  *
- * ไฟล์ที่ build ออกมา (dist/ docs/ apps-script/ALL-IN-ONE.gs) ไม่ต้องตรวจ
+ * ไฟล์ที่ build ออกมา (docs/ apps-script/ALL-IN-ONE.gs) ไม่ต้องตรวจ
  * เพราะเป็นสำเนาของต้นทางที่ตรวจไปแล้ว
  */
 import js from '@eslint/js';
@@ -35,11 +35,9 @@ const appsScriptGlobals = {
 
 export default defineConfig([
   globalIgnores([
-    'dist/**',
     'docs/**',
     'node_modules/**',
     'js/vendor/**',          // โค้ดของคนอื่นที่คัดลอกมาทั้งไฟล์ (ดูหัวไฟล์)
-    'apps-script/Index.html',
     'dev/**'                       // หน้าทดลองดูดีไซน์ ไม่ได้ deploy
   ]),
 

@@ -13,7 +13,5 @@ Thumbs.db
 desktop.ini
 .DS_Store
 
-# หมายเหตุ: dist/ กับ docs/ ตั้งใจให้ commit
-#   docs/  = ไฟล์ที่ GitHub Pages เสิร์ฟจริง
-#   dist/app.bundle.js = โค้ดครูที่ Apps Script ไปดึงไปใช้
-# ทั้งคู่สร้างจาก tools/build-webapp.mjs และ tools/build-pages.mjs
+# หมายเหตุ: docs/ ตั้งใจให้ commit — หน้านักเรียนที่ GitHub Pages เสิร์ฟจริง
+# สร้างจาก tools/build-pages.mjs (npm run build)

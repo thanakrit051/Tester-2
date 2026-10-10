@@ -87,15 +87,8 @@ function runChecks() {
   const S = settings();
   const sv = api.serverInfo.version;
 
-  const embedded = api.MODE === 'embedded';
-
   // 1) การเชื่อมต่อ
-  if (embedded) {
-    out.push({
-      level: 'ok', title: 'Apps Script เสิร์ฟหน้าเว็บเอง',
-      detail: 'ไม่ต้องตั้ง URL ไม่ต้องมีรหัสลับ ไม่ต้องเปิดคอมค้าง'
-    });
-  } else if (!api.conn.url) {
+  if (!api.conn.url) {
     out.push({ level: 'err', title: 'ยังไม่ได้เชื่อมกับ Google Sheet', detail: 'แอปยังไม่รู้ว่าจะเก็บข้อมูลที่ไหน',
       fix: 'ตั้งค่า → ตัดการเชื่อมต่อ แล้วใส่ URL ใหม่' });
   } else if (!api.serverInfo.seen) {
@@ -140,17 +133,7 @@ function runChecks() {
   }
 
   // 3) วิธียืนยันตัวตน
-  if (embedded) {
-    const email = state.user?.email || api.serverInfo.user?.email;
-    out.push({
-      level: email ? 'ok' : 'warn',
-      title: email ? `เข้าสู่ระบบเป็น ${email}` : 'ยังอ่านบัญชีผู้ใช้ไม่ได้',
-      detail: email
-        ? 'Google ตรวจให้ก่อนเข้าหน้าเว็บ ไม่ต้องใช้รหัสผ่านของแอป — เปลี่ยนเครื่องได้ทันที'
-        : 'ปกติจะขึ้นหลังโหลดข้อมูลเสร็จ ถ้าไม่ขึ้นให้ตรวจว่า Deploy ตั้งเป็น "Anyone with a Google account"',
-      action: email ? null : { label: 'ทดสอบการเชื่อมต่อ', run: testConn }
-    });
-  } else if (auth.signedIn) {
+  if (auth.signedIn) {
     const until = auth.sessionUntil;
     out.push(until
       ? { level: 'ok', title: 'เข้าสู่ระบบด้วยบัญชี Google', fix: null,
@@ -265,13 +248,7 @@ function runChecks() {
 
   // 11) พร้อมใช้ออฟไลน์ / ติดตั้งเป็นแอป
   const standalone = window.matchMedia?.('(display-mode: standalone)').matches;
-  if (embedded) {
-    out.push({
-      level: 'warn', title: 'เปิดแอปตอนไม่มีเน็ตไม่ได้',
-      detail: 'ข้อแลกของการให้ Apps Script เสิร์ฟเอง — แต่ถ้าเปิดแอปค้างไว้แล้วสัญญาณหลุด ยังเช็คชื่อต่อได้ ข้อมูลจะส่งเองเมื่อสัญญาณกลับมา',
-      fix: 'เปิดแอปตอนเริ่มคาบ แล้วอย่าปิดหน้าจนกว่าจะเช็คเสร็จ'
-    });
-  } else if (standalone) {
+  if (standalone) {
     out.push({ level: 'ok', title: 'ติดตั้งเป็นแอปแล้ว', detail: 'เปิดจากหน้าจอโฮมได้ ใช้ออฟไลน์ได้' });
   } else if (state.installPrompt) {
     out.push({
@@ -290,13 +267,7 @@ function runChecks() {
   }
 
   // 12) เปิดจากที่ไหน
-  if (embedded) {
-    out.push({
-      level: 'ok', title: 'เปิดได้จากทุกเครื่องด้วยลิงก์เดียว',
-      detail: 'มือถือเปิดลิงก์เดิมแล้วกด "เพิ่มลงในหน้าจอหลัก" ได้เลย',
-      action: { label: '🔗 ดูลิงก์เปิดแอป', run: () => go('settings') }
-    });
-  } else if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+  if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
     out.push({
       level: 'warn', title: 'ตอนนี้เปิดจากคอมเครื่องนี้เท่านั้น',
       detail: 'มือถือในห้องเรียนจะเปิดไม่ได้ และต้องเปิด เปิดแอป.bat ค้างไว้',
