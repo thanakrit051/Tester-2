@@ -9,7 +9,7 @@
  */
 import {
   parseTimetable, serializeTimetable, currentSlot, slotsOn, toMin, fromMin,
-  hasTimetable, weeklyCount, emptyTimetable
+  hasTimetable, weeklyCount, emptyTimetable, withoutClasses
 } from '../js/timetable.js';
 
 let n = 0;
@@ -64,6 +64,14 @@ eq('วันอังคารไม่มีคาบ', currentSlot(back, new 
 const back2 = parseTimetable({ times: [['08:30', '09:20'], ['09:25', '10:15']], days: { 1: { 1: 'A', 2: 'B' } } });
 const r2 = currentSlot(back2, at('09:22'));
 eq('พักสั้น ๆ ระหว่างคาบ = โชว์คาบถัดไป', r2 && [r2.state, r2.slot.classId], ['next', 'B']);
+
+// ── ขึ้นภาคเรียนใหม่: เอาห้องออกจากตาราง ──
+const tt3 = parseTimetable({ times: [['08:00', '09:00'], ['09:00', '10:00']], days: { 1: { 1: 'A', 2: 'B' }, 3: { 2: 'B' } } });
+eq('เอาห้องที่ลบออก วันที่เหลือแต่ห้องนั้นหายทั้งวัน', withoutClasses(tt3, ['B']).days, { 1: { 1: 'A' } });
+eq('ล้างทั้งหมด เวลาคาบยังอยู่', [withoutClasses(tt3, 'all').days, withoutClasses(tt3, 'all').times], [{}, [['08:00', '09:00'], ['09:00', '10:00']]]);
+eq('ไม่ลบห้องไหน ตารางเหมือนเดิม', withoutClasses(tt3, []).days, tt3.days);
+eq('ไม่แก้ตารางต้นฉบับ', tt3.days[1], { 1: 'A', 2: 'B' });
+eq('อ่านกลับจากชีตได้เท่าเดิม', parseTimetable(serializeTimetable(withoutClasses(tt3, ['A']))).days, { 1: { 2: 'B' }, 3: { 2: 'B' } });
 
 if (fails.length) {
   console.error(`❌ ตารางสอน: ไม่ผ่าน ${fails.length} จาก ${n} ข้อ`);

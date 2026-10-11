@@ -927,19 +927,12 @@ table.grid td.total { background: var(--accent-soft) !important; font-weight: 70
   .att-list .att-btn { width: 34px; height: 34px; border-radius: 10px; }
 }
 
-/* ── แถบยืนยันท้ายหน้า ────────────────────────────────────── */
-.done-bar {
-  position: sticky; z-index: 20;
-  bottom: calc(var(--nav-h) + env(safe-area-inset-bottom));
-  margin: 10px -14px 0; padding: 12px 14px calc(12px + env(safe-area-inset-bottom));
-  background: var(--surface); border-top: 1px solid var(--line);
-  display: flex; align-items: center; gap: 12px;
-}
+/* ── ปุ่มเสร็จสิ้นท้ายรายชื่อ ──────────────────────────────────
+   ไม่ตรึงไว้เหนือแถบเมนูแล้ว: บนมือถือมันลอยทับรายชื่อ เห็นช่องโหว่ระหว่างมันกับแถบเมนู
+   และกินจอไปอีกแถบ ทั้งที่แตะทุกครั้งก็บันทึกแล้ว และหัวหน้ามีปุ่ม ‹ ย้อนกลับอยู่แล้ว */
+.done-bar { display: flex; align-items: center; gap: 12px; margin: 14px 0 4px; }
 .done-bar .done-note { flex: 1; font-size: 12.5px; color: var(--ink-2); }
 @media (max-width: 899px) { .done-bar .done-note { display: none; } .done-bar .btn { flex: 1; } }
-@media (min-width: 900px) {
-  .done-bar { position: static; margin: 4px 0 0; padding: 0; background: none; border: none; }
-}
 
 /* ── หน้างาน/คะแนน ────────────────────────────────────────── */
 .item-bar {
@@ -983,6 +976,42 @@ table.grid td.total { background: var(--accent-soft) !important; font-weight: 70
   .work-row > .work-head > .work-name { grid-column: 2; grid-row: 1; }
   .work-row > .work-head > .score-cell{ grid-column: 4; grid-row: 1; justify-content: flex-end; }
   .work-row > .st-group               { grid-column: 3; grid-row: 1; }
+}
+
+/* แถวกรอกคะแนน: สัดส่วนตามจำนวนปุ่มสถานะ
+   ข้อสอบ 3 ปุ่ม (มือถือ): ปุ่มอยู่บรรทัดล่าง เยื้องเข้ามาตรงกับชื่อ ไม่ยืดใต้เลขที่
+   งานส่ง 2 ปุ่ม (.st2 — ไม่มี "ไม่ส่ง" แล้ว): ดูข้างล่าง · PC: คอลัมน์สถานะแคบลงให้ชื่อได้ที่เพิ่ม */
+@media (max-width: 899px) {
+  .work-list:not(.by-student) .work-row > .st-group { margin-left: 36px; }
+
+  /* งานส่ง (มือถือ/แท็บเล็ต): ปุ่ม 2 ปุ่มขึ้นบรรทัดเดียวกับชื่อ — เดิมแยกบรรทัดเต็มความกว้าง
+     แถวสูง ~117px เห็นได้แค่ ~5 คนต่อจอ · ตอนนี้ ~60px · บนแท็บเล็ตปุ่มก็ไม่ยืดยาวเกินเหตุ
+     ลำดับ: เลขที่ · ชื่อ (ยาวขึ้น 2 บรรทัด) · ส่ง ช้า · คะแนน
+     โหมดรายคนใช้แบบเดียวกัน แค่ฝั่งซ้ายเป็นชื่องาน+รายละเอียดแทนเลขที่+ชื่อ
+     "/เต็ม" ซ่อน เพราะแถบหัว/บรรทัดรายละเอียดบอก "เต็ม …" อยู่แล้ว · ต่ำกว่าเกณฑ์ช่องยังขึ้นแดง */
+  .work-list.st2 .work-row {
+    display: flex; align-items: center; gap: 8px; padding: 8px 10px; margin-bottom: 6px;
+  }
+  .work-list.st2 .work-row > .work-head { display: contents; }
+  .work-list.st2 .work-row > .work-head > :not(.score-cell) { order: 1; }
+  .work-list.st2 .work-row > .st-group  { order: 2; margin: 0; gap: 4px; flex: none; }
+  .work-list.st2 .work-row .score-cell  { order: 3; }
+  .work-list.st2 .work-row .work-name   {
+    font-size: 14.5px; line-height: 1.3; white-space: normal;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  }
+  .work-list.st2.by-student .work-row > .work-head > :first-child { flex: 1; min-width: 0; padding: 2px 0; }
+  .work-list.st2.by-student .work-row .stu-sid {
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .work-list.st2 .work-row .st-btn      { flex: none; width: 44px; padding: 0; font-size: 13px; }
+  .work-list.st2 .work-row .score-inp   { width: 52px; }
+  .work-list.st2 .work-row .score-max   { display: none; }
+}
+@media (min-width: 900px) {
+  .work-list.st2 .work-thead,
+  .work-list.st2 .work-row              { grid-template-columns: 44px 1fr 190px 96px; }
+  .work-list.st2.by-student .work-row   { grid-template-columns: 1fr 190px 96px; }
 }
 
 /* ── สรุป SGS ─────────────────────────────────────────────── */
@@ -1396,12 +1425,6 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
 
 /* ── เก็บงานจอแคบ ─────────────────────────────────────────── */
 
-/* .page ลด padding เหลือ 10px ที่จอ ≤400px แถบล่างจึงต้องยืดออกเท่ากัน
-   ไม่งั้นล้นออกไป 4px แล้วเลื่อนซ้าย-ขวาได้ทั้งหน้า */
-@media (max-width: 400px) {
-  .done-bar { margin-left: -10px; margin-right: -10px; }
-}
-
 /* ตัวเลือกแบบปุ่มติดกันในหน้าตั้งค่า จอแคบให้เต็มบรรทัด ไม่ล้นกรอบ */
 @media (max-width: 560px) {
   .set-ctl { width: 100%; }
@@ -1525,9 +1548,7 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
 .kind-cell[data-on="1"] .kc-ic .ico { color: var(--lime); }
 .chips .chip .ico { width: 16px; height: 16px; vertical-align: -3px; margin-right: 4px; }
 
-/* ══ v3.13 · กรอกคะแนนแบบตารางเร็ว (มือถือ) ══════════════════
-   แบบการ์ดเดิมสูงราว 125px ต่อคน (ชื่อ + ช่องคะแนน + ปุ่ม 3 ปุ่มอีกบรรทัด)
-   ตารางเร็วเหลือแถวละ ~52px บรรทัดเดียว: เลขที่ · ชื่อ · ป้ายสถานะ · คะแนน */
+/* ปุ่มคู่สลับกลุ่ม (ใช้ในกล่องตามงาน) */
 .dense-seg {
   display: grid; grid-template-columns: 1fr 1fr; gap: 3px; padding: 3px;
   border-radius: 12px; background: var(--surface-2); border: 1px solid var(--line-2);
@@ -1537,42 +1558,6 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
   min-height: 38px; border-radius: 9px; font-size: 13.5px; font-weight: 600; color: var(--ink-2);
 }
 .dense-seg button[data-on="1"] { background: var(--surface); color: var(--ink); box-shadow: var(--sh-1); }
-
-.enter-hint {
-  display: flex; align-items: center; gap: 8px; margin: -2px 2px 10px;
-  font-size: 12.5px; color: var(--ink-2);
-}
-.enter-hint kbd {
-  font: inherit; font-weight: 700; color: var(--ink); padding: 1px 7px;
-  border: 1px solid var(--line-2); border-radius: 6px; background: var(--surface);
-}
-
-.work-list.dense {
-  background: var(--surface); border-radius: 16px; overflow: hidden; box-shadow: var(--sh-1);
-}
-.work-row.dense {
-  margin: 0; padding: 4px 10px; border-radius: 0; border-top: 1px solid var(--line);
-  min-height: 52px; display: flex; align-items: center;
-}
-.work-list.dense .work-thead + .work-row { border-top: 0; }
-.work-row.dense .work-head { margin: 0; flex: 1; min-width: 0; gap: 8px; }
-.work-row.dense .stu-no { width: 26px; height: 26px; font-size: 12px; }
-.work-row.dense .score-inp { width: 60px; min-height: 42px; font-size: 16px; }
-.work-row.dense .score-max { display: none; }
-.st-pill {
-  flex: none; min-width: 64px; min-height: 32px; padding: 0 10px; border-radius: 999px;
-  font-size: 13px; font-weight: 700; background: var(--surface-2); color: var(--ink-3);
-}
-.st-pill[data-st="ok"]     { background: var(--ok-soft);    color: #116b32; }
-.st-pill[data-st="late"]   { background: var(--late-soft);  color: #a34b06; }
-.st-pill[data-st="miss"]   { background: var(--miss-soft);  color: var(--st-miss); }
-.st-pill[data-st="retake"] { background: var(--purple-soft); color: var(--purple); }
-[data-theme="dark"] .st-pill[data-st="ok"]   { color: var(--st-ok); }
-[data-theme="dark"] .st-pill[data-st="late"] { color: var(--st-late); }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .st-pill[data-st="ok"]   { color: var(--st-ok); }
-  :root:not([data-theme="light"]) .st-pill[data-st="late"] { color: var(--st-late); }
-}
 
 /* แถบความคืบหน้าบาง ๆ ใต้ชิ้นงานแต่ละชิ้น (นับที่ตรวจแล้ว รวมคนไม่ส่ง) */
 .mini-prog { height: 5px; border-radius: 3px; background: var(--surface-3); overflow: hidden; margin-top: 6px; max-width: 220px; }
@@ -1676,6 +1661,10 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
 .room-main small { font-size: 12px; color: var(--ink-2); }
 .room-tag { flex: none; font-size: 12px; font-weight: 700; color: var(--accent-ink); }
 .room-tag[data-me="1"] { color: var(--ink-2); }
+/* ขึ้นภาคเรียนใหม่ — แถวห้องมีตัวเลือกทางขวาแทนช่องติ๊ก */
+.nt-list select { width: auto; flex: none; padding: 8px 30px 8px 10px; font-size: 13.5px; }
+.nt-check { display: block; margin-bottom: 12px; }
+.nt-notes { margin: 0 0 14px; padding-left: 20px; font-size: 12.5px; color: var(--ink-2); line-height: 1.7; }
 .room-more {
   min-height: 40px; margin-top: 4px; padding: 0 2px;
   font-size: 13.5px; font-weight: 600; color: var(--accent-ink);

@@ -2,7 +2,7 @@
 
 import { h, modal, toast, nf, printPage, copyText } from '../dom.js';
 import { state, emit, settings, recalcOnServer } from '../state.js';
-import { computeClass, BUCKETS, bucketColumns, parseWork } from '../score.js';
+import { computeClass, BUCKETS, bucketColumns, parseWork, blankMissCols, effectiveRaw } from '../score.js';
 import { exportClassCSV } from './common.js';
 
 const ui = { phase: 0, fill: false, fi: 0 };   // phase 0 = ทั้งหมด · fill = โหมดกรอกทีละคน
@@ -33,6 +33,7 @@ const FULL_LABEL = {
 function pendingMap(cls) {
   const byBucket = bucketColumns(cls);
   const V = cls.values || {};
+  const mb = blankMissCols(cls);   // งานที่เริ่มตรวจแล้ว ช่องว่าง = ไม่ส่ง (0 คะแนน) ไม่ใช่งานค้างตรวจ
   const out = {};
   for (const st of (cls.students || [])) {
     const m = {};
@@ -40,7 +41,7 @@ function pendingMap(cls) {
       if (b.kind === 'ATT') continue;
       let n = 0;
       for (const c of byBucket[b.id]) {
-        if (parseWork((V[c.key] || {})[st.sid]).status === 'none') n++;
+        if (parseWork(effectiveRaw((V[c.key] || {})[st.sid], mb[c.key])).status === 'none') n++;
       }
       m[b.id] = n;
     }
@@ -63,7 +64,6 @@ export function viewSummary() {
   const S = settings();
   const rows = computeClass(cls, S);
   const cols = SGS_COLS.filter(c => ui.phase === 0 || c.phase === ui.phase);
-  const issues = checkIssues(rows, S);
   const pend = pendingMap(cls);
   const pendTotal = rows.reduce((a, r) => a + r.pending, 0);
 
@@ -95,11 +95,6 @@ export function viewSummary() {
         }
       }, '💾 บันทึกลงชีต')
     ),
-
-    issues.length > 0 && h('div', { class: 'card', style: { background: 'var(--amber-soft)', border: '1px solid color-mix(in srgb, var(--st-late) 32%, transparent)' } },
-      h('div', { style: { fontWeight: '700', marginBottom: '6px' } }, '⚠️ ตรวจก่อนกรอก SGS'),
-      h('ul', { style: { margin: 0, paddingLeft: '20px', fontSize: '13px', color: 'var(--warn-ink)' } },
-        issues.map(t => h('li', null, t)))),
 
     h('div', { class: 'card card-tight' },
       h('div', { class: 'tablewrap' }, table(rows, cols, S, pend))),
@@ -287,28 +282,3 @@ function copyTable(rows, cols) {
   toClipboard([head, ...body].join('\n'), 'คัดลอกทั้งตารางแล้ว');
 }
 
-// ── ตรวจความพร้อม ───────────────────────────────────────────
-
-function checkIssues(rows, S) {
-  const out = [];
-
-  const empty = BUCKETS.filter(b => !rows.some(r => r['_has_' + b.id]));
-  if (empty.length === BUCKETS.length) {
-    out.push('ห้องนี้ยังไม่ได้กรอกข้อมูลสักช่อง — ตารางจึงขึ้น “—” ทั้งหมด ยังไม่ต้องนำไปกรอก SGS');
-  } else {
-    for (const b of empty) {
-      out.push(`ยังไม่มีข้อมูล "${b.label} ${b.phase === 1 ? 'ก่อนกลางภาค' : 'หลังกลางภาค'}" (SGS ${b.sgs}) — ช่องนี้จะขึ้น “—” จนกว่าจะกรอก`);
-    }
-  }
-
-  const pending = rows.filter(r => r.pending > 0).length;
-  if (pending) out.push(`มีนักเรียน ${pending} คนที่ยังตรวจงานไม่ครบ (โหมดปัจจุบัน: ${S.ungraded === 'zero' ? 'นับเป็น 0' : 'ไม่นำมาคิด'})`);
-
-  const over = rows.filter(r => r.total > 100);
-  if (over.length) out.push(`คะแนนรวมเกิน 100 จำนวน ${over.length} คน — ตรวจน้ำหนักคะแนนในหน้าตั้งค่า`);
-
-  const noName = rows.filter(r => !r.name).length;
-  if (noName) out.push(`มี ${noName} แถวที่ไม่มีชื่อนักเรียน`);
-
-  return out;
-}

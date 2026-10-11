@@ -20,7 +20,7 @@ export const RETAKE_KINDS = ['QUIZ', 'MID'];
 
 /**
  * อ่านค่าในช่องเช็คงาน/คะแนนสอบ
- *   ''    → none  ยังไม่ตรวจ
+ *   ''    → none  ยังไม่ตรวจ (งานส่งที่ครูเริ่มตรวจแล้ว ช่องว่าง = ไม่ส่ง ดู blankMissCols)
  *   'x'   → miss  ไม่ส่ง (0 คะแนน แต่นับในตัวหาร)
  *   'L8'  → late  ส่งช้า ได้ 8
  *   '8'   → ok    ส่งปกติ ได้ 8
@@ -81,6 +81,33 @@ export function passOf(c, raw, S) {
   const w = parseWork(raw);
   if (w.status === 'none') return null;
   return w.score >= mark;
+}
+
+/**
+ * งานส่งที่ครูเริ่มตรวจแล้ว (บันทึกให้ใครสักคนแล้ว) — ช่องที่ยังว่างของชิ้นนั้นแปลว่า "ยังไม่ส่ง"
+ *
+ * ตั้งแต่ v3.15 งานส่งไม่มีปุ่ม "ไม่ส่ง" ครูกดแค่คนที่ส่ง ช่องว่างจึงต้องนับเป็น 0 คะแนนเหมือน x
+ * ไม่งั้นเด็กที่ไม่ส่งไม่โดนหักคะแนน ไม่ติดรายชื่อตามงาน และหน้านักเรียนขึ้นว่า "ครูยังไม่ได้ตรวจ"
+ * งานที่ยังไม่ได้ตรวจของใครเลย (เพิ่งสร้าง) ยังถือว่า "ยังไม่ตรวจ" — สร้างงานใหม่แล้วคะแนนทั้งห้องต้องไม่ตกทันที
+ * ข้อสอบไม่เข้ากติกานี้ ช่องว่างของข้อสอบคือครูยังกรอกไม่ครบ
+ *
+ * ⚠️ ต้องตรงกับ blankMissCols_ ใน apps-script/03_Score.gs (test/parity.mjs คุมไว้)
+ * @returns { [col.key]: true } เฉพาะงานส่งที่เริ่มตรวจแล้ว
+ */
+export function blankMissCols(cls) {
+  const V = cls.values || {};
+  const out = {};
+  for (const c of cls.columns || []) {
+    if (c.kind !== 'WORK') continue;
+    const vals = V[c.key] || {};
+    if ((cls.students || []).some(s => parseWork(vals[s.sid]).status !== 'none')) out[c.key] = true;
+  }
+  return out;
+}
+
+/** ค่าที่ใช้คิดจริงของช่องนี้ — ช่องว่างของงานที่เริ่มตรวจแล้ว = ไม่ส่ง */
+export function effectiveRaw(raw, blankMiss) {
+  return blankMiss && parseWork(raw).status === 'none' ? NOT_SUBMITTED : raw;
 }
 
 /** ประกอบค่ากลับไปเก็บในชีต */
@@ -202,6 +229,7 @@ export function bucketColumns(cls) {
 export function computeClass(cls, S) {
   const byBucket = bucketColumns(cls);
   const V = cls.values || {};
+  const missBlank = blankMissCols(cls);
 
   return (cls.students || []).map(st => {
     const r = { sid: st.sid, no: st.no, name: st.name };
@@ -234,8 +262,8 @@ export function computeClass(cls, S) {
       let got = 0, max = 0, blank = 0;
       for (const c of cols) {
         const full = c.max == null ? 0 : c.max;
-        const raw = (V[c.key] || {})[st.sid];
-        const cell = parseWork(raw);                        // อย่าตั้งชื่อ w ทับน้ำหนักด้านบน
+        const raw = effectiveRaw((V[c.key] || {})[st.sid], missBlank[c.key]);
+        const cell = parseWork(raw);                       // อย่าตั้งชื่อ w ทับน้ำหนักด้านบน
         if (passOf(c, raw, S) === false) failed.push(c.label || c.id);
         if (cell.status === 'none') { blank++; if (S.ungraded === 'zero') max += full; continue; }
         max += full; filled++;
@@ -259,7 +287,7 @@ export function computeClass(cls, S) {
     r.failN = failed.length;
 
     // ถือว่าจบเทอมเมื่อกรอกคะแนนปลายภาคของคนนี้แล้ว
-    const termDone = byBucket.fin.some(c => String((V[c.key] || {})[st.sid] ?? '').trim() !== '');
+    const termDone = byBucket.fin.some(c => parseWork((V[c.key] || {})[st.sid]).status !== 'none');
 
     const flags = [];
     const lowTime = attTotal > 0 && r.pct < S.minPct;

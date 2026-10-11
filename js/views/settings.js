@@ -16,6 +16,7 @@ import { THEMES, getTheme, setTheme } from '../theme.js';
 import { readTimetable, openTimetableEditor } from './timetable.js';
 import { weeklyCount } from '../timetable.js';
 import { isWide } from './common.js';
+import { openNewTerm } from './newterm.js';
 
 const SECTIONS = [
   { id: 'score', label: 'การคิดคะแนน' },
@@ -43,6 +44,18 @@ const cfg = (k, d = '') => (state.config[k] ?? d);
 const num = (k) => Number(state.config[k]) || 0;
 const weightSum = () => WEIGHTS.reduce((a, w) => a + num(w.k), 0);
 const midSet = () => /^\d{4}-\d{2}-\d{2}$/.test(String(cfg('mid_date')).trim());
+
+/** พาไปช่องวันสอบกลางภาค — ขึ้นภาคเรียนใหม่แล้วช่องนี้ถูกล้าง เป็นสิ่งแรกที่ครูต้องตั้ง */
+function setMidDate() {
+  ui.sec = 'score';
+  emit();
+  requestAnimationFrame(() => {
+    const el = document.querySelector('[data-k="mid_date"]');
+    if (!el) return;
+    el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    el.focus({ preventScroll: true });
+  });
+}
 
 /** บันทึกทีละช่อง ทันทีที่แก้เสร็จ */
 async function put(k, v, opts) {
@@ -162,7 +175,7 @@ function secScore() {
 
     h('div', { class: 'card' },
       h('div', { style: { fontSize: '17px', fontWeight: '700', marginBottom: '4px' } }, 'กติกาการคิดคะแนน'),
-      row('งานที่ยังไม่ตรวจ', 'ช่องว่างในบล็อกส่งงาน/สอบ จะถูกนับยังไง',
+      row('ช่องที่ยังไม่ตรวจ', 'ข้อสอบที่ยังไม่กรอกคะแนน และงานที่ยังไม่ได้ตรวจของใครเลย (งานที่เริ่มตรวจแล้ว ช่องว่าง = ไม่ส่ง นับ 0 เสมอ)',
         segInput('ungraded_mode', [['ignore', 'ไม่นับ'], ['zero', 'นับเป็น 0']])),
       row('หักคะแนนงานส่งช้า', 'หักจากคะแนนเต็มของงานชิ้นนั้น ตอนกดปุ่ม "ช้า"',
         numInput('late_penalty_pct', { step: '5', suffix: '%' })),
@@ -178,7 +191,7 @@ function secScore() {
         midSet() ? 'ใช้แยกว่าคาบที่เช็คอยู่ช่วงก่อนหรือหลังกลางภาค'
                  : 'ยังไม่ได้ตั้ง — ระบบยังแยกช่วงก่อน/หลังกลางภาคไม่ได้',
         h('input', {
-          type: 'date', value: String(cfg('mid_date')),
+          type: 'date', value: String(cfg('mid_date')), 'data-k': 'mid_date', 'aria-label': 'วันสอบกลางภาค',
           style: midSet() ? null : { borderColor: 'var(--st-miss)', color: 'var(--st-miss)' },
           // ⚠️ ห้ามวาดหน้าใหม่จากช่องนี้เด็ดขาด
           //
@@ -209,7 +222,10 @@ function secScore() {
       h('div', { style: { fontSize: '17px', fontWeight: '700', marginBottom: '4px' } }, 'ข้อมูลรายวิชา'),
       row('ปีการศึกษา', null, h('input', { value: String(cfg('year')), onchange: (e) => put('year', e.target.value) })),
       row('ภาคเรียนที่', null, h('input', { value: String(cfg('term')), onchange: (e) => put('term', e.target.value) })),
-      row('ชื่อครูผู้สอน', null, h('input', { value: String(cfg('teacher')), style: { minWidth: '200px' }, onchange: (e) => put('teacher', e.target.value) }))
+      row('ชื่อครูผู้สอน', null, h('input', { value: String(cfg('teacher')), style: { minWidth: '200px' }, onchange: (e) => put('teacher', e.target.value) })),
+      // แก้ปี/ภาคเรียนข้างบนเปลี่ยนแค่ป้าย — ปุ่มนี้จัดห้องให้ด้วย (สำรอง · ล้างคะแนน · ลบห้อง)
+      row('ขึ้นภาคเรียนใหม่', 'สำรองข้อมูลเทอมนี้ไว้ แล้วล้างคะแนนหรือลบห้องเดิมในทีเดียว',
+        h('button', { class: 'btn btn-soft btn-sm', onclick: () => openNewTerm({ setMidDate }) }, 'เริ่มภาคเรียนใหม่…'))
     )
   ];
 }

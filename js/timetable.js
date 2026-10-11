@@ -96,6 +96,23 @@ export function hasTimetable(tt) {
   return Object.values(tt.days || {}).some(s => Object.values(s || {}).some(Boolean));
 }
 
+/**
+ * ตารางเดิมที่เอาห้องออก — ใช้ตอนขึ้นภาคเรียนใหม่ (js/views/newterm.js)
+ * @param ids ห้องที่จะเอาออก · 'all' = ล้างทุกคาบ
+ * เวลาของแต่ละคาบเก็บไว้เสมอ เพราะเป็นเวลาของทั้งโรงเรียน ไม่ได้ผูกกับห้อง
+ */
+export function withoutClasses(tt, ids) {
+  const days = {};
+  if (ids !== 'all') {
+    const drop = new Set(ids);
+    for (const [d, slots] of Object.entries(tt.days || {})) {
+      const keep = Object.fromEntries(Object.entries(slots || {}).filter(([, id]) => id && !drop.has(id)));
+      if (Object.keys(keep).length) days[d] = keep;
+    }
+  }
+  return { v: 1, times: tt.times.map(t => t.slice()), days };
+}
+
 /** จำนวนคาบสอนต่อสัปดาห์ */
 export function weeklyCount(tt) {
   return Object.values(tt.days || {}).reduce((a, s) => a + Object.values(s || {}).filter(Boolean).length, 0);

@@ -41,7 +41,7 @@ function topAlert() {
     /* บอกชื่อฟีเจอร์ที่พังจริงตามเวอร์ชันที่เจอ อย่าฝังชื่อฟีเจอร์เดียวไว้ตายตัว
      * ของเดิมเขียน "ส่งช้า" ไว้เสมอ พอเพิ่มฟีเจอร์ใหม่ที่ต้องใช้โค้ดชีตใหม่
      * ครูจะได้คำเตือนที่ไม่เกี่ยวกับสิ่งที่ตัวเองกำลังทำ แล้วกดปิดทิ้ง */
-    const missing = FEATURES.filter(f => cmpVersion(sv, f.since) < 0).map(f => f.name);
+    const missing = FEATURES.filter(f => !f.guarded && cmpVersion(sv, f.since) < 0).map(f => f.name);
     return {
       level: 'err',
       text: `โค้ดในชีตเป็นเวอร์ชันเก่า${sv ? ` (v${sv})` : ''} — ` +

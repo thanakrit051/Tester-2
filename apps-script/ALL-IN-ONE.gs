@@ -23,7 +23,7 @@
 // ── เวอร์ชัน ────────────────────────────────────────────────
 // ⚠️ ต้องตรงกับ APP_VERSION ใน js/version.js
 //    ถ้าเลขไม่ตรง หน้าเว็บจะขึ้นแถบเตือนให้ผู้ใช้อัปเดต/Deploy ใหม่
-var SERVER_VERSION = '2.19.0';
+var SERVER_VERSION = '2.20.0';
 
 // ── ชื่อแท็บระบบ ────────────────────────────────────────────
 var SHEET_CONFIG  = '⚙️ ตั้งค่า';
@@ -84,7 +84,7 @@ var ATT_CODES = ['ม', 'ส', 'ล', 'ข'];   // มา / สาย / ลา /
 var ATT_NAMES = { 'ม': 'มา', 'ส': 'สาย', 'ล': 'ลา', 'ข': 'ขาด' };
 
 // ── รหัสสถานะการส่งงาน (บันทึกคู่กับคะแนนในเซลล์เดียว) ─────
-//   เซลล์ว่าง = ยังไม่ตรวจ | 'x' = ไม่ส่ง | '8' = ส่ง ได้ 8 | 'L8' = ส่งช้า ได้ 8
+//   เซลล์ว่าง = ยังไม่ตรวจ (งานส่งที่เริ่มตรวจแล้ว = ไม่ส่ง · blankMissCols_) | 'x' = ไม่ส่ง | '8' = ส่ง ได้ 8 | 'L8' = ส่งช้า ได้ 8
 //   'R15/6' = สอบซ่อมได้ 15 · ครั้งแรกได้ 6 ('R15/x' = ครั้งแรกขาดสอบ) — คิดคะแนนด้วย 15
 var NOT_SUBMITTED = 'x';
 var LATE_PREFIX   = 'L';
@@ -142,7 +142,7 @@ var CONFIG_DEFAULTS = [
   ['การเข้าเรียน', 'att_min_pct','80',   'เวลาเรียนขั้นต่ำ (%) ถ้าต่ำกว่านี้ติดธง "มส"'],
   ['การเข้าเรียน', 'att_count_ลา','TRUE','นับ "ลา" เป็นเวลาเรียนในการคิด % หรือไม่'],
 
-  ['การให้คะแนน', 'ungraded_mode', 'ignore', 'ช่องที่ยังไม่ตรวจ (ว่าง): ignore = ไม่นำมาคิด | zero = นับเป็น 0 คะแนน'],
+  ['การให้คะแนน', 'ungraded_mode', 'ignore', 'ช่องว่างของข้อสอบ และของงานที่ยังไม่ได้ตรวจใครเลย: ignore = ไม่นำมาคิด | zero = นับเป็น 0 คะแนน (งานที่เริ่มตรวจแล้ว ช่องว่าง = ไม่ส่ง นับ 0 เสมอ)'],
   ['การให้คะแนน', 'pass_default_pct', '', 'เกณฑ์ผ่านตั้งต้น (% ของคะแนนเต็ม) ใช้กับรายการที่ไม่ได้ตั้งเกณฑ์เอง — เว้นว่าง = ตรวจเฉพาะรายการที่ตั้งเกณฑ์ไว้'],
   ['การให้คะแนน', 'late_penalty_pct', '0', 'ส่งช้าหักกี่ % ของคะแนนเต็ม (0 = ไม่หัก) ระบบหักให้ตอนกดปุ่ม "ส่งช้า"'],
 
@@ -1327,6 +1327,31 @@ function passOf_(c, raw, S) {
   return w.score >= mark;
 }
 
+/**
+ * งานส่งที่ครูเริ่มตรวจแล้ว (บันทึกให้ใครสักคนแล้ว) — ช่องที่ยังว่างของชิ้นนั้นแปลว่า "ยังไม่ส่ง"
+ * แอป v3.15 เลิกมีปุ่ม "ไม่ส่ง" ของงานส่ง ครูกดแค่คนที่ส่ง · งานที่ยังไม่ได้ตรวจของใครเลยยังเป็น "ยังไม่ตรวจ"
+ * ข้อสอบไม่เข้ากติกานี้ (ช่องว่าง = ครูยังกรอกไม่ครบ)
+ *
+ * ⚠️ ต้องตรงกับ blankMissCols() ใน js/score.js เสมอ
+ * @return { "<คีย์คอลัมน์>": true } เฉพาะงานส่งที่เริ่มตรวจแล้ว
+ */
+function blankMissCols_(data) {
+  var V = data.values || {};
+  var out = {};
+  (data.columns || []).forEach(function (c) {
+    if (c.kind !== 'WORK') return;
+    var vals = V[c.key] || {};
+    var started = (data.students || []).some(function (s) { return parseWork_(vals[s.sid]).status !== 'none'; });
+    if (started) out[c.key] = true;
+  });
+  return out;
+}
+
+/** ค่าที่ใช้คิดจริงของช่องนี้ — ช่องว่างของงานที่เริ่มตรวจแล้ว = ไม่ส่ง */
+function effectiveRaw_(raw, blankMiss) {
+  return blankMiss && parseWork_(raw).status === 'none' ? NOT_SUBMITTED : raw;
+}
+
 var DEFAULT_CUTS_ = '80:4,75:3.5,70:3,65:2.5,60:2,55:1.5,50:1,0:0';
 
 /**
@@ -1377,6 +1402,7 @@ function computeClassScores_(data, settings) {
     var b = BUCKET_OF[c.kind + '|' + c.half];
     if (b) byBucket[b].push(c);
   });
+  var missBlank = blankMissCols_(data);
 
   var rows = data.students.map(function (st) {
     var r = { sid: st.sid, no: st.no, name: st.name };
@@ -1411,7 +1437,7 @@ function computeClassScores_(data, settings) {
       var got = 0, max = 0, blank = 0;
       cols.forEach(function (c) {
         var full = c.max == null ? 0 : c.max;
-        var raw = (data.values[c.key] || {})[st.sid];
+        var raw = effectiveRaw_((data.values[c.key] || {})[st.sid], missBlank[c.key]);
         var w = parseWork_(raw);
         if (passOf_(c, raw, S) === false) failed.push(c.label || c.id);
         if (w.status === 'none') {
@@ -1443,8 +1469,9 @@ function computeClassScores_(data, settings) {
     r.failN = failed.length;
 
     // ถือว่าจบเทอมเมื่อกรอกคะแนนปลายภาคของคนนี้แล้ว
+    // ใช้ parseWork_ ไม่ใช่ || '' — คะแนนปลายภาค 0 (ตัวเลข) ต้องนับว่ากรอกแล้ว ไม่งั้นคนได้ 0 ไม่ติดธงเสี่ยงติด 0
     var termDone = byBucket.fin.some(function (c) {
-      return String((data.values[c.key] || {})[st.sid] || '').trim() !== '';
+      return parseWork_((data.values[c.key] || {})[st.sid]).status !== 'none';
     });
 
     var flags = [];
@@ -1461,7 +1488,7 @@ function computeClassScores_(data, settings) {
     return r;
   });
 
-  return { rows: rows, buckets: byBucket };
+  return { rows: rows, buckets: byBucket, missBlank: missBlank };
 }
 
 function clampRound_(v, max, S) {
@@ -1955,6 +1982,10 @@ function dispatch_(action, p, cfg) {
       return { deleted: p.classId };
     }
 
+    // สำรองทั้งไฟล์ → ตั้งปี/ภาคเรียนใหม่ → ล้างคะแนนหรือลบห้องตามที่เลือก (ดู 09_NewTerm.gs)
+    case 'newTerm':
+      return newTerm_(p);
+
     // ── นักเรียน ────────────────────────────────────────────
     case 'setStudents': {
       var sh3 = requireSheet_(p.classId);
@@ -2280,7 +2311,7 @@ function buildStudentViews_() {
       if (!out[st.sid]) out[st.sid] = { sid: st.sid, name: st.name || '', updated: now, classes: [] };
       if (!out[st.sid].name) out[st.sid].name = st.name || '';
 
-      out[st.sid].classes.push(studentClassView_(data, r, st, byBucket, S));
+      out[st.sid].classes.push(studentClassView_(data, r, st, byBucket, S, res.missBlank));
     });
   });
 
@@ -2288,7 +2319,7 @@ function buildStudentViews_() {
 }
 
 /** ข้อมูลของนักเรียน 1 คน ในวิชา 1 วิชา */
-function studentClassView_(data, r, st, byBucket, S) {
+function studentClassView_(data, r, st, byBucket, S, missBlank) {
   var V = data.values || {};
 
   // ── 8 ช่องคะแนนของ SGS ──
@@ -2318,7 +2349,8 @@ function studentClassView_(data, r, st, byBucket, S) {
   BUCKET_ORDER.forEach(function (id) {
     (byBucket[id] || []).forEach(function (c) {
       if (c.kind === 'ATT') return;
-      var raw = (V[c.key] || {})[st.sid];
+      // งานส่งที่ครูเริ่มตรวจแล้ว ช่องว่าง = ยังไม่ส่ง (ไม่ใช่ "ครูยังไม่ได้ตรวจ") — กติกาเดียวกับคะแนนรวม
+      var raw = effectiveRaw_((V[c.key] || {})[st.sid], (missBlank || {})[c.key]);
       var w = parseWork_(raw);
       var mark = passMarkOf_(c, S);
       items.push({
@@ -2345,7 +2377,7 @@ function studentClassView_(data, r, st, byBucket, S) {
   // ถือว่าจบภาคเรียนเมื่อครูกรอกคะแนนปลายภาคของคนนี้แล้ว (เกณฑ์เดียวกับธง "เสี่ยงติด 0")
   // หน้าสรุปผลใช้บอกนักเรียนว่าเกรดที่เห็นยังเปลี่ยนได้อีกไหม
   var termDone = (byBucket.fin || []).some(function (c) {
-    return String((V[c.key] || {})[st.sid] || '').trim() !== '';
+    return parseWork_((V[c.key] || {})[st.sid]).status !== 'none';   // คะแนน 0 = กรอกแล้ว
   });
 
   return {
@@ -2651,4 +2683,127 @@ function ensureWarmOnce_() {
   if (props.getProperty(WARM_ONCE_KEY_)) return;
   props.setProperty(WARM_ONCE_KEY_, new Date().toISOString());
   try { ensureWarmTrigger_(); } catch (e) { console.error('ตั้งทริกเกอร์ปลุกระบบไม่สำเร็จ: ' + e); }
+}
+
+
+/* ══════ 09_NewTerm.gs ══════ */
+
+/**
+ * AssignCheck V2 — ขึ้นภาคเรียนใหม่
+ *
+ * ทำไมต้องมี: ห้อง 1 ห้อง = 1 แท็บ เก็บทั้งรายชื่อ เช็คชื่อ และคะแนนรวมกัน
+ * ขึ้นเทอมใหม่ครูต้องไล่ลบห้องทีละห้อง (ข้อมูลหายถาวร) แล้วสร้างใหม่ วางรายชื่อใหม่
+ * ทั้งที่เทอม 2 ส่วนใหญ่สอนเด็กกลุ่มเดิม และปีการศึกษา/ภาคเรียนในหน้าตั้งค่าเป็นแค่ป้าย
+ *
+ * คำสั่งเดียวทำให้ครบ เรียงตามนี้เสมอ
+ *   1. สำรองทั้งไฟล์ไว้ในโฟลเดอร์ "AssignCheck — ภาคเรียนที่ผ่านมา" (ไม่ลบทิ้งอัตโนมัติ
+ *      ต่างจากสำรองรายสัปดาห์ที่เก็บแค่ BACKUP_KEEP ก้อน) — สำรองไม่ผ่าน = ไม่แตะอะไรเลย
+ *   2. เขียนค่าตั้งค่าของภาคเรียนใหม่ (ปี · ภาคเรียน · ล้างวันสอบกลางภาค ฯลฯ)
+ *   3. จัดห้องตามที่ครูเลือกทีละห้อง
+ *        reset = เก็บรายชื่อไว้ ล้างเช็คชื่อ/งาน/คะแนนทั้งหมด (รหัสห้องเดิม ตารางสอนยังชี้ถูก)
+ *        drop  = ลบแท็บทิ้ง
+ *        ห้องที่ไม่ได้ส่งมา = ไม่แตะ
+ */
+
+var TERM_FOLDER_NAME = 'AssignCheck — ภาคเรียนที่ผ่านมา';
+
+/** ค่าตั้งค่าที่หน้าเว็บส่งมาได้ในคำสั่งนี้ — กันไม่ให้ใช้ช่องนี้แก้ค่าอื่นแบบไม่ตั้งใจ */
+var NEW_TERM_KEYS_ = ['year', 'term', 'mid_date', 'student_summary', 'timetable'];
+
+/**
+ * @param p { year, term, reset: [classId], drop: [classId], config: { mid_date, ... } }
+ * @return { archive: { name, url }, reset: n, dropped: n }
+ *
+ * ลำดับตั้งใจให้ "ทำซ้ำได้" ถ้าพังกลางทาง (หมดเวลา · Drive ขัดข้อง) แล้วครูกดใหม่
+ *   · ปี/ภาคเรียนเขียนเป็นอย่างสุดท้าย — รอบที่กดซ้ำจึงยังตั้งชื่อไฟล์สำรองด้วยภาคเรียนเดิมถูก
+ *   · ห้องที่ล้างไปแล้วล้างซ้ำได้ (ว่างอยู่แล้ว) · ห้องที่ลบไปแล้วข้ามไป ไม่ฟ้องว่าหาไม่เจอ
+ */
+function newTerm_(p) {
+  var year = String(p.year == null ? '' : p.year).trim();
+  var term = String(p.term == null ? '' : p.term).trim();
+  if (!year || !term) throw new Error('กรอกปีการศึกษาและภาคเรียนใหม่ให้ครบ');
+
+  var reset = uniqIds_(p.reset);
+  var drop = uniqIds_(p.drop);
+  if (reset.some(function (id) { return drop.indexOf(id) >= 0; })) {
+    throw new Error('ห้องเดียวกันถูกเลือกทั้ง "ล้างคะแนน" และ "ลบ"');
+  }
+
+  // หาแท็บให้ครบก่อนลงมือ — ห้องที่จะล้างหาไม่เจอสักห้อง = ไม่ทำอะไรเลย (ไม่ใช่ทำไปครึ่ง ๆ กลาง ๆ)
+  var resetSheets = reset.map(requireSheet_);
+  var dropSheets = drop.map(sheetForClass_);          // null = ลบไปแล้ว (รอบก่อนพังกลางทาง)
+
+  var old = getConfig_();
+  var archive = archiveTerm_(old.term, old.year);
+
+  resetSheets.forEach(function (sh) { resetClassSheet_(sh, year, term); });
+  drop.forEach(function (id, i) {
+    if (dropSheets[i]) ss_().deleteSheet(dropSheets[i]);
+    delete SHEET_FOR_CLASS_MEMO_[id];
+    removeClassRow_(id);
+  });
+
+  var entries = p.config || {};
+  NEW_TERM_KEYS_.forEach(function (k) {
+    if (k === 'year') return setConfigValue_(k, year);
+    if (k === 'term') return setConfigValue_(k, term);
+    if (entries[k] !== undefined) setConfigValue_(k, entries[k]);
+  });
+
+  return {
+    archive: { name: archive.getName(), url: archive.getUrl() },
+    reset: reset.length,
+    dropped: drop.length
+  };
+}
+
+/** รหัสห้องไม่ซ้ำ ไม่ว่าง — ล้างห้องเดียวกัน 2 รอบในคำสั่งเดียว รอบที่ 2 จะไปจับแท็บที่ลบไปแล้ว */
+function uniqIds_(list) {
+  var seen = {};
+  return (list || []).map(String).filter(function (id) {
+    if (!id || seen[id]) return false;
+    seen[id] = true;
+    return true;
+  });
+}
+
+/** สำเนาทั้งไฟล์ของภาคเรียนที่กำลังจะปิด — ไว้เปิดดู/พิมพ์ย้อนหลัง */
+function archiveTerm_(term, year) {
+  var file = DriveApp.getFileById(ss_().getId());
+  var parents = file.getParents();
+  var parent = parents.hasNext() ? parents.next() : DriveApp.getRootFolder();
+  var it = parent.getFoldersByName(TERM_FOLDER_NAME);
+  var folder = it.hasNext() ? it.next() : parent.createFolder(TERM_FOLDER_NAME);
+
+  var label = (term || year) ? 'ภาคเรียนที่ ' + (term || '-') + '/' + (year || '-') : 'ภาคเรียนก่อน';
+  var stamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'Asia/Bangkok', 'yyyy-MM-dd');
+  return file.makeCopy(label + ' (ปิด ' + stamp + ') — ' + file.getName(), folder);
+}
+
+/**
+ * ล้างทุกอย่างในแท็บ เหลือรายชื่อนักเรียน — รหัสห้อง ชื่อแท็บ และตำแหน่งแท็บคงเดิม
+ *
+ * สร้างแท็บใหม่แทนการลบคอลัมน์ทีละคอลัมน์ เพราะได้รูปแบบสะอาดเหมือนห้องที่สร้างใหม่
+ * (ไม่มีกฎตรวจข้อมูล/โน้ต/การผสานเซลล์ของคอลัมน์เก่าค้าง) และเร็วกว่ามากเมื่อมีหลายสิบคาบ
+ * สร้างตัวใหม่ให้เสร็จก่อนค่อยลบตัวเก่า — พังกลางทาง แท็บเดิมยังอยู่ครบ
+ */
+function resetClassSheet_(sh, year, term) {
+  var ss = ss_();
+  var d = readClassBySheet_(sh);
+  var meta = d.meta;
+  meta.teacher = meta.teacher || getConfig_().teacher || '';
+  meta.year = year;
+  meta.term = term;
+  meta.status = 'ใช้งาน';
+
+  var name = sh.getName();
+  var fresh = ss.insertSheet(safeSheetName_(name + ' ใหม่'), sh.getIndex() - 1);
+  initClassLayout_(fresh, meta);
+  if (d.students.length) setStudents_(fresh, d.students);
+
+  ss.deleteSheet(sh);
+  fresh.setName(name);
+  meta.sheetName = name;
+  SHEET_FOR_CLASS_MEMO_[meta.classId] = fresh;
+  upsertClassRow_(meta, d.students.length);
 }

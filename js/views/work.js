@@ -2,11 +2,10 @@
 
 import { h, modal, toast, confirmBox, nf, matchStudent } from '../dom.js';
 import { icon } from '../icons.js';
-import { store } from '../storage.js';
 import { openCopyList } from './chase.js';
-import { undoAction, isWide, classSelect } from './common.js';
+import { undoAction, classSelect } from './common.js';
 import { state, emit, loadClass, ensureColumn, setCells, getCell, deleteColumn, updateColumn, settings, addColumnToMany } from '../state.js';
-import { BUCKETS, NOT_SUBMITTED, RETAKE_KINDS, parseWork, formatWork, formatRetake, passMarkOf, passOf } from '../score.js';
+import { BUCKETS, NOT_SUBMITTED, RETAKE_KINDS, parseWork, formatWork, formatRetake, passMarkOf, passOf, blankMissCols, effectiveRaw } from '../score.js';
 import { serverInfo } from '../api.js';
 import { serverSupports } from '../version.js';
 
@@ -25,17 +24,13 @@ const KINDS = [
   { kind: 'FIN',  ic: 'flag',   emoji: '📕', label: 'ปลายภาค', fixed: 2 }
 ];
 
-const DENSE_KEY = 'ac.workDense';
-
 const ui = {
   kind: 'WORK',      // ชนิดคะแนนที่เลือกอยู่
   phase: 1,          // ช่วง 1 = ก่อนกลางภาค · 2 = หลังกลางภาค
   open: null,        // key ของชิ้นงานที่กำลังกรอก (โหมดรายชิ้นงาน)
   by: 'item',        // 'item' = กรอกทีละชิ้นงาน · 'student' = กรอกทีละคน
   si: 0,             // ลำดับนักเรียนในโหมดรายคน
-  q: '',             // คำค้น "ไปที่เลขที่/ชื่อ" ในหน้ากรอก
-  // ตารางเร็ว (มือถือ): แถวละคน มีแค่ป้ายสถานะกับช่องคะแนน — จำไว้ในเครื่อง
-  dense: store.get(DENSE_KEY) === '1'
+  q: ''              // คำค้น "ไปที่เลขที่/ชื่อ" ในหน้ากรอก
 };
 
 const kindOf = (k) => KINDS.find(x => x.kind === k) || KINDS[0];
@@ -86,7 +81,7 @@ const isExam = (col) => col && col.kind !== 'WORK';
 const words = (col) => (isExam(col)
   ? { done: 'สอบแล้ว', miss: 'ยังไม่ได้สอบ', missShort: 'ยังไม่สอบ',
       bulk: 'ให้เต็มทุกคน', bulkToast: 'ให้คะแนนเต็มทั้งห้อง' }
-  : { done: 'ตรวจแล้ว', miss: 'ไม่ส่ง', missShort: 'ไม่ส่ง',
+  : { done: 'ส่งแล้ว', miss: 'ไม่ส่ง', missShort: 'ไม่ส่ง',
       bulk: 'ส่งครบทุกคน', bulkToast: 'ให้ "ส่ง" เต็มทั้งห้อง' });
 
 function columnsIn(bucketId) {
@@ -307,9 +302,11 @@ function tally(col) {
     t[w.status]++;
     if (w.retake) t.retake++;     // นับรวมใน ok ด้วย (สอบแล้ว) — ตัวนี้แค่บอกว่ามีกี่คนที่มาจากสอบซ่อม
   }
-  // งานส่ง: "ตรวจแล้ว" = ดูครบทุกคนแล้ว (รวมคนไม่ส่ง)
-  // ข้อสอบ: "สอบแล้ว" = คนที่เข้าสอบจริง ไม่รวมคนที่ยังไม่ได้สอบ
-  t.done = isExam(col) ? t.ok : t.total - t.none;
+  /* ตัวนับเดียวที่ทุกจุดในหน้านี้ใช้ — แถบหัว · รายการชิ้นงาน · แถบความคืบหน้า · ป้ายค้าง
+   * งานส่ง: done = ส่งแล้ว (ส่ง + ช้า) · left = ยังไม่ส่ง (ช่องว่าง + x ที่เคยกดไว้ก่อนเลิกมีปุ่มไม่ส่ง)
+   * ข้อสอบ: done = คนที่เข้าสอบจริง · left = ยังไม่ได้กรอก (คนขาดสอบนับแยกใน miss) */
+  t.done = isExam(col) ? t.ok : t.ok + t.late;
+  t.left = isExam(col) ? t.none : t.none + t.miss;
   return t;
 }
 
@@ -329,14 +326,17 @@ function itemRow(col) {
         h('div', { class: 'list-sub' },
           `เต็ม ${col.max} · ${words(col).done} ${t.done}/${t.total}`,
           t.late > 0 ? ` · ส่งช้า ${t.late}` : '',
-          t.miss > 0 ? ` · ${words(col).miss} ${t.miss}` : '',
+          isExam(col) && t.miss > 0 ? ` · ${words(col).miss} ${t.miss}` : '',
           t.retake > 0 ? ` · สอบซ่อม ${t.retake}` : ''),
         // ความคืบหน้าแบบเห็นปราดเดียว — ตัวเลข 18/20 ต้องอ่าน แถบไม่ต้อง
         h('div', { class: 'mini-prog', 'aria-hidden': 'true' },
-          h('i', { style: { width: (t.total ? Math.round((t.total - t.none) / t.total * 100) : 0) + '%' } }))),
-      t.none === 0
+          h('i', { style: { width: (t.total ? Math.round((t.total - t.left) / t.total * 100) : 0) + '%' } }))),
+      t.left === 0
         ? h('span', { class: 'badge g' }, 'ครบ')
-        : h('span', { class: 'badge a' }, `ค้าง ${t.none}`)
+        // งานที่ยังไม่ได้ตรวจของใครเลย ยังไม่นับใครเป็นไม่ส่ง (ตรงกับ blankMissCols ใน score.js)
+        : !isExam(col) && t.none === t.total
+          ? h('span', { class: 'badge a' }, 'ยังไม่ตรวจ')
+          : h('span', { class: 'badge a' }, `${isExam(col) ? 'ค้าง' : 'ยังไม่ส่ง'} ${t.left}`)
     ),
     h('button', {
       class: 'icon-btn', style: { color: 'var(--ink-3)' }, title: 'แก้ไข / ลบ',
@@ -370,9 +370,10 @@ const statusBtnsOf = (col) => (isExam(col)
      ...(canRetake(col)
        ? [{ st: 'retake', label: 'สอบซ่อม', cls: 'retake', title: 'บันทึกคะแนนสอบซ่อม — ระบบเก็บคะแนนครั้งแรกไว้ให้ด้วย' }]
        : [])]
+  /* งานส่งไม่มีปุ่ม "ไม่ส่ง" — ยังไม่ส่งก็คือยังไม่ได้เช็ค (ช่องว่าง) ไม่ต้องกดอะไร
+   * ช่อง x ที่เคยกดไว้ก่อนหน้ายังอ่านได้ตามเดิม (ช่องคะแนนขึ้น "ไม่ส่ง" สีแดง) */
   : [{ st: 'ok',   label: 'ส่ง',    cls: 'ok' },
-     { st: 'late', label: 'ช้า',    cls: 'late' },
-     { st: 'miss', label: 'ไม่ส่ง', cls: 'miss' }]);
+     { st: 'late', label: 'ช้า',    cls: 'late' }]);
 
 /**
  * แถวกรอกหนึ่งช่อง (นักเรียน 1 คน × ชิ้นงาน 1 ชิ้น)
@@ -382,7 +383,7 @@ const statusBtnsOf = (col) => (isExam(col)
  * @param head โหนดฝั่งซ้ายของแถว ต่างกันตามโหมด (เลขที่+ชื่อ หรือ ชื่องาน+กำหนดส่ง)
  * @param nextInput ฟังก์ชันหาช่องถัดไปตอนกด Enter
  */
-function scoreRow(col, s, { head, nextInput, dense = false } = {}) {
+function scoreRow(col, s, { head, nextInput } = {}) {
   const W = words(col);
 
   // ต่ำกว่าเกณฑ์ผ่าน = ขึ้นสีแดงทันทีตอนกรอก ครูจะได้เห็นว่าใครต้องซ่อมโดยไม่ต้องไปเปิดรายงาน
@@ -429,20 +430,6 @@ function scoreRow(col, s, { head, nextInput, dense = false } = {}) {
 
   const group = h('div', { class: 'st-group' }, btns);
 
-  /* ตารางเร็ว: ปุ่มสถานะ 3 ปุ่มยุบเป็นป้ายเดียว แตะวน ยังไม่ตรวจ → ส่ง → ช้า → ไม่ส่ง
-   * ปกติไม่ต้องแตะเลย เพราะพิมพ์คะแนน = นับว่าส่ง (ดู onchange ข้างบน)
-   * ช่องสอบซ่อมแตะแล้วเปิดกล่องสอบซ่อม เหมือนปุ่มในแบบการ์ด */
-  const cycle = ['none', ...statusBtnsOf(col).map(b => b.st).filter(st => st !== 'retake')];
-  const pill = dense && h('button', {
-    class: 'st-pill',
-    onclick: () => {
-      const now = parseWork(getCell(col.key, s.sid));
-      if (now.retake) return openRetake(col, s, paint);
-      apply(cycle[(cycle.indexOf(now.status) + 1) % cycle.length]);
-    }
-  });
-  const pillText = { none: '—', ok: isExam(col) ? 'สอบแล้ว' : 'ส่ง', late: 'ช้า', miss: W.missShort, retake: 'ซ่อม' };
-
   function write(value) {
     setCells([{ key: col.key, sid: s.sid, value }], { quiet: true });
     paint();
@@ -464,13 +451,9 @@ function scoreRow(col, s, { head, nextInput, dense = false } = {}) {
     const scored = w.status === 'ok' || w.status === 'late';
     btns.forEach(b => {
       b.dataset.on = b.dataset.st === st ? '1' : '0';
+      b.setAttribute('aria-pressed', b.dataset.on === '1' ? 'true' : 'false');   // โปรแกรมอ่านจอรู้ว่าปุ่มไหนติดอยู่
       if (b.dataset.st === 'retake') b.replaceChildren(...retakeFace(w));
     });
-    if (pill) {
-      pill.dataset.st = st;
-      pill.textContent = pillText[st];
-      pill.setAttribute('aria-label', `สถานะ ${s.name || 'เลขที่ ' + s.no}: ${st === 'none' ? 'ยังไม่ตรวจ' : pillText[st]} — แตะเพื่อเปลี่ยน`);
-    }
     inp.value = scored ? String(w.score) : '';
     inp.placeholder = w.status === 'miss' ? W.missShort : '';
     inp.title = w.retake ? `คะแนนสอบซ่อม · ครั้งแรก ${origText(w)}` : '';
@@ -480,16 +463,15 @@ function scoreRow(col, s, { head, nextInput, dense = false } = {}) {
     inp.classList.toggle('below', passOf(col, raw, settings()) === false);
   }
 
-  // ฝั่งซ้าย+คะแนนบรรทัดบน · ปุ่มสถานะเต็มความกว้างบรรทัดล่าง
-  // (แบบเดิมยัดทุกอย่างบรรทัดเดียว ชื่อนักเรียนเลยถูกบีบจนอ่านไม่ออกบนมือถือ)
-  const row = h('div', { class: 'work-row' + (dense ? ' dense' : ''), 'data-sid': s.sid },
+  // มือถือ: ฝั่งซ้าย+คะแนนบรรทัดบน · ปุ่มสถานะบรรทัดล่าง (ข้อสอบ 3 ปุ่มวางบรรทัดเดียวไม่พอ)
+  // งานส่งเหลือ 2 ปุ่ม CSS จัดขึ้นบรรทัดเดียวกับชื่อให้ (.work-list.st2) · PC เป็นตาราง 4 คอลัมน์
+  const row = h('div', { class: 'work-row', 'data-sid': s.sid },
     h('div', { class: 'work-head' },
       head || null,
-      pill || null,
       h('div', { class: 'score-cell' }, inp,
         h('span', { class: 'score-max', title: mark === null ? null : `ผ่านที่ ${mark}` },
           '/' + col.max + (mark === null ? '' : ` · ผ่าน ${mark}`)))),
-    dense ? null : group
+    group
   );
   paint();
   row.__input = inp;
@@ -570,13 +552,10 @@ function openRetake(col, s, done) {
 
 function gradeScreen(col) {
   const students = state.cls.students;
-  // ตารางเร็วมีบนมือถือเท่านั้น — บน PC แถวเป็นตารางบรรทัดเดียวอยู่แล้ว
-  const dense = ui.dense && !isWide();
   const rows = [];
   const find = findBox(rows);
   students.forEach((s, i) => {
     rows.push(scoreRow(col, s, {
-      dense,
       head: [h('div', { class: 'stu-no' }, s.no), h('div', { class: 'work-name' }, s.name || '—')],
       nextInput: () => {
         /* กำลังค้นหาอยู่ = ครูหยิบกระดาษทีละแผ่นแบบไม่เรียงเลขที่
@@ -633,11 +612,6 @@ function gradeScreen(col) {
 
     // ── ปุ่มลัดทั้งห้อง (มือถือ — บน PC อยู่ในเมนู ⋯ ของแถบชิ้นงาน) ──
     h('div', { class: 'card pc-hide', style: { padding: '10px 12px' } },
-      h('div', { class: 'dense-seg', role: 'group', 'aria-label': 'รูปแบบการกรอก' },
-        [[false, 'การ์ด'], [true, 'ตารางเร็ว']].map(([v, label]) => h('button', {
-          'data-on': ui.dense === v ? '1' : '0', 'aria-pressed': ui.dense === v ? 'true' : 'false',
-          onclick: () => { ui.dense = v; store.set(DENSE_KEY, v ? '1' : '0'); emit(); }
-        }, label))),
       h('div', { class: 'btn-row' },
         h('button', {
           class: 'btn btn-soft btn-sm',
@@ -658,11 +632,9 @@ function gradeScreen(col) {
       )),
 
     find.el,
-    dense && h('div', { class: 'enter-hint' }, h('kbd', null, 'Enter ↵'),
-      ui.q.trim() ? 'บันทึกแล้วกลับมาค้นหาแผ่นถัดไป' : 'พิมพ์คะแนนแล้วกด ระบบเลื่อนไปคนถัดไปให้'),
 
-    // ── รายชื่อ: มือถือ = การ์ดใบละคน (หรือตารางเร็ว) · PC = ตาราง 4 คอลัมน์ ──
-    h('div', { class: 'work-list' + (dense ? ' dense' : '') },
+    // ── รายชื่อ: มือถือ = การ์ดใบละคน · PC = ตาราง 4 คอลัมน์ ──
+    h('div', { class: 'work-list' + (isExam(col) ? '' : ' st2') },
       h('div', { class: 'work-thead' },
         h('div', null, 'เลขที่'), h('div', null, 'ชื่อ-นามสกุล'),
         h('div', null, isExam(col) ? 'สถานะการสอบ' : 'สถานะการส่ง'), h('div', null, 'คะแนน')),
@@ -705,11 +677,6 @@ function findBox(rows) {
     });
     none.hidden = shown > 0 || !ui.q.trim();
     clearBtn.hidden = !ui.q;
-    const hint = document.querySelector('.enter-hint');
-    if (hint && hint.lastChild) {
-      hint.lastChild.textContent = ui.q.trim()
-        ? 'บันทึกแล้วกลับมาค้นหาแผ่นถัดไป' : 'พิมพ์คะแนนแล้วกด ระบบเลื่อนไปคนถัดไปให้';
-    }
   }
   function reset() {
     ui.q = ''; input.value = ''; apply();
@@ -733,12 +700,15 @@ function studentScreen(col) {
   const b = curBucket();
   const S = settings();
 
-  // สรุปของถังนี้เฉพาะคนนี้
-  let got = 0, max = 0, graded = 0;
+  // สรุปของถังนี้เฉพาะคนนี้ — คิดคะแนนกติกาเดียวกับ computeClass (งานที่เริ่มตรวจแล้ว ช่องว่าง = ไม่ส่ง)
+  const mb = blankMissCols(cls);
+  let got = 0, max = 0, done = 0;
   for (const c of cols) {
-    const w = parseWork(getCell(c.key, s.sid));
+    const w = parseWork(effectiveRaw(getCell(c.key, s.sid), mb[c.key]));
+    // นับเหมือน tally(): งานส่ง = ส่ง/ช้า · ข้อสอบ = เข้าสอบ
+    if (w.status === 'ok' || (w.status === 'late' && !isExam(c))) done++;
     if (w.status === 'none') { if (S.ungraded === 'zero') max += c.max; continue; }
-    graded++; max += c.max;
+    max += c.max;
     if (w.status !== 'miss') got += w.score;
   }
   const bucketScore = max > 0 ? Math.round((S.weight[curBucket().id] * got / max) * 100) / 100 : null;
@@ -797,13 +767,13 @@ function studentScreen(col) {
         h('div', { style: { fontSize: '13px', color: 'var(--ink-2)' } },
           `${b.label} · ${b.phase === 1 ? 'ก่อนกลางภาค' : 'หลังกลางภาค'}`),
         h('div', { style: { fontSize: '12px', color: 'var(--ink-3)', marginTop: '1px' } },
-          `${words(col).done} ${graded} จาก ${cols.length} ชิ้น`)),
+          `${words(col).done} ${done} จาก ${cols.length} ชิ้น`)),
       h('div', { style: { textAlign: 'right' } },
         h('div', { class: 'tnum', style: { fontSize: '19px', fontWeight: '700' } },
           bucketScore === null ? '—' : nf(bucketScore)),
         h('div', { style: { fontSize: '11.5px', color: 'var(--ink-2)' } }, '/' + S.weight[curBucket().id]))),
 
-    h('div', { class: 'work-list by-student' }, rows),
+    h('div', { class: 'work-list by-student' + (isExam(col) ? '' : ' st2') }, rows),
 
     h('div', { class: 'pager' },
       h('button', { class: 'btn btn-ghost', disabled: ui.si === 0, onclick: () => step(-1) }, '‹'),
@@ -830,27 +800,26 @@ function progressBar(col) {
     h('div', { class: 'prog-note' },
       [`${isExam(col) ? 'สอบ' : 'ส่ง'} ${t.ok}`,
        t.late ? `ช้า ${t.late}` : null,
-       `${W.miss} ${t.miss}`,
-       `ยังไม่ตรวจ ${t.none}`].filter(Boolean).join(' · '))
+       ...(isExam(col)
+         ? [`${W.miss} ${t.miss}`, `ยังไม่ตรวจ ${t.left}`]
+         : [`ยังไม่ส่ง ${t.left}`])].filter(Boolean).join(' · '))
   );
 }
 
 function progressText(col) {
   const t = tally(col);
   const vals = state.cls.values[col.key] || {};
-  const exam = isExam(col);
   const scored = [];
   for (const s of state.cls.students) {
     const w = parseWork(vals[s.sid]);
-    // เฉลี่ยต้องคิดจากคนกลุ่มเดียวกับตัวเลขที่โชว์ข้าง ๆ
-    // ข้อสอบ = เฉพาะคนที่เข้าสอบ · งานส่ง = ทุกคนที่ตรวจแล้ว (คนไม่ส่งนับเป็น 0)
-    if (exam ? w.status === 'ok' || w.status === 'late' : w.status !== 'none') scored.push(w.score);
+    // เฉลี่ยต้องคิดจากคนกลุ่มเดียวกับตัวเลขที่โชว์ข้าง ๆ (done) — คนที่ส่ง/เข้าสอบแล้วเท่านั้น
+    if (w.status === 'ok' || w.status === 'late') scored.push(w.score);
   }
   const avg = scored.length ? scored.reduce((a, b) => a + b, 0) / scored.length : 0;
   const W = words(col);
   return `เต็ม ${col.max} · ${W.done} ${t.done}/${t.total}`
     + (t.late ? ` · ช้า ${t.late}` : '')
-    + (t.miss ? ` · ${W.miss} ${t.miss}` : '')
+    + (isExam(col) && t.miss ? ` · ${W.miss} ${t.miss}` : '')
     + (t.retake ? ` · สอบซ่อม ${t.retake}` : '')
     + (scored.length ? ` · เฉลี่ย ${nf(avg, 1)}` : '');
 }
@@ -1040,8 +1009,10 @@ function chase(col) {
       {
         id: 'miss', label: isExam(col) ? 'ยังไม่สอบ' : 'ยังไม่ส่ง', people: missing,
         head: (n) => `${isExam(col) ? 'ยังไม่ได้สอบ' : 'ยังไม่ส่ง'} ${n} คน`,
-        // "ยังไม่ตรวจ" อาจส่งแล้วแต่ครูยังไม่ได้กรอก — เตือนก่อนประกาศชื่อในกลุ่ม
-        note: unchecked ? `รวม ${unchecked} คนที่ยังไม่ได้ตรวจ — ถ้าตรวจงานที่ส่งมายังไม่ครบ ตรวจก่อนแล้วค่อยคัดลอก` : ''
+        // ข้อสอบ: ช่องว่างอาจสอบแล้วแต่ครูยังไม่ได้กรอก — เตือนก่อนประกาศชื่อในกลุ่ม
+        // (งานส่ง ช่องว่างคือยังไม่ส่งอยู่แล้ว ไม่ต้องเตือน)
+        note: isExam(col) && unchecked
+          ? `รวม ${unchecked} คนที่ยังไม่ได้กรอกคะแนน — ถ้ากรอกยังไม่ครบ กรอกก่อนแล้วค่อยคัดลอก` : ''
       },
       {
         id: 'fail', label: 'ยังไม่ผ่าน', people: failing, names: false,

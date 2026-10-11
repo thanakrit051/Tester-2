@@ -353,6 +353,10 @@ function dispatch_(action, p, cfg) {
       return { deleted: p.classId };
     }
 
+    // สำรองทั้งไฟล์ → ตั้งปี/ภาคเรียนใหม่ → ล้างคะแนนหรือลบห้องตามที่เลือก (ดู 09_NewTerm.gs)
+    case 'newTerm':
+      return newTerm_(p);
+
     // ── นักเรียน ────────────────────────────────────────────
     case 'setStudents': {
       var sh3 = requireSheet_(p.classId);

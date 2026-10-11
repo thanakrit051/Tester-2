@@ -7,7 +7,7 @@
 import { h, fmtDate, nf, matchStudent } from '../dom.js';
 import { state, emit, settings, go, sync, refreshClass, fetchedAt } from '../state.js';
 import * as api from '../api.js';
-import { computeClass, parseWork, BUCKETS, ATT_CODES, passMarkOf, passOf } from '../score.js';
+import { computeClass, parseWork, BUCKETS, ATT_CODES, passMarkOf, passOf, blankMissCols, effectiveRaw } from '../score.js';
 import { openCopyList } from './chase.js';
 import { exportClassCSV } from './common.js';
 
@@ -116,8 +116,9 @@ function attCount(sid) {
 function workCount(col, sid) {
   const out = { ok: 0, late: 0, miss: 0, none: 0 };
   const m = (state.cls.values || {})[col.key] || {};
+  const mb = blankMissCols(state.cls)[col.key];   // งานที่เริ่มตรวจแล้ว ช่องว่าง = ไม่ส่ง
   const list = sid ? [sid] : state.cls.students.map(s => s.sid);
-  for (const id of list) out[parseWork(m[id]).status]++;
+  for (const id of list) out[parseWork(effectiveRaw(m[id], mb)).status]++;
   return out;
 }
 
@@ -329,8 +330,9 @@ function followOf(col, S) {
   const cls = state.cls;
   const V = cls.values[col.key] || {};
   const g = { miss: [], fix: [], refail: [], none: [], fixed: 0 };
+  const mb = blankMissCols(cls)[col.key];   // งานที่เริ่มตรวจแล้ว ช่องว่าง = ยังไม่ส่ง (ต้องอยู่ในรายชื่อตามงาน)
   for (const st of cls.students) {
-    const raw = V[st.sid];
+    const raw = effectiveRaw(V[st.sid], mb);
     const w = parseWork(raw);
     if (w.status === 'miss') { g.miss.push({ st, w }); continue; }
     if (w.status === 'none') { g.none.push({ st, w }); continue; }
@@ -462,8 +464,9 @@ function studentReport() {
   const att = attCount(r.sid);
 
   // งานที่ยังไม่ส่ง หรือครูยังไม่ได้ตรวจ — เรียงไม่ส่งขึ้นก่อน
+  const mb = blankMissCols(cls);
   const todo = workColumns()
-    .map(c => ({ c, w: parseWork((cls.values[c.key] || {})[r.sid]) }))
+    .map(c => ({ c, w: parseWork(effectiveRaw((cls.values[c.key] || {})[r.sid], mb[c.key])) }))
     .filter(x => x.w.status === 'miss' || x.w.status === 'none')
     .sort((a, b) => (a.w.status === 'miss' ? 0 : 1) - (b.w.status === 'miss' ? 0 : 1));
 

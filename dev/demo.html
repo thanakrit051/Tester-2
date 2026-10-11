@@ -117,6 +117,20 @@
         Object.keys(payload.entries || {}).forEach(k => { config[k] = payload.entries[k]; });
         return config;
       case 'getClass':  return JSON.parse(JSON.stringify(cls));
+      // ขึ้นภาคเรียนใหม่ (ของจริงอยู่ใน apps-script/09_NewTerm.gs) — ห้องตัวอย่างมีห้องเดียวที่มีข้อมูล คือ c1
+      case 'newTerm': {
+        Object.assign(config, payload.config || {}, { year: payload.year, term: payload.term });
+        if ((payload.reset || []).includes('c1')) {
+          cls.columns.length = 0;
+          Object.keys(cls.values).forEach(k => delete cls.values[k]);
+        }
+        for (const id of payload.drop || []) {
+          const i = classes.findIndex(c => c.classId === id);
+          if (i >= 0) classes.splice(i, 1);
+        }
+        return { archive: { name: 'ภาคเรียนที่ 1/2568 (ตัวอย่าง)', url: 'https://example.invalid/archive' },
+                 reset: (payload.reset || []).length, dropped: (payload.drop || []).length };
+      }
       case 'batch':     return {
         results: (payload.ops || []).map((op, i) => ({ i, ok: true, data: dispatch(op.action, op.payload || {}) }))
       };

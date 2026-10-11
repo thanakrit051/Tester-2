@@ -548,6 +548,48 @@ export async function deleteClass(classId) {
   emit();
 }
 
+/**
+ * ขึ้นภาคเรียนใหม่ (ดู apps-script/09_NewTerm.gs)
+ *
+ * ต้องส่งของค้างคิวขึ้นชีตให้หมดก่อน — ไม่งั้นคะแนนที่ยังไม่ถึงชีตจะไม่อยู่ในไฟล์สำรอง
+ * แล้วพอส่งตามไปทีหลังก็ไปลงห้องที่ล้างแล้ว (หรือหายไปกับห้องที่ลบ)
+ *
+ * @param plan { year, term, reset: [classId], drop: [classId], config: {...} }
+ */
+export async function startNewTerm(plan) {
+  await sync();
+  if (api.queue.size) {
+    throw new api.ApiError(`ยังมีข้อมูล ${api.queue.size} รายการที่ยังไม่ถึงชีต — ต่อเน็ตแล้วรอให้ส่งครบก่อน`);
+  }
+
+  // ห้องที่ล้าง/ลบแล้ว สำเนาในเครื่องคือของเทอมเก่า — ทิ้งให้หมด เปิดครั้งหน้าจะดึงของใหม่
+  // ทำทั้งตอนสำเร็จและตอนพัง: พังกลางทางแปลว่าบางห้องในชีตเปลี่ยนไปแล้ว
+  const dropCache = () => {
+    for (const id of [...plan.reset, ...plan.drop]) { api.cache.del('class.' + id); fetched[id] = 0; }
+  };
+
+  let done, boot;
+  try {
+    [done, boot] = await batchCall([
+      { action: 'newTerm',   payload: plan },
+      { action: 'bootstrap', payload: {} }
+    ], 'ขึ้นภาคเรียนใหม่ไม่สำเร็จ');
+  } catch (e) {
+    // ดึงรายชื่อห้อง/ค่าตั้งค่าล่าสุดมาแสดง ครูจะได้เห็นว่าตอนนี้ชีตเป็นยังไงก่อนกดใหม่
+    dropCache();
+    await bootAll().catch(() => {});
+    throw e;
+  }
+
+  dropCache();
+  if (boot && boot.ok) applyBootstrap(boot.data);
+
+  const cur = state.classId;
+  const next = state.classes.some(c => c.classId === cur) ? cur : state.classes[0]?.classId;
+  await loadClass(next || '', { force: true });
+  return done.data;
+}
+
 export async function setStudents(students) {
   const [set, boot] = await batchCall([
     { action: 'setStudents', payload: { classId: state.classId, students } },

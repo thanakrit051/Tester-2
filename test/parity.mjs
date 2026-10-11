@@ -15,7 +15,8 @@ const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const gs = path.join(root, 'apps-script');
 
 const src = fs.readFileSync(path.join(gs, '00_Constants.gs'), 'utf8') + '\n' +
-            fs.readFileSync(path.join(gs, '03_Score.gs'), 'utf8');
+            fs.readFileSync(path.join(gs, '03_Score.gs'), 'utf8') + '\n' +
+            fs.readFileSync(path.join(gs, '05_Student.gs'), 'utf8');
 const ctx = { console, SpreadsheetApp: {}, Utilities: {} };
 vm.createContext(ctx);
 vm.runInContext(src, ctx);
@@ -214,6 +215,67 @@ for (const pass_default_pct of ['', 50]) {
       if (String(row[k]) !== String(b[i][k])) { fails++; console.log(`ไม่ตรง [สอบซ่อม] ${row.name}.${k}: js=${row[k]} gs=${b[i][k]}`); }
     }
   });
+}
+
+// ── งานส่งไม่มีปุ่ม "ไม่ส่ง" แล้ว (v3.15): งานที่เริ่มตรวจแล้ว ช่องว่าง = ไม่ส่ง ─────
+// เคยหลุด: ช่องว่างยังนับเป็น "ยังไม่ตรวจ" เด็กที่ไม่ส่งจึงไม่โดนหักคะแนน ไม่ติดธงเสี่ยงติด 0
+// และหน้านักเรียนขึ้นว่า "ครูยังไม่ได้ตรวจ" ทั้งที่เด็กไม่ส่งเอง
+{
+  const cols = [
+    { key: 'WORK|1|a', kind: 'WORK', half: 1, id: 'a', label: 'งาน A', max: 10, pass: 5 },   // เริ่มตรวจแล้ว
+    { key: 'WORK|1|b', kind: 'WORK', half: 1, id: 'b', label: 'งาน B', max: 10 },            // ยังไม่ตรวจใครเลย
+    { key: 'QUIZ|1|q', kind: 'QUIZ', half: 1, id: 'q', label: 'ควิซ',  max: 10 },
+    { key: 'FIN|2|fin', kind: 'FIN', half: 2, id: 'fin', label: 'ปลายภาค', max: 30 }
+  ];
+  const students = [
+    { no: '1', sid: 'A', name: 'ส่ง' },
+    { no: '2', sid: 'B', name: 'ไม่ส่ง' }
+  ];
+  const values = {
+    'WORK|1|a': { A: 10 },
+    'QUIZ|1|q': { A: 8 },
+    'FIN|2|fin': { A: 30, B: 0 }
+  };
+  const cls = { students, columns: cols, values };
+  const want = (label, got, exp) => {
+    checked++;
+    if (String(got) !== String(exp)) { fails++; console.log(`❌ [ช่องว่าง=ไม่ส่ง] ${label}: ได้ ${got} ควรเป็น ${exp}`); }
+  };
+
+  for (const ungraded_mode of ['ignore', 'zero']) {
+    const cfg = { ...baseCfg, ungraded_mode, pass_default_pct: '' };
+    const a = computeClass(cls, settingsFrom(cfg));
+    const res = ctx.computeClassScores_(cls, ctx.scoreSettings_(cfg));
+    const b = res.rows;
+    for (let i = 0; i < a.length; i++) {
+      for (const k of [...FIELDS, 'pending']) {
+        checked++;
+        if (String(a[i][k]) !== String(b[i][k])) { fails++; console.log(`ไม่ตรง [ช่องว่าง=ไม่ส่ง/${ungraded_mode}] ${a[i].name}.${k}: js=${a[i][k]} gs=${b[i][k]}`); }
+      }
+    }
+    // งาน A เริ่มตรวจแล้ว → คนไม่ส่งได้ 0 ในงาน A ทั้ง 2 โหมด · งาน B ยังไม่ตรวจใครเลย → ตามโหมด
+    want(`${ungraded_mode} · work1 ของคนไม่ส่ง`, a[1].work1, 0);
+    want(`${ungraded_mode} · คนไม่ส่งไม่ผ่านเกณฑ์งาน A`, a[1].failN, 1);
+    want(`${ungraded_mode} · work1 ของคนส่ง`, a[0].work1, ungraded_mode === 'zero' ? 5 : 10);
+    // ค้างตรวจเหลือแค่งาน B (ยังไม่เริ่ม) กับควิซที่ยังไม่กรอก — ไม่ใช่งาน A ที่เด็กไม่ส่ง
+    want(`${ungraded_mode} · pending คนส่ง`, a[0].pending, 1);
+    want(`${ungraded_mode} · pending คนไม่ส่ง`, a[1].pending, 2);
+
+    // หน้านักเรียน: งาน A = ยังไม่ส่ง (ไม่ใช่ครูยังไม่ได้ตรวจ) · งาน B ยังไม่ตรวจ · ควิซยังไม่กรอก
+    const v = ctx.studentClassView_({ ...cls, meta: {} }, b[1], students[1], res.buckets, ctx.scoreSettings_(cfg), res.missBlank);
+    const st = Object.fromEntries(v.items.map(it => [it.label, it.status]));
+    want(`${ungraded_mode} · หน้านักเรียน งาน A`, st['งาน A'], 'miss');
+    want(`${ungraded_mode} · หน้านักเรียน งาน A ผ่านเกณฑ์`, v.items.find(it => it.label === 'งาน A').passed, false);
+    want(`${ungraded_mode} · หน้านักเรียน งาน B`, st['งาน B'], 'none');
+    want(`${ungraded_mode} · หน้านักเรียน ควิซ`, st['ควิซ'], 'none');
+  }
+
+  // ไม่เหลืออะไรค้างตรวจ + กรอกปลายภาคแล้ว + คะแนนไม่ถึง 50 → คนไม่ส่งต้องติดธง "เสี่ยงติด 0"
+  const done = { students, columns: [cols[0], cols[3]], values };
+  const a = computeClass(done, settingsFrom(baseCfg));
+  const b = ctx.computeClassScores_(done, ctx.scoreSettings_(baseCfg)).rows;
+  want('คนไม่ส่ง ติดธงเสี่ยงติด 0 (js)', a[1].flag.includes('เสี่ยงติด 0'), true);
+  want('คนไม่ส่ง ติดธงเสี่ยงติด 0 (gs)', b[1].flag.includes('เสี่ยงติด 0'), true);
 }
 
 if (fails) { console.log(`❌ ไม่ตรง ${fails} จุด จาก ${checked}`); process.exit(1); }

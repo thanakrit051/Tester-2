@@ -78,6 +78,31 @@ function passOf_(c, raw, S) {
   return w.score >= mark;
 }
 
+/**
+ * งานส่งที่ครูเริ่มตรวจแล้ว (บันทึกให้ใครสักคนแล้ว) — ช่องที่ยังว่างของชิ้นนั้นแปลว่า "ยังไม่ส่ง"
+ * แอป v3.15 เลิกมีปุ่ม "ไม่ส่ง" ของงานส่ง ครูกดแค่คนที่ส่ง · งานที่ยังไม่ได้ตรวจของใครเลยยังเป็น "ยังไม่ตรวจ"
+ * ข้อสอบไม่เข้ากติกานี้ (ช่องว่าง = ครูยังกรอกไม่ครบ)
+ *
+ * ⚠️ ต้องตรงกับ blankMissCols() ใน js/score.js เสมอ
+ * @return { "<คีย์คอลัมน์>": true } เฉพาะงานส่งที่เริ่มตรวจแล้ว
+ */
+function blankMissCols_(data) {
+  var V = data.values || {};
+  var out = {};
+  (data.columns || []).forEach(function (c) {
+    if (c.kind !== 'WORK') return;
+    var vals = V[c.key] || {};
+    var started = (data.students || []).some(function (s) { return parseWork_(vals[s.sid]).status !== 'none'; });
+    if (started) out[c.key] = true;
+  });
+  return out;
+}
+
+/** ค่าที่ใช้คิดจริงของช่องนี้ — ช่องว่างของงานที่เริ่มตรวจแล้ว = ไม่ส่ง */
+function effectiveRaw_(raw, blankMiss) {
+  return blankMiss && parseWork_(raw).status === 'none' ? NOT_SUBMITTED : raw;
+}
+
 var DEFAULT_CUTS_ = '80:4,75:3.5,70:3,65:2.5,60:2,55:1.5,50:1,0:0';
 
 /**
@@ -128,6 +153,7 @@ function computeClassScores_(data, settings) {
     var b = BUCKET_OF[c.kind + '|' + c.half];
     if (b) byBucket[b].push(c);
   });
+  var missBlank = blankMissCols_(data);
 
   var rows = data.students.map(function (st) {
     var r = { sid: st.sid, no: st.no, name: st.name };
@@ -162,7 +188,7 @@ function computeClassScores_(data, settings) {
       var got = 0, max = 0, blank = 0;
       cols.forEach(function (c) {
         var full = c.max == null ? 0 : c.max;
-        var raw = (data.values[c.key] || {})[st.sid];
+        var raw = effectiveRaw_((data.values[c.key] || {})[st.sid], missBlank[c.key]);
         var w = parseWork_(raw);
         if (passOf_(c, raw, S) === false) failed.push(c.label || c.id);
         if (w.status === 'none') {
@@ -194,8 +220,9 @@ function computeClassScores_(data, settings) {
     r.failN = failed.length;
 
     // ถือว่าจบเทอมเมื่อกรอกคะแนนปลายภาคของคนนี้แล้ว
+    // ใช้ parseWork_ ไม่ใช่ || '' — คะแนนปลายภาค 0 (ตัวเลข) ต้องนับว่ากรอกแล้ว ไม่งั้นคนได้ 0 ไม่ติดธงเสี่ยงติด 0
     var termDone = byBucket.fin.some(function (c) {
-      return String((data.values[c.key] || {})[st.sid] || '').trim() !== '';
+      return parseWork_((data.values[c.key] || {})[st.sid]).status !== 'none';
     });
 
     var flags = [];
@@ -212,7 +239,7 @@ function computeClassScores_(data, settings) {
     return r;
   });
 
-  return { rows: rows, buckets: byBucket };
+  return { rows: rows, buckets: byBucket, missBlank: missBlank };
 }
 
 function clampRound_(v, max, S) {

@@ -139,7 +139,7 @@ function buildStudentViews_() {
       if (!out[st.sid]) out[st.sid] = { sid: st.sid, name: st.name || '', updated: now, classes: [] };
       if (!out[st.sid].name) out[st.sid].name = st.name || '';
 
-      out[st.sid].classes.push(studentClassView_(data, r, st, byBucket, S));
+      out[st.sid].classes.push(studentClassView_(data, r, st, byBucket, S, res.missBlank));
     });
   });
 
@@ -147,7 +147,7 @@ function buildStudentViews_() {
 }
 
 /** ข้อมูลของนักเรียน 1 คน ในวิชา 1 วิชา */
-function studentClassView_(data, r, st, byBucket, S) {
+function studentClassView_(data, r, st, byBucket, S, missBlank) {
   var V = data.values || {};
 
   // ── 8 ช่องคะแนนของ SGS ──
@@ -177,7 +177,8 @@ function studentClassView_(data, r, st, byBucket, S) {
   BUCKET_ORDER.forEach(function (id) {
     (byBucket[id] || []).forEach(function (c) {
       if (c.kind === 'ATT') return;
-      var raw = (V[c.key] || {})[st.sid];
+      // งานส่งที่ครูเริ่มตรวจแล้ว ช่องว่าง = ยังไม่ส่ง (ไม่ใช่ "ครูยังไม่ได้ตรวจ") — กติกาเดียวกับคะแนนรวม
+      var raw = effectiveRaw_((V[c.key] || {})[st.sid], (missBlank || {})[c.key]);
       var w = parseWork_(raw);
       var mark = passMarkOf_(c, S);
       items.push({
@@ -204,7 +205,7 @@ function studentClassView_(data, r, st, byBucket, S) {
   // ถือว่าจบภาคเรียนเมื่อครูกรอกคะแนนปลายภาคของคนนี้แล้ว (เกณฑ์เดียวกับธง "เสี่ยงติด 0")
   // หน้าสรุปผลใช้บอกนักเรียนว่าเกรดที่เห็นยังเปลี่ยนได้อีกไหม
   var termDone = (byBucket.fin || []).some(function (c) {
-    return String((V[c.key] || {})[st.sid] || '').trim() !== '';
+    return parseWork_((V[c.key] || {})[st.sid]).status !== 'none';   // คะแนน 0 = กรอกแล้ว
   });
 
   return {
