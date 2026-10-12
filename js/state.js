@@ -137,6 +137,23 @@ export function pushView(view, replace) {
 }
 
 /**
+ * วาดหน้าใหม่แบบค่อย ๆ จางเข้า (View Transitions) — ใช้เฉพาะตอนเปลี่ยนหน้า
+ *
+ * ของเดิมสลับหน้าแบบตัดฉับ เนื้อหาเก่าหายแล้วของใหม่โผล่ในเฟรมเดียว ดูกระตุกทั้งที่จริงเร็วมาก
+ * ไม่ใช้กับการวาดใหม่ทั่วไป (กดเช็คชื่อ · พิมพ์คะแนน) เพราะเกิดถี่และต้องตอบสนองทันที
+ * เบราว์เซอร์ที่ไม่รองรับ หรือเครื่องที่ตั้งลดภาพเคลื่อนไหว = วาดตรง ๆ แบบเดิม
+ */
+function withTransition(fn) {
+  try {
+    if (document.startViewTransition && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      document.startViewTransition(fn);
+      return;
+    }
+  } catch (e) { /* ตกไปวาดตรง ๆ */ }
+  fn();
+}
+
+/**
  * เปลี่ยนหน้า
  * @param opts.silent  true = มาจากปุ่มย้อนกลับ อย่าไปเพิ่มรายการประวัติซ้ำ
  */
@@ -151,7 +168,7 @@ export function go(view, opts = {}) {
     pushView(view);
   }
   window.scrollTo({ top: 0 });
-  emit();
+  withTransition(emit);
   // หน้าที่ "อ่านสรุป" ต้องเป็นของล่าสุด — ครูมักเช็คชื่อจากอีกเครื่องแล้วมาดูตรงนี้
   if (READ_VIEWS.includes(view)) refreshClass({ maxAge: REFRESH_AFTER });
 }
@@ -766,6 +783,7 @@ export function getCell(key, sid) {
 let syncTimer = null;
 /** ส่งขึ้นชีตเร็วขึ้น — คำสั่งของห้องเดียวกันถูกรวมเป็นก้อนเดียวอยู่แล้ว จึงไม่เปลืองรอบ */
 function scheduleSync(ms = 600) {
+  syncChanged();   // ป้าย "กำลังบันทึก…" ขึ้นทันทีที่กด ไม่ต้องรอรอบส่ง 600ms
   clearTimeout(syncTimer);
   syncTimer = setTimeout(() => sync(), ms);
 }
@@ -795,6 +813,7 @@ export async function sync({ loud = false } = {}) {
       toast(`ยังส่งไม่ได้ ${res.failed.length} รายการ (เก็บไว้ให้แล้ว จะลองใหม่): ${res.failed[0].error}`, 'err', 5000);
     } else {
       syncFails = 0;
+      if (res.sent) lastSaved = Date.now();
       if (loud) toast(`ซิงค์แล้ว ${res.sent} รายการ`, 'ok');
     }
   } catch (e) {
@@ -819,6 +838,10 @@ function retryDelay() {
 }
 
 export const isSyncing = () => syncing;
+
+/** ส่งขึ้นชีตสำเร็จครบล่าสุดเมื่อไหร่ (ms) · 0 = ยังไม่เคยในรอบนี้ — ใช้โชว์ป้าย "บันทึกแล้ว" */
+let lastSaved = 0;
+export const savedAt = () => lastSaved;
 
 /**
  * ชีตรับคำสั่งแต่เขียนไม่ครบทุกช่อง — รายการ/นักเรียนที่ช่องนั้นอ้างถึงไม่มีในแท็บแล้ว

@@ -11,7 +11,7 @@ import { qrcode } from '../vendor/qrcode.js';
 import { state, saveConfig, sync, bootAll, go, emit } from '../state.js';
 import * as api from '../api.js';
 import { auth, renderSignInButton } from '../auth.js';
-import { icon } from '../icons.js';
+import { icon, withIcon } from '../icons.js';
 import { THEMES, getTheme, setTheme } from '../theme.js';
 import { readTimetable, openTimetableEditor } from './timetable.js';
 import { weeklyCount } from '../timetable.js';
@@ -125,7 +125,7 @@ const numInput = (k, { step, suffix, width } = {}) => [
     style: width ? { width } : null,
     onchange: (e) => put(k, e.target.value)
   }),
-  suffix && h('span', { style: { fontSize: '13.5px', color: 'var(--ink-2)' } }, suffix)
+  suffix && h('span', { style: { fontSize: 'var(--fs-md)', color: 'var(--ink-2)' } }, suffix)
 ];
 
 const selectInput = (k, options) => h('select', {
@@ -148,10 +148,10 @@ function secScore() {
   return [
     h('div', { class: 'card' },
       h('div', { style: { display: 'flex', alignItems: 'baseline', gap: '10px', marginBottom: '4px' } },
-        h('div', { style: { fontSize: '17px', fontWeight: '700', flex: '1' } }, 'น้ำหนักคะแนน 8 ช่อง'),
+        h('div', { style: { fontSize: 'var(--fs-lg)', fontWeight: '700', flex: '1' } }, 'น้ำหนักคะแนน 8 ช่อง'),
         h('div', { class: sum === 100 ? 'set-ok' : 'set-bad', 'data-wsum': '1' },
           sum === 100 ? 'รวม 100 ✓' : `รวม ${sum} ✕`)),
-      h('div', { style: { fontSize: '12.5px', color: 'var(--ink-2)' } },
+      h('div', { style: { fontSize: 'var(--fs-sm)', color: 'var(--ink-2)' } },
         'ต้องรวมได้ 100 พอดี ระบบเตือนทันทีถ้าเกินหรือขาด'),
       h('div', { class: 'weightbar', 'data-wbar': '1' },
         WEIGHTS.map(w => num(w.k) > 0 &&
@@ -174,7 +174,7 @@ function secScore() {
     ),
 
     h('div', { class: 'card' },
-      h('div', { style: { fontSize: '17px', fontWeight: '700', marginBottom: '4px' } }, 'กติกาการคิดคะแนน'),
+      h('div', { style: { fontSize: 'var(--fs-lg)', fontWeight: '700', marginBottom: '4px' } }, 'กติกาการคิดคะแนน'),
       row('ช่องที่ยังไม่ตรวจ', 'ข้อสอบที่ยังไม่กรอกคะแนน และงานที่ยังไม่ได้ตรวจของใครเลย (งานที่เริ่มตรวจแล้ว ช่องว่าง = ไม่ส่ง นับ 0 เสมอ)',
         segInput('ungraded_mode', [['ignore', 'ไม่นับ'], ['zero', 'นับเป็น 0']])),
       row('หักคะแนนงานส่งช้า', 'หักจากคะแนนเต็มของงานชิ้นนั้น ตอนกดปุ่ม "ช้า"',
@@ -219,7 +219,7 @@ function secScore() {
     ),
 
     h('div', { class: 'card' },
-      h('div', { style: { fontSize: '17px', fontWeight: '700', marginBottom: '4px' } }, 'ข้อมูลรายวิชา'),
+      h('div', { style: { fontSize: 'var(--fs-lg)', fontWeight: '700', marginBottom: '4px' } }, 'ข้อมูลรายวิชา'),
       row('ปีการศึกษา', null, h('input', { value: String(cfg('year')), onchange: (e) => put('year', e.target.value) })),
       row('ภาคเรียนที่', null, h('input', { value: String(cfg('term')), onchange: (e) => put('term', e.target.value) })),
       row('ชื่อครูผู้สอน', null, h('input', { value: String(cfg('teacher')), style: { minWidth: '200px' }, onchange: (e) => put('teacher', e.target.value) })),
@@ -237,7 +237,7 @@ function secAtt() {
   const w = num('w_att1') || 5;
   return [
     h('div', { class: 'card' },
-      h('div', { style: { fontSize: '17px', fontWeight: '700', marginBottom: '4px' } }, 'การเช็คชื่อ'),
+      h('div', { style: { fontSize: 'var(--fs-lg)', fontWeight: '700', marginBottom: '4px' } }, 'การเช็คชื่อ'),
       row('วิธีคิดคะแนนเข้าเรียน',
         h('span', null,
           h('b', null, 'ตามสัดส่วน'), ` ${w} × (มา ${cfg('att_w_มา', 1)} · สาย ${cfg('att_w_สาย', 0.5)} · ลา ${cfg('att_w_ลา', 1)} · ขาด 0) ÷ คาบที่เช็ค`,
@@ -252,7 +252,7 @@ function secAtt() {
     ),
 
     h('div', { class: 'card' },
-      h('div', { style: { fontSize: '17px', fontWeight: '700', marginBottom: '4px' } },
+      h('div', { style: { fontSize: 'var(--fs-lg)', fontWeight: '700', marginBottom: '4px' } },
         ratio ? 'น้ำหนักของโหมดสัดส่วน' : 'คะแนนที่หักของโหมดหักรายครั้ง'),
       ratio
         ? [row('น้ำหนักเมื่อ "สาย"', 'มา = 1 เสมอ', numInput('att_w_สาย', { step: '0.1' })),
@@ -279,7 +279,7 @@ function secAcct() {
 
   return [
     h('div', { class: 'card' },
-      h('div', { style: { fontSize: '17px', fontWeight: '700', marginBottom: '12px' } }, 'บัญชีที่ใช้อยู่'),
+      h('div', { style: { fontSize: 'var(--fs-lg)', fontWeight: '700', marginBottom: '12px' } }, 'บัญชีที่ใช้อยู่'),
       p
         ? h('div', { style: { display: 'flex', alignItems: 'center', gap: '11px', marginBottom: '12px' } },
             p.picture
@@ -287,19 +287,19 @@ function secAcct() {
               : h('div', { class: 'class-avatar' }, (p.name || '?')[0]),
             h('div', { style: { flex: '1', minWidth: '0' } },
               h('div', { style: { fontWeight: '700', overflow: 'hidden', textOverflow: 'ellipsis' } }, p.name),
-              h('div', { style: { fontSize: '12.5px', color: 'var(--ink-2)', wordBreak: 'break-all' } }, p.email)),
+              h('div', { style: { fontSize: 'var(--fs-sm)', color: 'var(--ink-2)', wordBreak: 'break-all' } }, p.email)),
             h('span', { class: 'badge g' }, 'เชื่อมแล้ว'))
-        : h('div', { style: { fontSize: '13px', color: 'var(--ink-2)', marginBottom: '10px' } },
+        : h('div', { style: { fontSize: 'var(--fs-sm)', color: 'var(--ink-2)', marginBottom: '10px' } },
             api.conn.method === 'key'
               ? 'ตอนนี้เชื่อมด้วยรหัสลับ — เปลี่ยนไปใช้บัญชี Google จะย้ายเครื่องได้ง่ายกว่า'
               : 'ยังไม่ได้เข้าสู่ระบบ'),
 
       h('div', { class: 'btn-row' },
-        h('button', { class: 'btn btn-soft btn-sm', onclick: showTransfer }, '📱 ย้ายไปเครื่องอื่น'),
+        h('button', { class: 'btn btn-soft btn-sm', onclick: showTransfer }, withIcon('phone', 'ย้ายไปเครื่องอื่น')),
         !auth.signedIn && h('button', {
           class: 'btn btn-soft btn-sm',
           onclick: (e) => switchToGoogle(e.currentTarget)
-        }, '🔐 เข้าสู่ระบบด้วย Google'),
+        }, withIcon('login', 'เข้าสู่ระบบด้วย Google')),
         state.installPrompt && h('button', {
           class: 'btn btn-sm',
           onclick: async () => {
@@ -307,7 +307,7 @@ function secAcct() {
             state.installPrompt = null;
             e.prompt(); await e.userChoice;
           }
-        }, '⬇️ ติดตั้งเป็นแอป'),
+        }, withIcon('install', 'ติดตั้งเป็นแอป')),
         p && h('button', {
           class: 'btn btn-ghost btn-sm',
           onclick: async () => {
@@ -319,11 +319,11 @@ function secAcct() {
     ),
 
     h('div', { class: 'card' },
-      h('div', { style: { fontSize: '17px', fontWeight: '700', marginBottom: '12px' } }, 'การเชื่อมต่อกับชีต'),
+      h('div', { style: { fontSize: 'var(--fs-lg)', fontWeight: '700', marginBottom: '12px' } }, 'การเชื่อมต่อกับชีต'),
       h('div',
-        { style: { fontSize: '12.5px', color: 'var(--ink-2)', wordBreak: 'break-all', marginBottom: '10px' } },
+        { style: { fontSize: 'var(--fs-sm)', color: 'var(--ink-2)', wordBreak: 'break-all', marginBottom: '10px' } },
         h('b', null, 'Web App: '), api.conn.url || '—'),
-      h('div', { style: { fontSize: '13px', marginBottom: '12px' } },
+      h('div', { style: { fontSize: 'var(--fs-sm)', marginBottom: '12px' } },
         navigator.onLine ? h('span', { class: 'badge g' }, 'ออนไลน์') : h('span', { class: 'badge a' }, 'ออฟไลน์'),
         ' ',
         pending > 0 ? h('span', { class: 'badge a' }, `มีข้อมูลค้างส่ง ${pending} รายการ`)
@@ -340,8 +340,8 @@ function secAcct() {
     ),
 
     h('div', { class: 'card' },
-      h('div', { style: { fontSize: '17px', fontWeight: '700', marginBottom: '6px' } }, 'หน้าให้นักเรียนดูผล'),
-      h('div', { style: { fontSize: '13px', color: 'var(--ink-2)', marginBottom: '10px', lineHeight: '1.6' } },
+      h('div', { style: { fontSize: 'var(--fs-lg)', fontWeight: '700', marginBottom: '6px' } }, 'หน้าให้นักเรียนดูผล'),
+      h('div', { style: { fontSize: 'var(--fs-sm)', color: 'var(--ink-2)', marginBottom: '10px', lineHeight: '1.6' } },
         'นักเรียนกรอกเลขประจำตัวแล้วเห็นงาน คะแนน และการมาเรียนของตัวเอง', h('br'),
         'ดูได้อย่างเดียว แก้อะไรไม่ได้ และเห็นเฉพาะข้อมูลของตัวเอง'),
       row('เปิดหน้าให้นักเรียนดู', 'ปิดแล้วลิงก์ของนักเรียนจะใช้ไม่ได้ทันที',
@@ -355,7 +355,7 @@ function secAcct() {
       row('ให้ดูสรุปผลภาคเรียน', 'คะแนนรวม /100 และเกรดทุกวิชา · ถ้ายังปิดคะแนนสอบส่วนใดอยู่ เกรดจะขึ้นว่า “รอ” · ปิดไว้นักเรียนยังดูงานและคะแนนรายชิ้นได้ตามปกติ',
         segInput('student_summary', [['on', 'เปิด'], ['off', 'ปิด']], 'off')),
       h('div', { class: 'btn-row', style: { marginTop: '12px' } },
-        h('button', { class: 'btn btn-soft btn-sm', onclick: showStudentLink }, '🎒 ลิงก์ / QR สำหรับนักเรียน'))
+        h('button', { class: 'btn btn-soft btn-sm', onclick: showStudentLink }, withIcon('qr', 'ลิงก์ / QR สำหรับนักเรียน')))
     )
   ];
 }
@@ -366,8 +366,8 @@ function secData() {
   const pending = api.queue.size;
   return [
     h('div', { class: 'card' },
-      h('div', { style: { fontSize: '17px', fontWeight: '700', marginBottom: '6px' } }, 'ข้อมูลและการสำรอง'),
-      h('div', { style: { fontSize: '12.5px', color: 'var(--ink-2)', marginBottom: '12px', lineHeight: '1.6' } },
+      h('div', { style: { fontSize: 'var(--fs-lg)', fontWeight: '700', marginBottom: '6px' } }, 'ข้อมูลและการสำรอง'),
+      h('div', { style: { fontSize: 'var(--fs-sm)', color: 'var(--ink-2)', marginBottom: '12px', lineHeight: '1.6' } },
         'ต้นฉบับของข้อมูลอยู่ใน Google Sheet ของคุณเสมอ — เครื่องนี้เก็บแค่สำเนาไว้ใช้ตอนไม่มีเน็ต'),
       row('ข้อมูลค้างส่ง',
         pending > 0 ? 'จะส่งให้เองเมื่อมีเน็ต หรือกดซิงค์เดี๋ยวนี้ก็ได้' : 'ส่งครบแล้ว ไม่มีอะไรค้าง',
@@ -377,7 +377,7 @@ function secData() {
         h('button', {
           class: 'btn btn-ghost btn-sm',
           onclick: async () => { await bootAll(); toast('โหลดใหม่แล้ว', 'ok'); }
-        }, '↓ โหลดใหม่')),
+        }, withIcon('refresh', 'โหลดใหม่'))),
       row('ล้างสำเนาในเครื่อง', 'ไม่กระทบข้อมูลในชีต แต่ต้องต่อเน็ตเพื่อโหลดใหม่',
         h('button', {
           class: 'btn btn-ghost btn-sm',
@@ -387,7 +387,7 @@ function secData() {
             api.cache.clearAll(); api.queue.clear();
             toast('ล้างแคชแล้ว'); location.reload();
           }
-        }, '🧹 ล้างแคช'))
+        }, withIcon('broom', 'ล้างแคช')))
     )
   ];
 }
@@ -397,7 +397,7 @@ function secData() {
 function secAbout() {
   return [
     h('div', { class: 'card' },
-      h('div', { style: { fontSize: '17px', fontWeight: '700', marginBottom: '6px' } }, 'เกี่ยวกับระบบ'),
+      h('div', { style: { fontSize: 'var(--fs-lg)', fontWeight: '700', marginBottom: '6px' } }, 'เกี่ยวกับระบบ'),
       row('ธีม', '"ตามเครื่อง" จะสลับเป็นโหมดมืดเองตามการตั้งค่าของโทรศัพท์',
         h('div', { class: 'seg seg-inline' },
           THEMES.map(t => h('button', {
@@ -408,9 +408,9 @@ function secAbout() {
         api.serverInfo.seen ? 'อ่านจากคำตอบล่าสุดของเซิร์ฟเวอร์' : 'ยังไม่เคยได้รับคำตอบจากเซิร์ฟเวอร์',
         h('span', { class: 'badge n' }, api.serverInfo.version ? 'v' + api.serverInfo.version : '—')),
       row('ตรวจสอบระบบ', 'ดูว่าตอนนี้พร้อมใช้แค่ไหน และเหลืออะไรต้องทำ',
-        h('button', { class: 'btn btn-soft btn-sm', onclick: () => go('health') }, '🩺 เปิดหน้าตรวจสอบ'))
+        h('button', { class: 'btn btn-soft btn-sm', onclick: () => go('health') }, withIcon('pulse', 'เปิดหน้าตรวจสอบ')))
     ),
-    h('div', { style: { textAlign: 'center', color: 'var(--ink-3)', fontSize: '12px', padding: '16px 0 6px' } },
+    h('div', { style: { textAlign: 'center', color: 'var(--ink-3)', fontSize: 'var(--fs-xs)', padding: '16px 0 6px' } },
       'AssignCheck V2 · ข้อมูลทั้งหมดอยู่ใน Google Sheet ของคุณเอง')
   ];
 }
@@ -444,7 +444,7 @@ viewSettings.head = function () {
       h('button', {
         class: 'ph-back', 'aria-label': 'กลับ',
         onclick: () => { if (inSec) { ui.sec = null; emit(); } else go('home'); }
-      }, '‹'),
+      }, icon('back')),
       h('div', { class: 'ph-grow' },
         h('div', { class: 'ph-title' }, inSec ? SECTIONS.find(s => s.id === ui.sec).label : 'ตั้งค่า'),
         h('div', { class: 'ph-sub', 'data-savedat': '1' },
@@ -483,7 +483,7 @@ function mobileIndex() {
 
     h('div', { class: 'card' },
       h('div', { style: { display: 'flex', alignItems: 'baseline', gap: '8px' } },
-        h('div', { style: { flex: '1', fontSize: '14.5px', fontWeight: '700' } }, 'น้ำหนักคะแนน'),
+        h('div', { style: { flex: '1', fontSize: 'var(--fs-md)', fontWeight: '700' } }, 'น้ำหนักคะแนน'),
         h('div', { class: sum === 100 ? 'set-ok' : 'set-bad' },
           sum === 100 ? 'รวม 100 ✓' : `รวม ${sum} ✕`)),
       h('div', { class: 'weightbar', style: { height: '10px', margin: '10px 0' } },
@@ -493,7 +493,7 @@ function mobileIndex() {
         class: 'todo-row', style: { padding: '0' },
         onclick: () => { ui.sec = 'score'; emit(); }
       },
-        h('span', { style: { fontSize: '13px', color: 'var(--ink-2)' } },
+        h('span', { style: { fontSize: 'var(--fs-sm)', color: 'var(--ink-2)' } },
           `ส่งงาน ${num('w_work1') + num('w_work2')} · สอบเก็บ ${num('w_quiz1') + num('w_quiz2')} · เข้าเรียน ${num('w_att1') + num('w_att2')} · สอบ ${num('w_mid') + num('w_fin')}`),
         h('b', null, 'แก้ ›'))
     ),
@@ -505,9 +505,9 @@ function mobileIndex() {
     },
       h('div', { style: { flex: '1' } },
         h('div', { class: 'set-name' }, 'ยังไม่ได้ตั้งวันสอบกลางภาค'),
-        h('div', { style: { fontSize: '12.5px', color: 'var(--st-miss)', marginTop: '2px' } }, 'คะแนนอาจลงผิดช่วง')),
+        h('div', { style: { fontSize: 'var(--fs-sm)', color: 'var(--st-miss)', marginTop: '2px' } }, 'คะแนนอาจลงผิดช่วง')),
       h('span', {
-        style: { padding: '9px 14px', borderRadius: '11px', background: 'var(--st-miss)', color: 'var(--on-miss)', fontSize: '13px', fontWeight: '600' }
+        style: { padding: '9px 14px', borderRadius: 'var(--r-1)', background: 'var(--st-miss)', color: 'var(--on-miss)', fontSize: 'var(--fs-sm)', fontWeight: '600' }
       }, 'ตั้งเลย')),
 
     h('div', { class: 'card card-tight' },
@@ -533,8 +533,8 @@ function mobileIndex() {
           state.installPrompt = null;
           e.prompt(); await e.userChoice;
         }
-      }, '⬇️ ติดตั้งเป็นแอป'),
-      h('button', { class: 'btn btn-ghost btn-sm', style: { flex: '1' }, onclick: showTransfer }, '📱 ย้ายไปเครื่องอื่น'))
+      }, withIcon('install', 'ติดตั้งเป็นแอป')),
+      h('button', { class: 'btn btn-ghost btn-sm', style: { flex: '1' }, onclick: showTransfer }, withIcon('phone', 'ย้ายไปเครื่องอื่น')))
   );
 }
 
@@ -556,17 +556,17 @@ function showStudentLink() {
   const link = studentPageUrl();
 
   modal((close) => h('div', null,
-    h('h2', null, '🎒 ลิงก์สำหรับนักเรียน'),
+    h('h2', null, 'ลิงก์สำหรับนักเรียน'),
     h('div', { class: 'hint', style: { marginBottom: '10px' } },
       'แปะไว้ในกลุ่มไลน์ห้อง หรือพิมพ์ QR ติดหน้าห้องให้นักเรียนสแกน'),
     h('div', { class: 'qr-box', html: qrSvg(link) }),
     h('button', {
       class: 'btn btn-ghost btn-block', style: { marginBottom: '10px' },
       onclick: () => { close(); printQrPoster(link); }
-    }, '🖨 พิมพ์ QR ติดหน้าห้อง (A4)'),
+    }, withIcon('printer', 'พิมพ์ QR ติดหน้าห้อง (A4)')),
     h('textarea', {
       rows: 4, value: link, readonly: true,
-      style: { fontFamily: 'ui-monospace, monospace', fontSize: '11.5px' },
+      style: { fontFamily: 'ui-monospace, monospace', fontSize: 'var(--fs-xs)' },
       onclick: (e) => e.target.select()
     }),
     h('div', { style: { height: '10px' } }),
@@ -670,12 +670,12 @@ function showTransfer() {
   const link = api.conn.transferLink();
 
   modal((close) => h('div', null,
-    h('h2', null, '📱 ย้ายไปใช้บนเครื่องอื่น'),
+    h('h2', null, 'ย้ายไปใช้บนเครื่องอื่น'),
     h('div', { class: 'hint', style: { marginBottom: '10px' } },
       'ส่งลิงก์นี้ไปเปิดบนเครื่องใหม่ (ไลน์หาตัวเอง / อีเมล) แล้วระบบจะตั้งค่าให้อัตโนมัติ'),
     h('textarea', {
       rows: 4, value: link, readonly: true,
-      style: { fontFamily: 'ui-monospace, monospace', fontSize: '11.5px' },
+      style: { fontFamily: 'ui-monospace, monospace', fontSize: 'var(--fs-xs)' },
       onclick: (e) => e.target.select()
     }),
     h('div', { style: { height: '10px' } }),

@@ -88,10 +88,27 @@
   --purple-soft: #f0ecfa;
   --on-purple:   #ffffff;
 
-  /* ทรง */
-  --r-1: 11px;
+  /* ขนาดตัวอักษร — ใช้แค่ชุดนี้ ห้ามเขียนตัวเลขลอย ๆ
+     ของเดิมมี ~25 ขนาด (11 · 11.5 · 12 · 12.5 …) ต่างกันครึ่งพิกเซล ตาแยกไม่ออก
+     แต่รวมกันแล้วทำให้หน้าจอดูไม่เรียบร้อย · ภาษาไทยมีสระบน-ล่าง เล็กกว่า 12px อ่านยาก
+     จึงใช้ 11px (--fs-2xs) เฉพาะป้ายเล็กจิ๋ว เช่นชื่อเมนูล่างจอ */
+  --fs-2xs:  11px;
+  --fs-xs:   12px;
+  --fs-sm:   13px;
+  --fs-md:   14px;
+  --fs-base: 15px;
+  --fs-lg:   17px;
+  --fs-xl:   20px;
+  --fs-2xl:  24px;
+  --fs-3xl:  30px;
+
+  /* ทรง — มุมโค้ง 5 ขั้น (ของเดิม 25 ค่า) */
+  --r-xs: 4px;
+  --r-sm: 8px;
+  --r-1: 12px;
   --r-2: 16px;
-  --r-3: 22px;
+  --r-3: 20px;
+  --r-pill: 999px;
   --radius: var(--r-2);
   --sh-1: 0 1px 2px rgba(11,43,36,.05);
   --sh-2: 0 2px 6px -2px rgba(11,43,36,.10), 0 10px 26px -18px rgba(11,43,36,.35);
@@ -192,7 +209,7 @@ html, body {
   margin: 0; padding: 0;
   font-family: 'Anuphan', 'IBM Plex Sans Thai', system-ui, -apple-system, sans-serif;
   background: var(--bg); color: var(--ink);
-  font-size: 15px; line-height: 1.6;
+  font-size: var(--fs-base); line-height: 1.6;
   overscroll-behavior-y: none;
   -webkit-font-smoothing: antialiased;
   text-size-adjust: 100%;
@@ -203,7 +220,7 @@ button { cursor: pointer; border: none; background: none; padding: 0; }
 
 input, select, textarea {
   border: 1px solid var(--line-2); border-radius: var(--r-1);
-  padding: 11px 13px; background: var(--surface); width: 100%;
+  padding: 12px 12px; background: var(--surface); width: 100%;
   transition: border-color .15s, box-shadow .15s;
 }
 textarea { line-height: 1.6; resize: vertical; }
@@ -235,17 +252,17 @@ select {
   justify-items: center; gap: 16px; background: var(--bg); z-index: 999;
 }
 .boot-mark {
-  width: 66px; height: 66px; border-radius: 20px; background: var(--lime);
-  color: var(--on-lime); font-size: 30px; font-weight: 700;
+  width: 66px; height: 66px; border-radius: var(--r-3); background: var(--lime);
+  color: var(--on-lime); font-size: var(--fs-3xl); font-weight: 700;
   display: grid; place-content: center; position: relative;
 }
 .boot-mark span {
   position: absolute; right: -6px; bottom: -6px; width: 28px; height: 28px;
   border-radius: 50%; background: var(--bar); color: var(--lime);
-  font-size: 14px; display: grid; place-content: center;
+  font-size: var(--fs-md); display: grid; place-content: center;
 }
-.boot-title { font-weight: 700; font-size: 19px; letter-spacing: -.2px; }
-.boot-ver { font-size: 11.5px; color: var(--ink-3); margin-top: -8px; font-variant-numeric: tabular-nums; }
+.boot-title { font-weight: 700; font-size: var(--fs-xl); letter-spacing: -.2px; }
+.boot-ver { font-size: var(--fs-xs); color: var(--ink-3); margin-top: -8px; font-variant-numeric: tabular-nums; }
 .boot-spin {
   width: 22px; height: 22px; border-radius: 50%;
   border: 2.5px solid var(--line); border-top-color: var(--accent);
@@ -263,13 +280,13 @@ select {
   display: flex; align-items: center; gap: 10px;
 }
 .brand {
-  width: 28px; height: 28px; border-radius: 9px; flex: none;
+  width: 28px; height: 28px; border-radius: var(--r-sm); flex: none;
   background: var(--lime); color: var(--on-lime);
-  font-weight: 700; font-size: 14px; display: grid; place-content: center;
+  font-weight: 700; font-size: var(--fs-md); display: grid; place-content: center;
 }
-.appbar-title { font-weight: 700; font-size: 15px; line-height: 1.25; color: var(--bar-ink); }
-.appbar-sub { font-size: 11.5px; color: var(--bar-ink-2); font-weight: 500; }
-.appbar button { color: var(--bar-ink-2); border-radius: 10px; background: transparent; }
+.appbar-title { font-weight: 700; font-size: var(--fs-base); line-height: 1.25; color: var(--bar-ink); }
+.appbar-sub { font-size: var(--fs-xs); color: var(--bar-ink-2); font-weight: 500; }
+.appbar button { color: var(--bar-ink-2); border-radius: var(--r-sm); background: transparent; }
 .appbar button:hover { background: var(--bar-2); color: var(--bar-ink); }
 .appbar .icon-btn { background: var(--bar-2); color: var(--lime); width: 32px; height: 32px; }
 .appbar .icon-btn[data-on="1"] { background: var(--lime); color: var(--on-lime); }
@@ -291,21 +308,21 @@ select {
 .card-tight { padding: 0; overflow: hidden; }
 .card-head {
   display: flex; align-items: center; gap: 10px;
-  padding: 13px 16px; border-bottom: 1px solid var(--line);
+  padding: 12px 16px; border-bottom: 1px solid var(--line);
 }
-.card-head h2 { margin: 0; font-size: 14.5px; font-weight: 700; flex: 1; }
+.card-head h2 { margin: 0; font-size: var(--fs-md); font-weight: 700; flex: 1; }
 
 .section-title {
-  font-size: 13.5px; font-weight: 700; color: var(--ink);
+  font-size: var(--fs-md); font-weight: 700; color: var(--ink);
   margin: 20px 2px 9px;
 }
 
 /* ── ปุ่ม ─────────────────────────────────────────────────── */
 /* .btn = ปุ่มหลักสีไลม์ — ในหนึ่งหน้าจอควรมีจุดเดียว */
 .btn {
-  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
-  min-height: var(--tap); padding: 12px 20px; border-radius: 14px;
-  font-weight: 700; font-size: 15px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: var(--tap); padding: 12px 20px; border-radius: var(--r-2);
+  font-weight: 700; font-size: var(--fs-base);
   background: var(--lime); color: var(--on-lime);
   border: 1px solid transparent;
   transition: background .15s, transform .06s, border-color .15s;
@@ -322,37 +339,37 @@ select {
 .btn-solid:hover { background: var(--accent-2); }
 .btn-danger { background: var(--miss-soft); color: var(--st-miss); font-weight: 600; }
 .btn-danger:hover { background: color-mix(in srgb, var(--st-miss) 16%, var(--surface)); }
-.btn-sm  { min-height: 38px; padding: 8px 14px; font-size: 13.5px; border-radius: var(--r-1); }
+.btn-sm  { min-height: 38px; padding: 8px 14px; font-size: var(--fs-md); border-radius: var(--r-1); }
 .btn-block { width: 100%; }
 .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
 
 /* ── การ์ดงานถัดไป (หน้าแรก) ──────────────────────────────── */
 .hero {
-  background: var(--hero); border-radius: 18px; padding: 20px;
+  background: var(--hero); border-radius: var(--r-3); padding: 20px;
   margin-bottom: 12px; color: #fff;
 }
-.hero-kicker { font-size: 12.5px; color: var(--hero-ink); }
-.hero-title  { font-size: 21px; font-weight: 700; margin-top: 2px; line-height: 1.3; }
-.hero-meta   { font-size: 12.5px; color: var(--hero-ink); margin: 4px 0 14px; }
+.hero-kicker { font-size: var(--fs-sm); color: var(--hero-ink); }
+.hero-title  { font-size: var(--fs-xl); font-weight: 700; margin-top: 2px; line-height: 1.3; }
+.hero-meta   { font-size: var(--fs-sm); color: var(--hero-ink); margin: 4px 0 14px; }
 .hero .btn   { width: 100%; }
 .hero-alt {
-  display: block; width: 100%; margin-top: 8px; padding: 11px;
-  border-radius: 12px; border: 1px solid #4ba394; color: var(--hero-ink);
-  font-size: 13.5px; text-align: center; font-weight: 600;
+  display: block; width: 100%; margin-top: 8px; padding: 12px;
+  border-radius: var(--r-1); border: 1px solid #4ba394; color: var(--hero-ink);
+  font-size: var(--fs-md); text-align: center; font-weight: 600;
 }
 .hero-alt:hover { background: rgba(255,255,255,.08); }
 
 /* รายการ "ค้างอยู่" */
 .todo-row {
-  display: flex; align-items: center; gap: 9px; width: 100%;
-  font-size: 13.5px; color: var(--ink); padding: 6px 0; text-align: left;
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  font-size: var(--fs-md); color: var(--ink); padding: 6px 0; text-align: left;
 }
 .todo-row i { width: 7px; height: 7px; border-radius: 50%; flex: none; }
 .todo-row b { margin-left: auto; color: var(--accent); font-weight: 400; }
 
 /* ── ตัวเลือกห้องเรียน ────────────────────────────────────── */
 .class-pick {
-  display: flex; align-items: center; gap: 9px; padding: 10px 14px;
+  display: flex; align-items: center; gap: 8px; padding: 10px 14px;
   background: var(--surface); border-bottom: 1px solid var(--line);
   position: sticky; top: var(--header-h); z-index: 30;
 }
@@ -360,8 +377,8 @@ select {
 .class-pick > .ico { color: var(--ink-3); }
 
 .class-card {
-  display: flex; align-items: center; gap: 11px; padding: 12px;
-  background: var(--surface); border-radius: 14px; box-shadow: var(--sh-1);
+  display: flex; align-items: center; gap: 12px; padding: 12px;
+  background: var(--surface); border-radius: var(--r-2); box-shadow: var(--sh-1);
   margin-bottom: 10px; text-align: left; width: 100%;
   transition: box-shadow .15s, transform .06s;
 }
@@ -370,37 +387,37 @@ select {
 .class-card[data-on="1"] { outline: 2px solid var(--accent); }
 .class-card[data-on="1"] .class-avatar { background: var(--accent); color: var(--on-accent); }
 .class-avatar {
-  width: 40px; height: 40px; border-radius: 12px; flex: none;
-  display: grid; place-content: center; font-weight: 700; font-size: 13px;
+  width: 40px; height: 40px; border-radius: var(--r-1); flex: none;
+  display: grid; place-content: center; font-weight: 700; font-size: var(--fs-sm);
   background: var(--surface-3); color: var(--ink-2);
 }
-.class-name { font-weight: 600; font-size: 14.5px;
+.class-name { font-weight: 600; font-size: var(--fs-md);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.class-meta { font-size: 12px; color: var(--ink-2); }
+.class-meta { font-size: var(--fs-xs); color: var(--ink-2); }
 
 /* ── แถวนักเรียน ──────────────────────────────────────────── */
 .stu-row {
   display: flex; align-items: center; gap: 10px;
   padding: 10px 12px; background: var(--surface);
-  border-radius: 14px; margin-bottom: 8px;
+  border-radius: var(--r-2); margin-bottom: 8px;
 }
 .card-tight .stu-row { border-radius: 0; margin: 0; border-bottom: 1px solid var(--line); }
 .card-tight .stu-row:last-child { border-bottom: none; }
 .stu-row[data-on="1"] { outline: 2px solid var(--accent); }
 .stu-no {
-  width: 28px; height: 28px; flex: none; border-radius: 9px;
+  width: 28px; height: 28px; flex: none; border-radius: var(--r-sm);
   background: var(--surface-2); color: var(--ink-2);
-  display: grid; place-content: center; font-size: 12px; font-weight: 700;
+  display: grid; place-content: center; font-size: var(--fs-xs); font-weight: 700;
 }
-.stu-name { flex: 1; min-width: 0; font-size: 15px; color: var(--ink);
+.stu-name { flex: 1; min-width: 0; font-size: var(--fs-base); color: var(--ink);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.stu-sid { font-size: 11.5px; color: var(--ink-3); }
+.stu-sid { font-size: var(--fs-xs); color: var(--ink-3); }
 
 /* ── ปุ่มเช็คชื่อ ม/ส/ล/ข ─────────────────────────────────── */
-.att-group { display: flex; gap: 5px; flex: none; }
+.att-group { display: flex; gap: 4px; flex: none; }
 .att-btn {
-  width: 36px; height: 36px; border-radius: 11px;
-  font-size: 14px; font-weight: 600;
+  width: 36px; height: 36px; border-radius: var(--r-1);
+  font-size: var(--fs-md); font-weight: 600;
   background: var(--surface-2); color: var(--ink-3);
   transition: background .13s, color .13s;
 }
@@ -413,20 +430,20 @@ select {
 
 /* ── แถวกรอกคะแนน — ปุ่มสถานะขึ้นบรรทัดใหม่เต็มความกว้าง ─── */
 .work-row {
-  background: var(--surface); border-radius: 14px; padding: 11px 12px;
+  background: var(--surface); border-radius: var(--r-2); padding: 12px 12px;
   margin-bottom: 8px;
 }
 .work-row[data-on="1"] { outline: 2px solid var(--accent); }
 .work-head { display: flex; align-items: center; gap: 8px; margin-bottom: 9px; }
-.work-name { flex: 1; min-width: 0; font-size: 15px; color: var(--ink);
+.work-name { flex: 1; min-width: 0; font-size: var(--fs-base); color: var(--ink);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.work-val { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.work-val.none { font-size: 13px; font-weight: 400; color: var(--ink-3); }
+.work-val { font-size: var(--fs-base); font-weight: 700; font-variant-numeric: tabular-nums; }
+.work-val.none { font-size: var(--fs-sm); font-weight: 400; color: var(--ink-3); }
 
 .st-group { display: flex; gap: 6px; }
 .st-btn {
-  flex: 1; min-height: 38px; padding: 9px 6px; border-radius: 11px;
-  font-size: 13.5px; background: var(--surface-2); color: var(--ink-2);
+  flex: 1; min-height: 38px; padding: 8px 6px; border-radius: var(--r-1);
+  font-size: var(--fs-md); background: var(--surface-2); color: var(--ink-2);
   transition: background .13s, color .13s;
 }
 .st-btn:hover { background: var(--surface-3); }
@@ -438,12 +455,12 @@ select {
 .st-btn.retake[data-on="1"] { background: var(--purple); color: var(--on-purple); }
 .st-btn.retake span,
 .st-btn.retake small { display: block; line-height: 1.2; }
-.st-btn.retake small { font-size: 11px; font-weight: 500; }
+.st-btn.retake small { font-size: var(--fs-2xs); font-weight: 500; }
 
-.score-cell { display: flex; align-items: center; gap: 5px; flex: none; }
+.score-cell { display: flex; align-items: center; gap: 4px; flex: none; }
 .score-inp {
   width: 56px; text-align: center; padding: 8px 4px; font-weight: 700;
-  border-radius: 11px;
+  border-radius: var(--r-1);
 }
 .score-inp.filled { border-color: var(--accent); color: var(--accent-ink); }
 .score-inp.miss   { border-color: var(--st-miss); color: var(--st-miss); }
@@ -452,9 +469,9 @@ select {
 /* ต่ำกว่าเกณฑ์ผ่าน — ต้องเห็นต่างจาก .filled ชัด ๆ ตั้งแต่ตอนกรอก
    ใช้พื้นหลังด้วย ไม่ใช่แค่ขอบ เพราะช่องนี้เล็กมากบนมือถือ */
 .score-inp.below  { border-color: var(--red); color: var(--red); background: var(--red-soft); }
-.score-max { font-size: 12px; color: var(--ink-3); }
+.score-max { font-size: var(--fs-xs); color: var(--ink-3); }
 .miss-btn {
-  width: 34px; height: 34px; border-radius: var(--r-1); font-size: 15px; font-weight: 700;
+  width: 34px; height: 34px; border-radius: var(--r-1); font-size: var(--fs-base); font-weight: 700;
   background: var(--surface-2); color: var(--ink-3);
 }
 .miss-btn[data-on="1"] { background: var(--st-miss); color: var(--on-miss); }
@@ -466,23 +483,23 @@ select {
 }
 
 /* ── แถบสถิติ ─────────────────────────────────────────────── */
-.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; }
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
 .stat {
-  background: var(--surface); border-radius: 14px; padding: 13px 10px;
+  background: var(--surface); border-radius: var(--r-2); padding: 12px 10px;
   box-shadow: var(--sh-1);
 }
-.stat-num { font-size: 23px; font-weight: 700; line-height: 1.15; color: var(--ink); }
-.stat-lbl { font-size: 12px; color: var(--ink-2); margin-top: 1px; }
+.stat-num { font-size: var(--fs-2xl); font-weight: 700; line-height: 1.15; color: var(--ink); }
+.stat-lbl { font-size: var(--fs-xs); color: var(--ink-2); margin-top: 1px; }
 .stat.g .stat-num { color: var(--accent); }
 .stat.a .stat-num { color: var(--st-late); }
 .stat.b .stat-num { color: var(--st-leave); }
 .stat.r .stat-num { color: var(--st-miss); }
 
 /* ── ชิป / ป้าย ───────────────────────────────────────────── */
-.chips { display: flex; gap: 8px; overflow-x: auto; padding: 2px 0 9px; scrollbar-width: none; }
+.chips { display: flex; gap: 8px; overflow-x: auto; padding: 2px 0 8px; scrollbar-width: none; }
 .chips::-webkit-scrollbar { display: none; }
 .chip {
-  flex: none; padding: 8px 16px; border-radius: 12px; font-size: 13.5px; font-weight: 600;
+  flex: none; padding: 8px 16px; border-radius: var(--r-1); font-size: var(--fs-md); font-weight: 600;
   background: var(--surface); color: var(--ink-2); box-shadow: var(--sh-1);
   transition: background .15s, color .15s;
 }
@@ -490,8 +507,8 @@ select {
 .chip[data-on="1"] { background: var(--ink); color: var(--on-ink); }
 
 .badge {
-  display: inline-block; padding: 3px 10px; border-radius: 999px;
-  font-size: 11.5px; font-weight: 700;
+  display: inline-block; padding: 3px 10px; border-radius: var(--r-pill);
+  font-size: var(--fs-xs); font-weight: 700;
 }
 .badge.g { background: var(--ok-soft);    color: var(--st-ok); }
 .badge.b { background: var(--leave-soft); color: var(--st-leave); }
@@ -502,21 +519,21 @@ select {
 
 /* ── รายการทั่วไป ─────────────────────────────────────────── */
 .list-row {
-  display: flex; align-items: center; gap: 11px;
+  display: flex; align-items: center; gap: 12px;
   padding: 12px 14px; border-bottom: 1px solid var(--line); width: 100%;
   background: var(--surface); text-align: left;
 }
 .list-row:last-child { border-bottom: none; }
 .list-row:hover { background: var(--surface-2); }
 .list-main { flex: 1; min-width: 0; }
-.list-title { font-weight: 600; font-size: 14.5px; }
-.list-sub { font-size: 12px; color: var(--ink-2); }
-.list-chevron { color: var(--accent); font-size: 18px; }
+.list-title { font-weight: 600; font-size: var(--fs-md); }
+.list-sub { font-size: var(--fs-xs); color: var(--ink-2); }
+.list-chevron { color: var(--accent); font-size: var(--fs-lg); }
 
 .empty { text-align: center; padding: 42px 20px; color: var(--ink-2); }
 .empty-icon {
-  width: 56px; height: 56px; margin: 0 auto 10px; border-radius: 18px;
-  display: grid; place-content: center; font-size: 26px;
+  width: 56px; height: 56px; margin: 0 auto 10px; border-radius: var(--r-3);
+  display: grid; place-content: center; font-size: var(--fs-2xl);
   background: var(--surface-2); color: var(--ink-3);
 }
 
@@ -531,17 +548,17 @@ select {
   overflow: auto; -webkit-overflow-scrolling: touch;
   max-height: 72vh; max-height: 72dvh;
 }
-table.grid { border-collapse: separate; border-spacing: 0; font-size: 13px; width: 100%; }
+table.grid { border-collapse: separate; border-spacing: 0; font-size: var(--fs-sm); width: 100%; }
 table.grid th, table.grid td {
-  padding: 9px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; text-align: center;
+  padding: 8px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; text-align: center;
 }
 table.grid thead th {
   position: sticky; top: 0; z-index: 2; background: var(--surface-2);
-  font-size: 11.5px; font-weight: 700; color: var(--ink-2);
+  font-size: var(--fs-xs); font-weight: 700; color: var(--ink-2);
   border-bottom: 1px solid var(--line-2);
 }
 table.grid thead tr.group th {
-  font-size: 11.5px; padding: 7px 8px; color: #fff; top: 0;
+  font-size: var(--fs-xs); padding: 8px 8px; color: #fff; top: 0;
   background: var(--bar-3); border-bottom-color: transparent;
 }
 table.grid thead tr.group th.h1 { background: var(--bar); }
@@ -582,60 +599,60 @@ table.grid td.total { background: var(--accent-soft) !important; font-weight: 70
 /* แถวคะแนนรายช่องแบบโหมดกรอก SGS */
 .sgs-row {
   display: flex; align-items: center; gap: 10px;
-  padding: 10px 12px; background: var(--surface-2); border-radius: 11px;
+  padding: 10px 12px; background: var(--surface-2); border-radius: var(--r-1);
 }
 .sgs-row + .sgs-row { margin-top: 7px; }
 .sgs-row.exam { background: var(--accent-soft); }
 .sgs-no {
-  width: 22px; height: 22px; border-radius: 7px; flex: none;
-  background: var(--ink); color: var(--on-ink); font-size: 11.5px;
+  width: 22px; height: 22px; border-radius: var(--r-sm); flex: none;
+  background: var(--ink); color: var(--on-ink); font-size: var(--fs-xs);
   display: grid; place-content: center;
 }
-.sgs-row.exam .sgs-no { background: var(--accent); color: var(--on-accent); font-size: 10px; }
-.sgs-lbl { flex: 1; font-size: 13.5px; color: var(--ink-2); }
-.sgs-val { font-size: 17px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+.sgs-row.exam .sgs-no { background: var(--accent); color: var(--on-accent); font-size: var(--fs-2xs); }
+.sgs-lbl { flex: 1; font-size: var(--fs-md); color: var(--ink-2); }
+.sgs-val { font-size: var(--fs-lg); font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
 
 /* ── หน้ารายงาน ───────────────────────────────────────────── */
 .rep-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 11px; }
-.rep-head h3 { margin: 0; font-size: 14px; font-weight: 700; flex: 1; }
-.rep-head span { font-size: 12px; color: var(--ink-3); }
+.rep-head h3 { margin: 0; font-size: var(--fs-md); font-weight: 700; flex: 1; }
+.rep-head span { font-size: var(--fs-xs); color: var(--ink-3); }
 
-.stackbar { display: flex; gap: 2px; border-radius: 8px; overflow: hidden; background: var(--surface-3); }
+.stackbar { display: flex; gap: 2px; border-radius: var(--r-sm); overflow: hidden; background: var(--surface-3); }
 .stackseg {
   display: grid; place-content: center; min-width: 3px; height: 26px;
-  font-size: 11.5px; font-weight: 700; border-radius: 4px;
+  font-size: var(--fs-xs); font-weight: 700; border-radius: var(--r-xs);
 }
 .stackseg:first-child { border-radius: 8px 4px 4px 8px; }
 .stackseg:last-child  { border-radius: 4px 8px 8px 4px; }
 .bar-empty {
-  padding: 18px; text-align: center; color: var(--ink-3); font-size: 13px;
+  padding: 18px; text-align: center; color: var(--ink-3); font-size: var(--fs-sm);
   background: var(--surface-2); border-radius: var(--r-1);
   border: 1px dashed var(--line-2);
 }
 
-.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 10px; font-size: 12px; color: var(--ink-2); }
-.legend-item { display: inline-flex; align-items: center; gap: 5px; }
-.legend-item i { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 10px; font-size: var(--fs-xs); color: var(--ink-2); }
+.legend-item { display: inline-flex; align-items: center; gap: 4px; }
+.legend-item i { width: 10px; height: 10px; border-radius: var(--r-xs); flex: none; }
 .legend-item b { color: var(--ink-3); font-weight: 600; }
 
 .multi-row { margin-bottom: 12px; }
 .multi-label { display: flex; justify-content: space-between; gap: 10px;
-  font-size: 13px; font-weight: 600; margin-bottom: 5px; }
-.multi-label span { font-weight: 400; color: var(--ink-3); font-size: 11.5px; text-align: right; }
+  font-size: var(--fs-sm); font-weight: 600; margin-bottom: 5px; }
+.multi-label span { font-weight: 400; color: var(--ink-3); font-size: var(--fs-xs); text-align: right; }
 
 .meter-row { display: flex; align-items: center; gap: 10px; margin-bottom: 9px; }
-.meter-label { width: 96px; flex: none; font-size: 12.5px; font-weight: 600; line-height: 1.3; }
-.meter-label span { display: block; font-weight: 400; font-size: 10.5px; color: var(--ink-3); }
-.meter-track { flex: 1; height: 10px; background: var(--surface-3); border-radius: 999px; overflow: hidden; }
-.meter-fill { height: 100%; background: var(--accent); border-radius: 999px; transition: width .3s ease; }
-.meter-val { width: 62px; text-align: right; font-size: 12.5px; font-weight: 700; flex: none;
+.meter-label { width: 96px; flex: none; font-size: var(--fs-sm); font-weight: 600; line-height: 1.3; }
+.meter-label span { display: block; font-weight: 400; font-size: var(--fs-2xs); color: var(--ink-3); }
+.meter-track { flex: 1; height: 10px; background: var(--surface-3); border-radius: var(--r-pill); overflow: hidden; }
+.meter-fill { height: 100%; background: var(--accent); border-radius: var(--r-pill); transition: width .3s ease; }
+.meter-val { width: 62px; text-align: right; font-size: var(--fs-sm); font-weight: 700; flex: none;
   font-variant-numeric: tabular-nums; }
 
 .sub-head {
-  padding: 10px 16px; background: var(--surface-2); font-size: 12px; font-weight: 700;
+  padding: 10px 16px; background: var(--surface-2); font-size: var(--fs-xs); font-weight: 700;
   color: var(--ink-2); border-bottom: 1px solid var(--line);
 }
-.rep-details { margin-top: 10px; font-size: 12.5px; }
+.rep-details { margin-top: 10px; font-size: var(--fs-sm); }
 .rep-details summary { cursor: pointer; color: var(--accent); font-weight: 600; }
 .rep-line { display: flex; justify-content: space-between; padding: 6px 2px; border-bottom: 1px solid var(--line); }
 .search-hits { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
@@ -649,7 +666,7 @@ table.grid td.total { background: var(--accent-soft) !important; font-weight: 70
 }
 .nav button {
   display: grid; justify-items: center; gap: 3px;
-  color: var(--ink-3); font-size: 11px; font-weight: 600;
+  color: var(--ink-3); font-size: var(--fs-2xs); font-weight: 600;
   transition: color .15s;
 }
 .nav button .ic { display: grid; place-content: center; }
@@ -671,20 +688,20 @@ table.grid td.total { background: var(--accent-soft) !important; font-weight: 70
   animation: rise .22s cubic-bezier(.2,.8,.3,1);
 }
 .modal::before {
-  content: ''; display: block; width: 38px; height: 4px; border-radius: 999px;
+  content: ''; display: block; width: 38px; height: 4px; border-radius: var(--r-pill);
   background: var(--line-2); margin: 8px auto 14px;
 }
 @keyframes rise { from { transform: translateY(28px); } }
-.modal h2 { margin: 0 0 12px; font-size: 18px; letter-spacing: -.2px; }
+.modal h2 { margin: 0 0 12px; font-size: var(--fs-lg); letter-spacing: -.2px; }
 .field { margin-bottom: 13px; }
-.field label { display: block; font-size: 12.5px; font-weight: 600; color: var(--ink-2); margin-bottom: 5px; }
+.field label { display: block; font-size: var(--fs-sm); font-weight: 600; color: var(--ink-2); margin-bottom: 5px; }
 .field-row { display: flex; gap: 10px; }
 .field-row .field { flex: 1; }
-.hint { font-size: 12px; color: var(--ink-3); margin-top: 5px; line-height: 1.6; }
+.hint { font-size: var(--fs-xs); color: var(--ink-3); margin-top: 5px; line-height: 1.6; }
 
 /* ── หน้าตรวจสอบระบบ ──────────────────────────────────────── */
 .check-row {
-  display: flex; gap: 12px; padding: 13px 16px;
+  display: flex; gap: 12px; padding: 12px 16px;
   border-bottom: 1px solid var(--line); align-items: flex-start;
 }
 .check-row:last-child { border-bottom: none; }
@@ -698,24 +715,24 @@ table.grid td.total { background: var(--accent-soft) !important; font-weight: 70
 .check-row[data-level="err"]  .check-dot { background: var(--st-miss); }
 .check-row[data-level="ok"]   { opacity: .72; }
 .check-row[data-level="ok"]:hover { opacity: 1; }
-.check-title { font-weight: 600; font-size: 14px; }
-.check-sub { font-size: 12.5px; color: var(--ink-2); margin-top: 2px; line-height: 1.6; }
+.check-title { font-weight: 600; font-size: var(--fs-md); }
+.check-sub { font-size: var(--fs-sm); color: var(--ink-2); margin-top: 2px; line-height: 1.6; }
 .check-fix {
-  font-size: 12.5px; color: var(--ink-2); margin-top: 7px; line-height: 1.6;
-  padding-left: 11px; border-left: 2px solid var(--line-2);
+  font-size: var(--fs-sm); color: var(--ink-2); margin-top: 7px; line-height: 1.6;
+  padding-left: 12px; border-left: 2px solid var(--line-2);
 }
 
 .alert-bar {
   display: flex; align-items: center; gap: 10px; width: 100%;
-  padding: 11px 16px; background: var(--miss-soft); color: var(--st-miss);
-  font-size: 13px; font-weight: 600; text-align: left;
+  padding: 12px 16px; background: var(--miss-soft); color: var(--st-miss);
+  font-size: var(--fs-sm); font-weight: 600; text-align: left;
 }
 .alert-bar.warn { background: var(--late-soft); color: var(--warn-ink); }
 .alert-bar span { flex: 1; }
 
 .sep {
   display: flex; align-items: center; gap: 10px; margin: 18px 0 12px;
-  color: var(--ink-3); font-size: 12px;
+  color: var(--ink-3); font-size: var(--fs-xs);
 }
 .sep::before, .sep::after { content: ''; flex: 1; height: 1px; background: var(--line); }
 
@@ -726,21 +743,21 @@ table.grid td.total { background: var(--accent-soft) !important; font-weight: 70
   display: grid; gap: 8px; width: max-content; max-width: 92vw;
 }
 .toast {
-  background: var(--bar); color: #fff; padding: 11px 18px; border-radius: 999px;
-  font-size: 13.5px; font-weight: 600; box-shadow: var(--sh-3);
+  background: var(--bar); color: #fff; padding: 12px 18px; border-radius: var(--r-pill);
+  font-size: var(--fs-md); font-weight: 600; box-shadow: var(--sh-3);
   animation: rise .2s ease;
   display: flex; align-items: center; gap: 14px;
 }
 .toast.ok  { background: #14663f; }
 .toast.err { background: #9c1035; }
 .toast-action {
-  color: var(--lime); font-weight: 700; font-size: 13px;
+  color: var(--lime); font-weight: 700; font-size: var(--fs-sm);
   white-space: nowrap; text-decoration: underline; text-underline-offset: 2px;
 }
 
 /* ── สถานะซิงค์ ───────────────────────────────────────────── */
 .sync-pill {
-  font-size: 11.5px; padding: 4px 10px; border-radius: 999px; font-weight: 600;
+  font-size: var(--fs-xs); padding: 4px 10px; border-radius: var(--r-pill); font-weight: 600;
   background: var(--bar-2); color: var(--bar-ink-2);
 }
 .sync-pill.off { background: var(--st-late); color: #fff; }
@@ -748,10 +765,10 @@ table.grid td.total { background: var(--accent-soft) !important; font-weight: 70
 /* ── ตัวเลือกธีม ──────────────────────────────────────────── */
 .seg {
   display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;
-  gap: 4px; padding: 4px; background: var(--surface-2); border-radius: 13px;
+  gap: 4px; padding: 4px; background: var(--surface-2); border-radius: var(--r-1);
 }
 .seg button {
-  padding: 9px 6px; border-radius: 10px; font-size: 13px; font-weight: 600;
+  padding: 8px 6px; border-radius: var(--r-sm); font-size: var(--fs-sm); font-weight: 600;
   color: var(--ink-2); display: inline-flex; align-items: center;
   justify-content: center; gap: 6px; transition: background .15s, color .15s;
 }
@@ -766,7 +783,7 @@ table.grid td.total { background: var(--accent-soft) !important; font-weight: 70
   }
   .appbar .nav button {
     display: flex; flex-direction: row; align-items: center; gap: 8px;
-    padding: 7px 14px; border-radius: 20px; font-size: 14px; font-weight: 500;
+    padding: 8px 14px; border-radius: var(--r-3); font-size: var(--fs-md); font-weight: 500;
     color: var(--bar-ink-2);
   }
   .appbar .nav button .ic { display: none; }
@@ -801,56 +818,56 @@ table.grid td.total { background: var(--accent-soft) !important; font-weight: 70
 }
 .ph-row { display: flex; align-items: center; gap: 10px; }
 .ph-back {
-  font-size: 20px; line-height: 1; color: var(--bar-ink-2);
+  font-size: var(--fs-xl); line-height: 1; color: var(--bar-ink-2);
   width: 26px; height: 32px; flex: none; display: grid; place-content: center;
 }
 .ph-back:hover { color: #fff; }
 .ph-grow { flex: 1; min-width: 0; }
 .ph-title {
-  font-size: 17px; font-weight: 700; color: var(--bar-ink);
+  font-size: var(--fs-lg); font-weight: 700; color: var(--bar-ink);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .ph-sub {
-  font-size: 12.5px; color: var(--bar-ink-2);
+  font-size: var(--fs-sm); color: var(--bar-ink-2);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .ph-badge {
-  flex: none; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums;
-  background: var(--lime); color: var(--on-lime); padding: 5px 11px; border-radius: 20px;
+  flex: none; font-size: var(--fs-sm); font-weight: 700; font-variant-numeric: tabular-nums;
+  background: var(--lime); color: var(--on-lime); padding: 4px 12px; border-radius: var(--r-3);
 }
 .ph-badge.dim { background: var(--bar-2); color: var(--bar-ink-2); font-weight: 600; }
 
 .ph-actions { display: flex; gap: 8px; margin-top: 14px; }
 .ph-main {
-  flex: 1; text-align: center; padding: 11px; border-radius: 12px;
-  background: var(--lime); color: var(--on-lime); font-size: 14px; font-weight: 700;
+  flex: 1; text-align: center; padding: 12px; border-radius: var(--r-1);
+  background: var(--lime); color: var(--on-lime); font-size: var(--fs-md); font-weight: 700;
 }
 .ph-main:hover { background: var(--lime-2); }
 .ph-side {
-  padding: 11px 14px; border-radius: 12px; flex: none;
-  background: var(--bar-2); color: var(--hero-ink); font-size: 14px; font-weight: 600;
+  padding: 12px 14px; border-radius: var(--r-1); flex: none;
+  background: var(--bar-2); color: var(--hero-ink); font-size: var(--fs-md); font-weight: 600;
 }
 .ph-side:hover { background: var(--bar-3); }
 .ph-side[data-on="1"] { background: var(--lime); color: var(--on-lime); }
 
 .ph-box {
   display: flex; align-items: center; gap: 10px; width: 100%;
-  margin-top: 12px; padding: 11px 14px; border-radius: 12px;
+  margin-top: 12px; padding: 12px 14px; border-radius: var(--r-1);
   background: var(--bar-2); color: var(--bar-ink); text-align: left;
 }
 .ph-box:hover { background: var(--bar-3); }
-.ph-box b { flex: 1; min-width: 0; font-size: 14px; font-weight: 600;
+.ph-box b { flex: 1; min-width: 0; font-size: var(--fs-md); font-weight: 600;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ph-box span { font-size: 12px; color: var(--bar-ink-2); flex: none; }
-.ph-box i { font-style: normal; color: var(--lime); font-size: 13px; flex: none; }
+.ph-box span { font-size: var(--fs-xs); color: var(--bar-ink-2); flex: none; }
+.ph-box i { font-style: normal; color: var(--lime); font-size: var(--fs-sm); flex: none; }
 
 .ph-seg {
   display: flex; gap: 6px; margin-top: 12px;
-  background: var(--bar-2); border-radius: 11px; padding: 3px;
+  background: var(--bar-2); border-radius: var(--r-1); padding: 3px;
 }
 .ph-seg button {
-  flex: 1; text-align: center; padding: 7px; border-radius: 9px;
-  color: var(--bar-ink-2); font-size: 13px;
+  flex: 1; text-align: center; padding: 8px; border-radius: var(--r-sm);
+  color: var(--bar-ink-2); font-size: var(--fs-sm);
 }
 .ph-seg button[data-on="1"] { background: var(--lime); color: var(--on-lime); font-weight: 600; }
 
@@ -861,14 +878,14 @@ table.grid td.total { background: var(--accent-soft) !important; font-weight: 70
    เพราะ select สืบสีจากธีมสว่างมา แล้วตัวหนังสือจะจมหายไปกับพื้นเข้ม */
 .ph-pick {
   display: inline-flex; align-items: center; gap: 6px;
-  padding: 4px 6px 4px 12px; border-radius: 11px;
+  padding: 4px 6px 4px 12px; border-radius: var(--r-1);
   background: var(--bar-2); border: 1px solid var(--bar-3);
 }
-.ph-pick > span { flex: none; font-size: 12.5px; color: var(--bar-ink-2); }
+.ph-pick > span { flex: none; font-size: var(--fs-sm); color: var(--bar-ink-2); }
 .ph-pick select {
   border: none; background: none; box-shadow: none;
-  padding: 5px 22px 5px 2px; width: auto; min-height: 0;
-  font-size: 13.5px; font-weight: 600; color: #fff;
+  padding: 4px 22px 4px 2px; width: auto; min-height: 0;
+  font-size: var(--fs-md); font-weight: 600; color: #fff;
   /* ลูกศรของเบราว์เซอร์เป็นสีเข้ม มองไม่เห็นบนพื้นเข้ม จึงวาดเอง */
   appearance: none; -webkit-appearance: none;
   background-image: linear-gradient(45deg, transparent 50%, var(--bar-ink-2) 50%),
@@ -881,7 +898,7 @@ table.grid td.total { background: var(--accent-soft) !important; font-weight: 70
 /* รายการที่กางออกวาดด้วยธีมของระบบ ต้องบังคับให้อ่านออกทั้งสองโหมด */
 .ph-pick select option { background: var(--surface); color: var(--ink); }
 .ph-chip {
-  flex: none; padding: 6px 13px; border-radius: 20px; font-size: 13px;
+  flex: none; padding: 6px 12px; border-radius: var(--r-3); font-size: var(--fs-sm);
   background: var(--bar-2); color: var(--bar-ink-2);
 }
 .ph-chip.add { background: none; border: 1px dashed var(--bar-3); color: var(--bar-ink-2); }
@@ -891,13 +908,13 @@ table.grid td.total { background: var(--accent-soft) !important; font-weight: 70
 /* ── แถบบริบทของหน้า (PC) ─────────────────────────────────── */
 .ctxbar {
   background: var(--surface); border-radius: var(--r-2); box-shadow: var(--sh-1);
-  padding: 15px 18px; margin-bottom: 14px;
+  padding: 16px 18px; margin-bottom: 14px;
   display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
 }
-.ctx-title { font-size: 17px; font-weight: 700; color: var(--ink); }
-.ctx-sub { font-size: 12.5px; color: var(--ink-2); }
+.ctx-title { font-size: var(--fs-lg); font-weight: 700; color: var(--ink); }
+.ctx-sub { font-size: var(--fs-sm); color: var(--ink-2); }
 .ctx-step {
-  width: 32px; height: 32px; flex: none; border-radius: 10px;
+  width: 32px; height: 32px; flex: none; border-radius: var(--r-sm);
   background: var(--surface-2); color: var(--ink); display: grid; place-content: center;
 }
 .ctx-step:hover { background: var(--surface-3); }
@@ -906,7 +923,7 @@ table.grid td.total { background: var(--accent-soft) !important; font-weight: 70
 
 /* ── ตัวนับสถานะบรรทัดเดียว ───────────────────────────────── */
 .tally {
-  display: flex; gap: 14px; font-size: 12.5px; color: var(--ink-2);
+  display: flex; gap: 14px; font-size: var(--fs-sm); color: var(--ink-2);
   font-variant-numeric: tabular-nums; flex-wrap: wrap;
 }
 .tally b { font-weight: 700; }
@@ -923,36 +940,36 @@ table.grid td.total { background: var(--accent-soft) !important; font-weight: 70
 .att-list .stu-row { margin-bottom: 0; }
 @media (min-width: 900px) {
   .att-list { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
-  .att-list .stu-row { padding: 9px 12px; border-radius: 14px; }
-  .att-list .att-btn { width: 34px; height: 34px; border-radius: 10px; }
+  .att-list .stu-row { padding: 8px 12px; border-radius: var(--r-2); }
+  .att-list .att-btn { width: 34px; height: 34px; border-radius: var(--r-sm); }
 }
 
 /* ── ปุ่มเสร็จสิ้นท้ายรายชื่อ ──────────────────────────────────
    ไม่ตรึงไว้เหนือแถบเมนูแล้ว: บนมือถือมันลอยทับรายชื่อ เห็นช่องโหว่ระหว่างมันกับแถบเมนู
    และกินจอไปอีกแถบ ทั้งที่แตะทุกครั้งก็บันทึกแล้ว และหัวหน้ามีปุ่ม ‹ ย้อนกลับอยู่แล้ว */
 .done-bar { display: flex; align-items: center; gap: 12px; margin: 14px 0 4px; }
-.done-bar .done-note { flex: 1; font-size: 12.5px; color: var(--ink-2); }
+.done-bar .done-note { flex: 1; font-size: var(--fs-sm); color: var(--ink-2); }
 @media (max-width: 899px) { .done-bar .done-note { display: none; } .done-bar .btn { flex: 1; } }
 
 /* ── หน้างาน/คะแนน ────────────────────────────────────────── */
 .item-bar {
   background: var(--surface); border-radius: var(--r-2); box-shadow: var(--sh-1);
-  padding: 13px 15px; margin-bottom: 12px;
-  display: flex; gap: 9px; align-items: center; flex-wrap: wrap;
+  padding: 12px 16px; margin-bottom: 12px;
+  display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
 }
 .item-pill {
-  flex: none; padding: 8px 14px; border-radius: 20px; font-size: 13.5px;
+  flex: none; padding: 8px 14px; border-radius: var(--r-3); font-size: var(--fs-md);
   background: var(--surface-2); color: var(--ink-2); white-space: nowrap;
 }
 .item-pill[data-on="1"] { background: var(--accent); color: var(--on-accent); font-weight: 600; }
 .item-pill.add { background: none; border: 1px dashed var(--line-2); color: var(--accent); font-weight: 600; }
 
 .prog-track {
-  height: 8px; border-radius: 20px; background: var(--surface-3);
+  height: 8px; border-radius: var(--r-3); background: var(--surface-3);
   overflow: hidden; display: flex; gap: 2px;
 }
 .prog-seg { height: 100%; }
-.prog-note { font-size: 11.5px; color: var(--ink-2); margin-top: 6px; font-variant-numeric: tabular-nums; }
+.prog-note { font-size: var(--fs-xs); color: var(--ink-2); margin-top: 6px; font-variant-numeric: tabular-nums; }
 
 .work-thead { display: none; }
 
@@ -962,12 +979,12 @@ table.grid td.total { background: var(--accent-soft) !important; font-weight: 70
   .work-list .work-thead {
     display: grid; grid-template-columns: 44px 1fr 260px 96px; gap: 12px;
     padding: 10px 16px; background: var(--surface-2);
-    font-size: 12px; color: var(--ink-2); font-weight: 600;
+    font-size: var(--fs-xs); color: var(--ink-2); font-weight: 600;
   }
   .work-list .work-thead > :last-child { text-align: right; }
   .work-list .work-row {
     display: grid; grid-template-columns: 44px 1fr 260px 96px; gap: 12px;
-    align-items: center; padding: 9px 16px; margin: 0;
+    align-items: center; padding: 8px 16px; margin: 0;
     border-radius: 0; border-top: 1px solid var(--line);
   }
   .work-list .work-row:nth-child(even) { background: var(--surface-2); }
@@ -997,14 +1014,14 @@ table.grid td.total { background: var(--accent-soft) !important; font-weight: 70
   .work-list.st2 .work-row > .st-group  { order: 2; margin: 0; gap: 4px; flex: none; }
   .work-list.st2 .work-row .score-cell  { order: 3; }
   .work-list.st2 .work-row .work-name   {
-    font-size: 14.5px; line-height: 1.3; white-space: normal;
+    font-size: var(--fs-md); line-height: 1.3; white-space: normal;
     display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
   }
   .work-list.st2.by-student .work-row > .work-head > :first-child { flex: 1; min-width: 0; padding: 2px 0; }
   .work-list.st2.by-student .work-row .stu-sid {
     display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
   }
-  .work-list.st2 .work-row .st-btn      { flex: none; width: 44px; padding: 0; font-size: 13px; }
+  .work-list.st2 .work-row .st-btn      { flex: none; width: 44px; padding: 0; font-size: var(--fs-sm); }
   .work-list.st2 .work-row .score-inp   { width: 52px; }
   .work-list.st2 .work-row .score-max   { display: none; }
 }
@@ -1020,19 +1037,19 @@ table.grid thead th.total-h { background: var(--lime); color: var(--on-lime); }
 table.grid thead th.total-h div { color: var(--on-lime) !important; }
 table.grid td.total { background: var(--lime-soft) !important; color: var(--ink); }
 .dot-pend { color: var(--st-late); font-weight: 700; margin-left: 1px; }
-.sgs-note { display: flex; align-items: center; gap: 8px; font-size: 12.5px;
+.sgs-note { display: flex; align-items: center; gap: 8px; font-size: var(--fs-sm);
   color: var(--ink-2); margin-top: 10px; line-height: 1.6; }
 
 /* โหมดกรอก SGS ทีละคน */
 .fill-card { background: var(--surface); border-radius: var(--r-2); padding: 16px; }
-.fill-sid { font-size: 12.5px; color: var(--ink-2); }
-.fill-name { font-size: 21px; font-weight: 700; color: var(--ink); margin: 2px 0 12px; }
+.fill-sid { font-size: var(--fs-sm); color: var(--ink-2); }
+.fill-name { font-size: var(--fs-xl); font-weight: 700; color: var(--ink); margin: 2px 0 12px; }
 .fill-total {
   display: flex; align-items: center; gap: 10px;
   margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line);
 }
-.fill-total > span { flex: 1; font-size: 13.5px; color: var(--ink-2); }
-.fill-total b { font-size: 22px; font-variant-numeric: tabular-nums; }
+.fill-total > span { flex: 1; font-size: var(--fs-md); color: var(--ink-2); }
+.fill-total b { font-size: var(--fs-xl); font-variant-numeric: tabular-nums; }
 .pager { display: flex; gap: 8px; margin-top: 12px; }
 .pager .btn-ghost { width: 64px; flex: none; }
 .pager .btn { flex: 1; }
@@ -1043,12 +1060,12 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
   .rep-grid > .card { margin-bottom: 0; }
 }
 .gradebars { display: flex; align-items: flex-end; gap: 8px; height: 78px; }
-.gcol { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 5px; justify-content: flex-end; }
-.gcol-n { font-size: 12px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
-.gcol-bar { width: 100%; background: var(--accent); border-radius: 5px; min-height: 4px; }
+.gcol { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; justify-content: flex-end; }
+.gcol-n { font-size: var(--fs-xs); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.gcol-bar { width: 100%; background: var(--accent); border-radius: var(--r-xs); min-height: 4px; }
 .gcol-bar.warn { background: var(--st-late); }
 .gcol-bar.bad  { background: var(--st-miss); }
-.gaxis { display: flex; gap: 8px; margin-top: 8px; font-size: 11.5px; color: var(--ink-3); }
+.gaxis { display: flex; gap: 8px; margin-top: 8px; font-size: var(--fs-xs); color: var(--ink-3); }
 .gaxis > div { flex: 1; text-align: center; }
 
 /* ── ไม่ผ่านเกณฑ์ แยกตามข้อสอบ (หน้ารายงาน) ──
@@ -1057,14 +1074,14 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
 .fail-group { padding: 10px 0; border-top: 1px solid var(--line); }
 .fail-group:first-of-type { border-top: 0; padding-top: 4px; }
 .fail-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; margin-bottom: 8px; }
-.fail-head b { font-size: 14px; color: var(--ink); }
-.fail-head span { font-size: 12.5px; color: var(--ink-3); }
+.fail-head b { font-size: var(--fs-md); color: var(--ink); }
+.fail-head span { font-size: var(--fs-sm); color: var(--ink-3); }
 .fail-names { display: flex; flex-wrap: wrap; gap: 6px; }
 .fail-chip {
   display: inline-flex; align-items: baseline; gap: 6px;
-  padding: 5px 10px; border-radius: 999px;
+  padding: 4px 10px; border-radius: var(--r-pill);
   background: var(--miss-soft); color: var(--st-miss);
-  font-size: 12.5px; max-width: 100%;
+  font-size: var(--fs-sm); max-width: 100%;
 }
 .fail-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fail-chip b { font-variant-numeric: tabular-nums; flex: none; }
@@ -1079,49 +1096,49 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
 /* ── ข้อมูลจากชีตเมื่อไหร่ (หน้ารายงาน) ── */
 .rep-fresh {
   display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-  font-size: 12px; color: var(--ink-3); margin: -4px 2px 12px;
+  font-size: var(--fs-xs); color: var(--ink-3); margin: -4px 2px 12px;
 }
 .rep-fresh > span { flex: 1; min-width: 0; }
 .rep-fresh-btn {
-  flex: none; padding: 5px 11px; border-radius: 999px; font-size: 12.5px; font-weight: 600;
+  flex: none; padding: 4px 12px; border-radius: var(--r-pill); font-size: var(--fs-sm); font-weight: 600;
   background: var(--surface); color: var(--accent-ink); box-shadow: var(--sh-1);
 }
 .rep-fresh-btn:hover { background: var(--accent-soft); }
 .rep-fresh-btn:disabled { opacity: .5; }
 
 /* แถวการส่งงานรายชิ้นกดได้ → ไปแท็บตามงาน */
-.multi-btn { display: block; width: calc(100% + 12px); text-align: left; border-radius: 10px; padding: 4px 6px; margin: 0 -6px 8px; }
+.multi-btn { display: block; width: calc(100% + 12px); text-align: left; border-radius: var(--r-sm); padding: 4px 6px; margin: 0 -6px 8px; }
 .multi-btn:hover { background: var(--surface-2); }
 
 /* ── ยอดค้างรวม (หน้าภาพรวม) ── */
 .owe-card { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; }
 .owe-card:hover { box-shadow: var(--sh-2); }
 .owe-body { flex: 1; min-width: 0; }
-.owe-body > b { font-size: 14px; }
+.owe-body > b { font-size: var(--fs-md); }
 .owe-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
-.owe-tags span { font-size: 12.5px; font-weight: 600; padding: 3px 10px; border-radius: 999px; }
+.owe-tags span { font-size: var(--fs-sm); font-weight: 600; padding: 3px 10px; border-radius: var(--r-pill); }
 .owe-tags .bad { background: var(--miss-soft); color: var(--st-miss); }
 .owe-tags .dim { background: var(--surface-2); color: var(--ink-2); }
-.owe-go { flex: none; font-size: 13px; font-weight: 600; color: var(--accent-ink); }
+.owe-go { flex: none; font-size: var(--fs-sm); font-weight: 600; color: var(--accent-ink); }
 
 /* ── แท็บตามงาน ── */
 .follow-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
 .follow-card .rep-head { align-items: center; margin-bottom: 2px; }
-.follow-meta { font-size: 12px; color: var(--ink-3); margin-bottom: 8px; }
-.follow-empty { font-size: 13px; color: var(--ink-2); padding: 6px 0 2px; }
+.follow-meta { font-size: var(--fs-xs); color: var(--ink-3); margin-bottom: 8px; }
+.follow-empty { font-size: var(--fs-sm); color: var(--ink-2); padding: 6px 0 2px; }
 
 .watch-row {
   display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
-  padding: 10px 12px; border-radius: 12px; background: var(--surface-2);
+  padding: 10px 12px; border-radius: var(--r-1); background: var(--surface-2);
   margin-bottom: 8px;
 }
 .watch-row:last-child { margin-bottom: 0; }
 .watch-row.bad  { background: var(--miss-soft); }
 .watch-row.warn { background: var(--late-soft); }
-.watch-row .w-name { flex: 1; min-width: 0; font-size: 14px; color: var(--ink);
+.watch-row .w-name { flex: 1; min-width: 0; font-size: var(--fs-md); color: var(--ink);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.watch-row .w-name span { color: var(--ink-3); font-size: 12.5px; }
-.watch-row .w-tag { font-size: 12.5px; font-weight: 600; flex: none; }
+.watch-row .w-name span { color: var(--ink-3); font-size: var(--fs-sm); }
+.watch-row .w-tag { font-size: var(--fs-sm); font-weight: 600; flex: none; }
 .watch-row .w-tag.bad  { color: var(--st-miss); }
 .watch-row .w-tag.warn { color: var(--st-late); }
 .watch-row .w-tag.dim  { color: var(--ink-2); font-weight: 400; }
@@ -1135,26 +1152,26 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
   .set-layout { display: grid; grid-template-columns: 190px 1fr; gap: 18px; align-items: start; }
   .set-nav { display: flex; flex-direction: column; gap: 4px; position: sticky; top: 78px; }
   .set-nav button {
-    padding: 10px 14px; border-radius: 11px; text-align: left;
-    font-size: 13.5px; color: var(--ink-2);
+    padding: 10px 14px; border-radius: var(--r-1); text-align: left;
+    font-size: var(--fs-md); color: var(--ink-2);
   }
   .set-nav button:hover { background: var(--surface-2); color: var(--ink); }
   .set-nav button[data-on="1"] { background: var(--ink); color: var(--on-ink); font-weight: 600; }
   .set-note {
-    display: block; margin-top: 10px; padding: 12px 14px; border-radius: 12px;
-    background: var(--accent-soft); font-size: 12.5px; color: var(--accent-ink); line-height: 1.6;
+    display: block; margin-top: 10px; padding: 12px 14px; border-radius: var(--r-1);
+    background: var(--accent-soft); font-size: var(--fs-sm); color: var(--accent-ink); line-height: 1.6;
   }
 }
 
-.weightbar { display: flex; height: 12px; border-radius: 20px; overflow: hidden; margin: 12px 0 14px; }
+.weightbar { display: flex; height: 12px; border-radius: var(--r-3); overflow: hidden; margin: 12px 0 14px; }
 .weightbar > i { display: block; height: 100%; }
 .wgrid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
 @media (min-width: 700px) { .wgrid { grid-template-columns: repeat(4, 1fr); } }
-.wcell { border: 1px solid var(--line); border-radius: 12px; padding: 9px 11px; }
-.wcell label { display: block; font-size: 12px; color: var(--ink-2); margin-bottom: 2px; }
+.wcell { border: 1px solid var(--line); border-radius: var(--r-1); padding: 8px 12px; }
+.wcell label { display: block; font-size: var(--fs-xs); color: var(--ink-2); margin-bottom: 2px; }
 .wcell input {
   border: none; padding: 0; background: none; width: 100%; min-height: 0;
-  font-size: 19px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums;
+  font-size: var(--fs-xl); font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums;
 }
 .wcell input:focus { box-shadow: none; }
 .wcell[data-bad="1"] { border-color: var(--st-miss); }
@@ -1163,8 +1180,8 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
 .set-row:last-child { border-bottom: none; padding-bottom: 0; }
 .set-row:first-child { padding-top: 0; }
 .set-row > div:first-child { flex: 1; min-width: 0; }
-.set-name { font-size: 14px; font-weight: 600; color: var(--ink); }
-.set-desc { font-size: 12.5px; color: var(--ink-2); margin-top: 2px; line-height: 1.6; }
+.set-name { font-size: var(--fs-md); font-weight: 600; color: var(--ink); }
+.set-desc { font-size: var(--fs-sm); color: var(--ink-2); margin-top: 2px; line-height: 1.6; }
 .set-desc.bad { color: var(--st-miss); }
 .set-ctl { flex: none; display: flex; align-items: center; gap: 8px; }
 .set-ctl input, .set-ctl select { width: auto; min-width: 92px; }
@@ -1172,8 +1189,8 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
   .set-row { flex-direction: column; align-items: stretch; gap: 10px; }
   .set-ctl { justify-content: flex-start; }
 }
-.set-ok  { font-size: 13px; font-weight: 700; color: var(--st-ok); }
-.set-bad { font-size: 13px; font-weight: 700; color: var(--st-miss); }
+.set-ok  { font-size: var(--fs-sm); font-weight: 700; color: var(--st-ok); }
+.set-bad { font-size: var(--fs-sm); font-weight: 700; color: var(--st-miss); }
 
 /* ── หน้าติดตั้งครั้งแรก ──────────────────────────────────── */
 .setup-screen {
@@ -1185,11 +1202,11 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
   display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center;
 }
 .setup-brand .mark {
-  width: 44px; height: 44px; border-radius: 14px; background: var(--lime);
-  color: var(--on-lime); display: grid; place-content: center; font-weight: 700; font-size: 20px;
+  width: 44px; height: 44px; border-radius: var(--r-2); background: var(--lime);
+  color: var(--on-lime); display: grid; place-content: center; font-weight: 700; font-size: var(--fs-xl);
 }
-.setup-brand h1 { margin: 0; font-size: 19px; font-weight: 700; color: #fff; }
-.setup-brand p { margin: 0; font-size: 13px; color: var(--bar-ink-2); line-height: 1.65; max-width: 520px; }
+.setup-brand h1 { margin: 0; font-size: var(--fs-xl); font-weight: 700; color: #fff; }
+.setup-brand p { margin: 0; font-size: var(--fs-sm); color: var(--bar-ink-2); line-height: 1.65; max-width: 520px; }
 .setup-sheet {
   flex: 1; background: var(--surface); border-radius: 24px 24px 0 0;
   padding: 22px 18px calc(24px + env(safe-area-inset-bottom));
@@ -1199,31 +1216,31 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
 .step-dot {
   width: 24px; height: 24px; flex: none; border-radius: 50%;
   background: var(--surface-3); color: var(--ink-3);
-  display: grid; place-content: center; font-size: 12px; font-weight: 600;
+  display: grid; place-content: center; font-size: var(--fs-xs); font-weight: 600;
 }
 .step-dot.done { background: var(--st-ok); color: var(--on-ok); }
 .step-dot.now  { background: var(--ink);   color: var(--on-ink); }
 .step-line { flex: 1; height: 2px; background: var(--surface-3); }
 .step-line.done { background: var(--st-ok); }
-.step-name { font-size: 13px; color: var(--ink-3); }
+.step-name { font-size: var(--fs-sm); color: var(--ink-3); }
 .step-name.on { color: var(--ink); font-weight: 600; }
 @media (max-width: 700px) { .step-name { display: none; } }
-.setup-h { font-size: 18px; font-weight: 700; color: var(--ink); }
-.setup-p { font-size: 12.5px; color: var(--ink-2); margin-top: 4px; line-height: 1.65; }
-.setup-mono { font-family: ui-monospace, 'IBM Plex Mono', monospace; font-size: 12.5px; }
+.setup-h { font-size: var(--fs-lg); font-weight: 700; color: var(--ink); }
+.setup-p { font-size: var(--fs-sm); color: var(--ink-2); margin-top: 4px; line-height: 1.65; }
+.setup-mono { font-family: ui-monospace, 'IBM Plex Mono', monospace; font-size: var(--fs-sm); }
 .pick2 { display: flex; gap: 10px; }
 .pick2 button {
-  flex: 1; border: 1px solid var(--line); border-radius: 12px; padding: 13px 14px;
+  flex: 1; border: 1px solid var(--line); border-radius: var(--r-1); padding: 12px 14px;
   text-align: left; background: var(--surface);
 }
-.pick2 button[data-on="1"] { border: 2px solid var(--accent); background: var(--accent-soft); padding: 12px 13px; }
-.pick2 b { display: block; font-size: 14px; font-weight: 600; color: var(--ink); }
-.pick2 span { display: block; font-size: 12px; color: var(--ink-2); margin-top: 2px; }
+.pick2 button[data-on="1"] { border: 2px solid var(--accent); background: var(--accent-soft); padding: 12px 12px; }
+.pick2 b { display: block; font-size: var(--fs-md); font-weight: 600; color: var(--ink); }
+.pick2 span { display: block; font-size: var(--fs-xs); color: var(--ink-2); margin-top: 2px; }
 @media (min-width: 900px) {
   .setup-brand { padding-top: 44px; }
   .setup-sheet {
     flex: none; width: min(620px, 100%); margin: 0 auto 54px;
-    border-radius: 20px; padding: 26px;
+    border-radius: var(--r-3); padding: 26px;
   }
 }
 
@@ -1231,7 +1248,7 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
 .class-chip { flex: none; }
 .class-chip select {
   background: var(--bar-2); color: #fff; border: none; min-height: 0;
-  padding: 6px 30px 6px 12px; border-radius: 20px; font-size: 13px; font-weight: 500;
+  padding: 6px 30px 6px 12px; border-radius: var(--r-3); font-size: var(--fs-sm); font-weight: 500;
   max-width: 260px; text-overflow: ellipsis;
 }
 .class-chip select:hover { background: var(--bar-3); }
@@ -1247,24 +1264,24 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
 @media (max-width: 899px) { .item-bar { display: none; } }
 
 /* คะแนน 8 ช่องแบบย่อ (รายงานรายคน) */
-.score8 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12.5px; }
+.score8 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: var(--fs-sm); }
 .score8-cell {
   display: flex; justify-content: space-between; align-items: center; gap: 8px;
-  padding: 7px 10px; background: var(--surface-2); border-radius: 9px;
+  padding: 8px 10px; background: var(--surface-2); border-radius: var(--r-sm);
 }
 .score8-cell span { color: var(--ink-2); }
 .score8-cell b { color: var(--ink); font-weight: 700; }
 .score8-cell b.none { color: var(--ink-3); font-weight: 400; }
 
 /* ป้ายวันที่ขาด/สาย */
-.daychip { padding: 5px 10px; border-radius: 8px; font-size: 12px; font-weight: 600; }
+.daychip { padding: 4px 10px; border-radius: var(--r-sm); font-size: var(--fs-xs); font-weight: 600; }
 
 /* ── หน้าแรก: การ์ดหลัก + สองการ์ดคู่ + ตารางห้อง ─────────── */
 .hero-body { flex: 1; min-width: 0; }
 .hero-actions { display: grid; gap: 8px; }
 .btn-dark {
-  padding: 8px 15px; border-radius: 12px; flex: none;
-  background: var(--ink); color: var(--on-ink); font-size: 13.5px; font-weight: 600;
+  padding: 8px 16px; border-radius: var(--r-1); flex: none;
+  background: var(--ink); color: var(--on-ink); font-size: var(--fs-md); font-weight: 600;
 }
 .btn-dark:hover { background: var(--bar-2); }
 .home-grid { display: grid; gap: 12px; }
@@ -1274,10 +1291,10 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
 .class-grid { display: grid; gap: 12px; }
 @media (min-width: 900px) {
   .hero { display: flex; align-items: center; gap: 20px; padding: 22px 24px; }
-  .hero-title { font-size: 24px; }
+  .hero-title { font-size: var(--fs-2xl); }
   .hero-meta { margin-bottom: 0; }
   .hero-actions { flex: none; width: 260px; }
-  .hero .btn { padding: 14px 26px; font-size: 16px; }
+  .hero .btn { padding: 14px 26px; font-size: var(--fs-base); }
   .home-grid { grid-template-columns: 1.35fr 1fr; gap: 14px; align-items: start; }
   .home-grid > .card { margin-bottom: 0; }
   .stats-card .stats { grid-template-columns: 1fr 1fr; gap: 14px; }
@@ -1295,8 +1312,8 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
 }
 
 /* ตัวสลับโหมดในแถบบริบท (รายชิ้นงาน ↔ รายคน) */
-.seg-inline { display: inline-grid; flex: none; padding: 3px; border-radius: 11px; }
-.seg-inline button { padding: 7px 14px; font-size: 13px; white-space: nowrap; }
+.seg-inline { display: inline-grid; flex: none; padding: 3px; border-radius: var(--r-1); }
+.seg-inline button { padding: 8px 14px; font-size: var(--fs-sm); white-space: nowrap; }
 .pagehead .ph-seg + .ph-box { margin-top: 8px; }
 
 /* โหมดรายคน: คอลัมน์แรกเป็นชื่องาน ไม่ใช่เลขที่ จึงต้องกว้างกว่า */
@@ -1345,27 +1362,27 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
 .kind-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
 .kind-cell {
   display: grid; justify-items: center; align-content: center; gap: 1px;
-  padding: 8px 4px; border-radius: 12px; min-width: 0;
+  padding: 8px 4px; border-radius: var(--r-1); min-width: 0;
   background: var(--surface); box-shadow: var(--sh-1); color: var(--ink-2);
   transition: background .15s, color .15s;
 }
-.kind-cell .kc-ic    { font-size: 14px; line-height: 1.1; }
-.kind-cell .kc-label { font-size: 12px; font-weight: 600; line-height: 1.25;
+.kind-cell .kc-ic    { font-size: var(--fs-md); line-height: 1.1; }
+.kind-cell .kc-label { font-size: var(--fs-xs); font-weight: 600; line-height: 1.25;
   max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.kind-cell .kc-w     { font-size: 11px; font-weight: 700; opacity: .6; font-variant-numeric: tabular-nums; }
+.kind-cell .kc-w     { font-size: var(--fs-2xs); font-weight: 700; opacity: .6; font-variant-numeric: tabular-nums; }
 .kind-cell:hover     { color: var(--ink); }
 .kind-cell[data-on="1"] { background: var(--ink); color: var(--on-ink); }
 .kind-cell[data-on="1"] .kc-w { opacity: .8; }
 
 /* ช่วงมีแค่ 2 ตัวเลือก ปุ่มคู่จึงอ่านง่ายและกดเร็วกว่า select */
 .phase-seg { display: flex; align-items: center; gap: 8px; }
-.phase-seg .ps-label { flex: none; font-size: 12.5px; color: var(--ink-2); }
+.phase-seg .ps-label { flex: none; font-size: var(--fs-sm); color: var(--ink-2); }
 .phase-seg .ps-btns {
   flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 3px;
-  padding: 3px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--line-2);
+  padding: 3px; border-radius: var(--r-1); background: var(--surface-2); border: 1px solid var(--line-2);
 }
 .phase-seg .ps-btns button {
-  padding: 7px 8px; border-radius: 9px; font-size: 12.5px; font-weight: 600;
+  padding: 8px 8px; border-radius: var(--r-sm); font-size: var(--fs-sm); font-weight: 600;
   color: var(--ink-2); min-width: 0;
 }
 .phase-seg .ps-btns button[data-on="1"] { background: var(--surface); color: var(--ink); box-shadow: var(--sh-1); }
@@ -1375,8 +1392,8 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
 @media (min-width: 900px) {
   /* จอกว้าง: ถังกับช่วงอยู่แถวเดียวกัน */
   .kind-bar { grid-template-columns: 1fr auto; align-items: center; }
-  .kind-cell { grid-template-columns: auto auto auto; justify-content: center; gap: 6px; padding: 9px 12px; }
-  .kind-cell .kc-label { font-size: 13px; }
+  .kind-cell { grid-template-columns: auto auto auto; justify-content: center; gap: 6px; padding: 8px 12px; }
+  .kind-cell .kc-label { font-size: var(--fs-sm); }
   .phase-seg .ps-btns { width: 260px; flex: none; }
 }
 
@@ -1390,13 +1407,13 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
 
 /* ป้ายเล็กใต้ชื่อชิ้นงาน (ดีไซน์หน้า 03) */
 .tagbtn {
-  padding: 5px 11px; border-radius: 9px; white-space: nowrap;
+  padding: 4px 12px; border-radius: var(--r-sm); white-space: nowrap;
   background: var(--surface-2); border: 1px solid var(--line-2);
-  color: var(--accent-ink); font-size: 12.5px; font-weight: 600;
+  color: var(--accent-ink); font-size: var(--fs-sm); font-weight: 600;
 }
 .tagbtn:hover { background: var(--surface-3); }
 .tag-on, .tag-off {
-  padding: 5px 10px; border-radius: 9px; white-space: nowrap; font-size: 11.5px; font-weight: 600;
+  padding: 4px 10px; border-radius: var(--r-sm); white-space: nowrap; font-size: var(--fs-xs); font-weight: 600;
 }
 .tag-on  { background: var(--accent-soft); color: var(--accent-ink); }
 .tag-off { background: var(--surface-2);   color: var(--ink-2); font-weight: 400; }
@@ -1415,10 +1432,10 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
   padding: 4px 6px 4px 14px;
 }
 .pickbox.grow { flex: 1; min-width: 200px; }
-.pickbox > span { flex: none; font-size: 12.5px; color: var(--ink-2); }
+.pickbox > span { flex: none; font-size: var(--fs-sm); color: var(--ink-2); }
 .pickbox select {
   border: none; background: none; min-height: 42px; width: 100%;
-  padding: 4px 26px 4px 2px; font-size: 14.5px; font-weight: 600; color: var(--ink);
+  padding: 4px 26px 4px 2px; font-size: var(--fs-md); font-weight: 600; color: var(--ink);
 }
 .pickbox select:focus { box-shadow: none; }
 @media (max-width: 560px) { .pickbox { flex: 1 1 100%; } }
@@ -1429,7 +1446,7 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
 @media (max-width: 560px) {
   .set-ctl { width: 100%; }
   .set-ctl .seg-inline { display: grid; width: 100%; }
-  .set-ctl .seg-inline button { padding: 9px 4px; }
+  .set-ctl .seg-inline button { padding: 8px 4px; }
   .set-ctl input, .set-ctl select { flex: 1; min-width: 0; }
 }
 
@@ -1445,7 +1462,7 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
       specificity เท่ากันแล้วตัวที่มาทีหลังชนะ */
 @media (pointer: coarse) {
   .att-btn,
-  .att-list .att-btn        { width: 44px; height: 44px; border-radius: 12px; font-size: 15px; }
+  .att-list .att-btn        { width: 44px; height: 44px; border-radius: var(--r-1); font-size: var(--fs-base); }
   .icon-btn,
   .appbar .icon-btn         { width: 44px; height: 44px; }
   .ph-back                  { min-width: 44px; min-height: 44px; }
@@ -1487,15 +1504,15 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
    ของเดิมการ์ดหัว + ปุ่มสองปุ่มซ้อนกันกินจอแรกไปเกือบครึ่ง
    รายการ "ค้างอยู่" ที่ครูต้องรู้จึงถูกดันลงไปจนต้องเลื่อนหา */
 @media (max-width: 899px) {
-  .hero { padding: 16px; border-radius: 20px; }
+  .hero { padding: 16px; border-radius: var(--r-3); }
   .hero-meta { margin-bottom: 12px; }
   .hero-actions { grid-template-columns: 1fr 1fr; }
   .hero .btn { padding: 12px 10px; }
   .hero-alt { margin-top: 0; display: flex; align-items: center; justify-content: center; }
   /* ตัวเลขสรุป 4 ช่องแถวเดียว — ตัวเลขสั้นอยู่แล้ว ไม่ต้องเปลืองสองแถว */
   .stats-card .stats { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
-  .stats-card .stat-num { font-size: 20px; }
-  .stats-card .stat-lbl { font-size: 11.5px; line-height: 1.3; }
+  .stats-card .stat-num { font-size: var(--fs-xl); }
+  .stats-card .stat-lbl { font-size: var(--fs-xs); line-height: 1.3; }
 }
 /* แตะง่ายขึ้น — ของเดิมสูงแค่ ~30px */
 .todo-row { min-height: 44px; padding: 4px 0; border-top: 1px solid var(--line); }
@@ -1513,8 +1530,8 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
 }
 .find-box input {
   width: 100%; min-height: 44px; padding: 0 44px 0 40px;
-  border-radius: 12px; border: 1px solid var(--line-2); background: var(--surface);
-  font-size: 15px; color: var(--ink);
+  border-radius: var(--r-1); border: 1px solid var(--line-2); background: var(--surface);
+  font-size: var(--fs-base); color: var(--ink);
 }
 .find-box input::-webkit-search-cancel-button { display: none; }
 .find-clear {
@@ -1529,7 +1546,7 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
    ปุ่ม ม/ส/ล/ข ยังสูง 44px เท่าเดิม (ดูกฎ pointer: coarse ด้านบน) */
 @media (max-width: 899px) {
   .att-list {
-    gap: 0; background: var(--surface); border-radius: 16px;
+    gap: 0; background: var(--surface); border-radius: var(--r-2);
     overflow: hidden; box-shadow: var(--sh-1);
   }
   .att-list .stu-row {
@@ -1537,7 +1554,7 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
     border-top: 1px solid var(--line);
   }
   .att-list .stu-row:first-child { border-top: 0; }
-  .att-list .stu-name { font-size: 15px; line-height: 1.35; }
+  .att-list .stu-name { font-size: var(--fs-base); line-height: 1.35; }
   .att-list .stu-sid { line-height: 1.3; }
   .att-list > .card.empty { margin: 0; box-shadow: none; }
 }
@@ -1551,42 +1568,42 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
 /* ปุ่มคู่สลับกลุ่ม (ใช้ในกล่องตามงาน) */
 .dense-seg {
   display: grid; grid-template-columns: 1fr 1fr; gap: 3px; padding: 3px;
-  border-radius: 12px; background: var(--surface-2); border: 1px solid var(--line-2);
+  border-radius: var(--r-1); background: var(--surface-2); border: 1px solid var(--line-2);
   margin-bottom: 10px;
 }
 .dense-seg button {
-  min-height: 38px; border-radius: 9px; font-size: 13.5px; font-weight: 600; color: var(--ink-2);
+  min-height: 38px; border-radius: var(--r-sm); font-size: var(--fs-md); font-weight: 600; color: var(--ink-2);
 }
 .dense-seg button[data-on="1"] { background: var(--surface); color: var(--ink); box-shadow: var(--sh-1); }
 
 /* แถบความคืบหน้าบาง ๆ ใต้ชิ้นงานแต่ละชิ้น (นับที่ตรวจแล้ว รวมคนไม่ส่ง) */
-.mini-prog { height: 5px; border-radius: 3px; background: var(--surface-3); overflow: hidden; margin-top: 6px; max-width: 220px; }
-.mini-prog i { display: block; height: 100%; border-radius: 3px; background: var(--accent); }
+.mini-prog { height: 5px; border-radius: var(--r-xs); background: var(--surface-3); overflow: hidden; margin-top: 6px; max-width: 220px; }
+.mini-prog i { display: block; height: 100%; border-radius: var(--r-xs); background: var(--accent); }
 
 /* ══ v3.13 · ตารางสอน: การ์ด "ตอนนี้" + คาบของวันนี้ ═══════════ */
 .now-top { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
 .now-pill {
   display: inline-flex; align-items: center; gap: 6px;
-  padding: 3px 10px; border-radius: 999px; font-size: 12.5px; font-weight: 700;
+  padding: 3px 10px; border-radius: var(--r-pill); font-size: var(--fs-sm); font-weight: 700;
   background: var(--lime); color: var(--on-lime);
 }
 .now-pill i { width: 7px; height: 7px; border-radius: 50%; background: var(--on-lime); }
 .now-pill.next { background: rgba(255,255,255,.14); color: #fff; }
 .now-pill.next i { background: var(--lime); }
-.now-time { margin-left: auto; font-size: 12.5px; color: var(--hero-ink); font-variant-numeric: tabular-nums; }
+.now-time { margin-left: auto; font-size: var(--fs-sm); color: var(--hero-ink); font-variant-numeric: tabular-nums; }
 .now-card .hero-meta { margin-bottom: 10px; }
 .now-prog { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
-.now-track { flex: 1; height: 6px; border-radius: 3px; background: rgba(196,239,231,.22); overflow: hidden; }
-.now-track i { display: block; height: 100%; border-radius: 3px; background: var(--lime); }
-.now-prog span { font-size: 12px; color: var(--hero-ink); white-space: nowrap; }
+.now-track { flex: 1; height: 6px; border-radius: var(--r-xs); background: rgba(196,239,231,.22); overflow: hidden; }
+.now-track i { display: block; height: 100%; border-radius: var(--r-xs); background: var(--lime); }
+.now-prog span { font-size: var(--fs-xs); color: var(--hero-ink); white-space: nowrap; }
 @media (min-width: 900px) {
   .now-card .now-prog { margin-bottom: 0; }
 }
 
 .today-card { padding: 4px 0; }
 .today-head { display: flex; align-items: center; padding: 10px 14px 6px; }
-.today-head b { flex: 1; font-size: 14px; }
-.today-edit { min-height: 36px; padding: 0 4px; font-size: 13px; font-weight: 600; color: var(--accent-ink); }
+.today-head b { flex: 1; font-size: var(--fs-md); }
+.today-edit { min-height: 36px; padding: 0 4px; font-size: var(--fs-sm); font-weight: 600; color: var(--accent-ink); }
 .today-row {
   display: flex; align-items: center; gap: 12px; width: 100%; min-height: 48px;
   padding: 6px 14px; text-align: left; border-top: 1px solid var(--line); color: var(--ink);
@@ -1594,11 +1611,11 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
 .today-row[data-cur="1"] { background: var(--lime-soft); }
 .today-row[data-past="1"] .today-what { color: var(--ink-2); }
 .today-when { width: 48px; flex: none; display: grid; line-height: 1.25; }
-.today-when b { font-size: 13px; }
-.today-when small { font-size: 11.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
-.today-what { flex: 1; min-width: 0; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.today-when b { font-size: var(--fs-sm); }
+.today-when small { font-size: var(--fs-xs); color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.today-what { flex: 1; min-width: 0; font-size: var(--fs-md); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .today-row[data-cur="1"] .today-what { font-weight: 700; }
-.today-state { flex: none; font-size: 12px; font-weight: 600; color: var(--ink-2); }
+.today-state { flex: none; font-size: var(--fs-xs); font-weight: 600; color: var(--ink-2); }
 .today-state[data-tone="ok"]   { color: #116b32; }
 .today-state[data-tone="cur"]  { color: var(--accent-ink); }
 .today-state[data-tone="late"] { color: #a34b06; }
@@ -1611,77 +1628,77 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
 
 .tt-tip {
   display: flex; align-items: center; gap: 6px; margin: 12px 0 0;
-  border: 1px dashed var(--line-2); border-radius: 14px; padding: 4px 4px 4px 14px;
+  border: 1px dashed var(--line-2); border-radius: var(--r-2); padding: 4px 4px 4px 14px;
 }
 .tt-tip-main { flex: 1; display: grid; gap: 1px; text-align: left; padding: 8px 0; color: var(--ink); }
-.tt-tip-main b { font-size: 14px; color: var(--accent-ink); }
-.tt-tip-main span { font-size: 12.5px; color: var(--ink-2); }
+.tt-tip-main b { font-size: var(--fs-md); color: var(--accent-ink); }
+.tt-tip-main span { font-size: var(--fs-sm); color: var(--ink-2); }
 
 /* กล่องตั้งตารางสอน */
 .tt-days { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; margin-bottom: 12px; }
 .tt-days button {
-  min-height: 48px; border-radius: 12px; display: grid; place-content: center; line-height: 1.2;
+  min-height: 48px; border-radius: var(--r-1); display: grid; place-content: center; line-height: 1.2;
   background: var(--surface-2); color: var(--ink-2);
 }
-.tt-days b { font-size: 15px; }
-.tt-days small { font-size: 11px; }
+.tt-days b { font-size: var(--fs-base); }
+.tt-days small { font-size: var(--fs-2xs); }
 .tt-days button[data-on="1"] { background: var(--ink); color: var(--on-ink); }
 .tt-tools { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
-.tt-tools > b { flex: 1; font-size: 15px; }
-.tt-list { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.tt-tools > b { flex: 1; font-size: var(--fs-base); }
+.tt-list { border: 1px solid var(--line); border-radius: var(--r-2); overflow: hidden; }
 .tt-row { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-top: 1px solid var(--line); }
 .tt-list > .tt-row:first-child { border-top: 0; }
 .tt-when { width: 92px; flex: none; display: grid; line-height: 1.3; }
-.tt-when b { font-size: 13.5px; }
-.tt-when > span { font-size: 12px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.tt-when b { font-size: var(--fs-md); }
+.tt-when > span { font-size: var(--fs-xs); color: var(--ink-3); font-variant-numeric: tabular-nums; }
 .tt-row select { flex: 1; min-width: 0; min-height: 44px; }
 .tt-row select[data-set="0"] { color: var(--ink-3); }
 .tt-times { display: flex !important; align-items: center; gap: 2px; }
-.tt-time { width: 100%; min-width: 0; padding: 4px 2px; font-size: 12.5px; min-height: 32px; }
+.tt-time { width: 100%; min-width: 0; padding: 4px 2px; font-size: var(--fs-sm); min-height: 32px; }
 .tt-row:has(.tt-times) .tt-when { width: 150px; }
 .tt-break {
-  padding: 4px 10px; font-size: 11.5px; color: var(--ink-3); text-align: center;
+  padding: 4px 10px; font-size: var(--fs-xs); color: var(--ink-3); text-align: center;
   background: var(--surface-2); border-top: 1px solid var(--line);
 }
 
 /* ══ v3.13 · เพิ่มงานลงหลายห้อง ════════════════════════════ */
-.room-list { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.room-list { border: 1px solid var(--line); border-radius: var(--r-2); overflow: hidden; }
 .room-list + .room-list { margin-top: 8px; }
 .room-list[hidden] { display: none; }
 .room-row, .field .room-row {
   display: flex; align-items: center; gap: 12px; min-height: 52px;
   padding: 6px 14px; border-top: 1px solid var(--line); cursor: pointer;
-  font-size: 14px; color: var(--ink); font-weight: 400; margin: 0;
+  font-size: var(--fs-md); color: var(--ink); font-weight: 400; margin: 0;
 }
 .room-row:first-child { border-top: 0; }
 .room-row[data-me="1"] { background: var(--surface-2); cursor: default; }
 .room-row input { width: 22px; height: 22px; flex: none; margin: 0; accent-color: var(--accent); }
 .room-main { flex: 1; min-width: 0; display: grid; line-height: 1.35; }
 .room-main b { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.room-main small { font-size: 12px; color: var(--ink-2); }
-.room-tag { flex: none; font-size: 12px; font-weight: 700; color: var(--accent-ink); }
+.room-main small { font-size: var(--fs-xs); color: var(--ink-2); }
+.room-tag { flex: none; font-size: var(--fs-xs); font-weight: 700; color: var(--accent-ink); }
 .room-tag[data-me="1"] { color: var(--ink-2); }
 /* ขึ้นภาคเรียนใหม่ — แถวห้องมีตัวเลือกทางขวาแทนช่องติ๊ก */
-.nt-list select { width: auto; flex: none; padding: 8px 30px 8px 10px; font-size: 13.5px; }
+.nt-list select { width: auto; flex: none; padding: 8px 30px 8px 10px; font-size: var(--fs-md); }
 .nt-check { display: block; margin-bottom: 12px; }
-.nt-notes { margin: 0 0 14px; padding-left: 20px; font-size: 12.5px; color: var(--ink-2); line-height: 1.7; }
+.nt-notes { margin: 0 0 14px; padding-left: 20px; font-size: var(--fs-sm); color: var(--ink-2); line-height: 1.7; }
 .room-more {
   min-height: 40px; margin-top: 4px; padding: 0 2px;
-  font-size: 13.5px; font-weight: 600; color: var(--accent-ink);
+  font-size: var(--fs-md); font-weight: 600; color: var(--accent-ink);
 }
 
 /* ══ v3.13 · ตามงาน → คัดลอกไปไลน์ ══════════════════════════ */
 .chase-opt, .field .chase-opt {
   display: flex; align-items: center; gap: 12px; min-height: 52px; margin: 0 0 8px;
-  padding: 6px 14px; border-radius: 12px; background: var(--surface-2); cursor: pointer;
+  padding: 6px 14px; border-radius: var(--r-1); background: var(--surface-2); cursor: pointer;
 }
 .chase-opt input { width: 22px; height: 22px; flex: none; margin: 0; accent-color: var(--accent); }
 .chase-opt > span { display: grid; line-height: 1.35; }
-.chase-opt b { font-size: 14px; color: var(--ink); }
-.chase-opt small { font-size: 12px; color: var(--ink-2); }
+.chase-opt b { font-size: var(--fs-md); color: var(--ink); }
+.chase-opt small { font-size: var(--fs-xs); color: var(--ink-2); }
 /* ตัวอย่างข้อความ — หน้าตาคล้ายฟองแชตให้รู้ว่าจะออกไปเป็นแบบไหน */
 .chase-msg {
-  white-space: pre-line; font-size: 14.5px; line-height: 1.65; color: var(--ink);
+  white-space: pre-line; font-size: var(--fs-md); line-height: 1.65; color: var(--ink);
   background: var(--surface-2); border-radius: 4px 16px 16px 16px; padding: 12px 14px;
   max-height: 40vh; overflow-y: auto; user-select: text; -webkit-user-select: text;
 }
@@ -1690,16 +1707,16 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
 .find-row { display: flex; gap: 8px; align-items: flex-start; }
 .find-row > .find-box { flex: 1; min-width: 0; }
 .dice-btn {
-  flex: none; width: 44px; height: 44px; border-radius: 12px; font-size: 20px;
+  flex: none; width: 44px; height: 44px; border-radius: var(--r-1); font-size: var(--fs-xl);
   background: var(--surface); border: 1px solid var(--line-2);
 }
 .pick-card {
   display: grid; justify-items: center; gap: 4px; text-align: center;
-  padding: 26px 14px; margin-bottom: 10px; border-radius: 18px;
+  padding: 26px 14px; margin-bottom: 10px; border-radius: var(--r-3);
   background: var(--hero); color: #fff;
 }
-.pick-sub { font-size: 14px; color: var(--hero-ink); }
-.pick-name { font-size: 28px; font-weight: 700; line-height: 1.3; }
+.pick-sub { font-size: var(--fs-md); color: var(--hero-ink); }
+.pick-name { font-size: var(--fs-3xl); font-weight: 700; line-height: 1.3; }
 
 /* ══ v3.13 · พิมพ์ (ใบเช็คชื่อเปล่า · สรุป SGS) ═══════════════
    เนื้อหาที่จะพิมพ์ถูกวางไว้ใน #print-area (ดู printPage ใน js/dom.js)
@@ -1720,7 +1737,7 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
   #print-area table.print-grid { width: 100%; border-collapse: collapse; }
   #print-area .print-grid th,
   #print-area .print-grid td {
-    border: 1px solid #000; padding: 3px 5px; color: #000 !important;
+    border: 1px solid #000; padding: 3px 4px; color: #000 !important;
     background: #fff !important; position: static !important; box-shadow: none !important;
   }
   #print-area .print-grid thead th { font-weight: 700; }
@@ -1740,7 +1757,7 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
 /* ══ v3.13 · QR ลิงก์หน้านักเรียน ═══════════════════════════ */
 .qr-box {
   width: 200px; max-width: 70%; margin: 4px auto 12px; padding: 6px;
-  background: #fff; border-radius: 14px; box-shadow: var(--sh-1);
+  background: #fff; border-radius: var(--r-2); box-shadow: var(--sh-1);
 }
 .qr-box svg, .qr-poster-code svg { display: block; width: 100%; height: auto; }
 @media print {
@@ -1753,3 +1770,95 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
   }
   #print-area .qr-poster-link { margin-top: 12mm; font-size: 8.5pt; color: #444; word-break: break-all; }
 }
+
+/* ══ v3.16 · ความรู้สึกตอนใช้งาน ═══════════════════════════
+   แอปทำงานเร็วอยู่แล้ว แต่ "รู้สึก" ไม่ลื่น เพราะกดแล้วไม่มีอะไรตอบสนอง
+   สลับหน้าแบบตัดฉับ และไม่รู้ว่าข้อมูลบันทึกแล้วหรือยัง ส่วนนี้แก้ทั้งสามอย่าง */
+
+/* ── แตะแล้วต้องรู้สึกว่ากดติด ──
+   ของเดิมทั้งไฟล์มี :active แค่ 2 จุด บนมือถือกดปุ่มแล้วปุ่มนิ่งสนิท ไม่แน่ใจว่ากดโดนไหม
+   ใช้ :where() ให้ความเจาะจงเป็นศูนย์ ปุ่มที่ตั้งท่ากดของตัวเองไว้แล้ว (.btn) ยังชนะเหมือนเดิม */
+:where(button):not(:disabled):active { transform: scale(.96); }
+/* ปุ่มกว้างเต็มแถว ยุบมากแล้วดูเหมือนทั้งแถวกระเด้ง — ยุบนิดเดียวพอ */
+:where(.btn-block, .ph-main, .ph-box, .hero .btn, .hero-alt, .todo-row, .today-row,
+  .list-row > button, .class-card > button, .multi-btn, .tt-tip-main, .kind-cell):not(:disabled):active {
+  transform: scale(.985);
+}
+:where(.todo-row, .list-row > button, .today-row):active { background: var(--surface-2); }
+.att-btn, .st-btn { transition: background .13s, color .13s, transform .08s; }
+.att-btn:active { transform: scale(.9); }
+
+/* ── สลับหน้าแบบจางเข้า (เรียกจาก go() ใน js/state.js) ──
+   แถบเมนูกับแถบหัวมีชื่อของตัวเอง จึงอยู่นิ่งระหว่างเปลี่ยนหน้า มีแค่เนื้อหาที่จางเข้า
+   ต้องสั้น — ระหว่างเล่นภาพเคลื่อนไหวหน้าจอกดไม่ได้ */
+.nav    { view-transition-name: ac-nav; }
+.appbar { view-transition-name: ac-appbar; }
+::view-transition-old(root) { animation: vt-out .1s ease-in both; }
+::view-transition-new(root) { animation: vt-in .18s ease-out both; }
+@keyframes vt-out { to { opacity: 0; } }
+@keyframes vt-in  { from { opacity: 0; transform: translateY(6px); } }
+
+/* ── ป้ายสถานะการบันทึก (js/app.js · refreshSaveState) ── */
+.savestate {
+  position: fixed; left: 12px; z-index: 150;   /* มือถือ: ชิดซ้าย (ทับชื่อ ไม่ทับปุ่ม ม/ส/ล/ข ฝั่งขวา) */
+  bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 12px);
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 12px; border-radius: var(--r-pill);
+  background: var(--surface); color: var(--ink-2); box-shadow: var(--sh-2);
+  font-size: var(--fs-xs); font-weight: 600;
+  opacity: 0; transform: translateY(6px); pointer-events: none;
+  transition: opacity .2s, transform .2s;
+}
+.savestate[data-mode="busy"], .savestate[data-mode="ok"], .savestate[data-mode="off"] { opacity: 1; transform: none; }
+.savestate[data-mode="ok"]  { color: var(--st-ok); }
+.savestate[data-mode="off"] { background: var(--late-soft); color: var(--warn-ink); }
+.savestate .ico-sm { width: 14px; height: 14px; }
+.savestate-dot {
+  width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex: none;
+  animation: save-pulse 1s ease-in-out infinite;
+}
+@keyframes save-pulse { 50% { opacity: .3; } }
+@media (min-width: 900px) { .savestate { left: auto; right: 20px; bottom: 20px; } }
+@media print { .savestate { display: none; } }
+
+/* ── ไอคอนเส้นบนปุ่ม (แทนอีโมจิ) ──
+   ปุ่มที่ไม่ใช่ .btn ไม่ได้จัดแถวไว้ ไอคอนจะลอยอยู่เหนือตัวอักษร */
+.chip, .tagbtn, .tag-on, .tag-off, .rep-fresh-btn, .item-pill,
+.ph-main, .ph-side, .ph-chip, .btn-dark {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+}
+.tag-on .ico-sm, .tag-off .ico-sm, .ph-chip .ico-sm { width: 14px; height: 14px; }
+.ph-back .ico { width: 24px; height: 24px; }
+.ph-box i .ico { color: var(--lime); }
+/* ป้าย "ครบแล้ว" บนมือถือ — เดิมหน้าตาเหมือนปุ่มแต่กดไม่ได้ ตอนนี้เป็นป้ายสถานะ */
+.ph-side.done { background: none; color: var(--lime); padding-inline: 8px; }
+.ph-side.done:hover { background: none; }
+/* ตัวนับ "ไม่ปกติ" เป็นตัวเลขเฉย ๆ ไม่ใช่ตัวกรอง — อย่าให้ดูเหมือนกดได้ */
+.chip.static { background: none; box-shadow: none; cursor: default; }
+.chip.static:hover { color: var(--ink-2); }
+
+/* ── ช่องคะแนน ──
+   เปลี่ยนเป็น type="text" + inputmode="decimal" แล้ว (ได้แป้นตัวเลขเหมือนเดิม)
+   ไม่มีลูกศรขึ้นลงมาทับคำว่า "ไม่ส่ง" และหมุนล้อเมาส์ผ่านแล้วคะแนนไม่เปลี่ยนเอง */
+.score-inp::placeholder { font-size: var(--fs-xs); font-weight: 600; color: var(--st-miss); opacity: 1; }
+
+/* ── กราฟเกรด: ขั้นที่ไม่มีใครได้ ── */
+.gcol.zero .gcol-n   { color: var(--ink-3); opacity: .6; }
+.gcol.zero .gcol-bar { background: var(--surface-3); }
+
+/* ── การ์ดคู่ (หน้าแรก · รายงาน) สูงเท่ากัน ──
+   ของเดิมชิดบน ใบหนึ่งสูงอีกใบเตี้ย เห็นขอบล่างไม่ตรงกันชัดบนจอคอม */
+@media (min-width: 900px) {
+  .home-grid, .rep-grid { align-items: stretch; }
+  .stats-card { display: flex; flex-direction: column; justify-content: center; }
+}
+
+/* ── ระหว่างรอข้อมูลห้องเรียน: โครงหน้าแทนตัวหนังสือ "กำลังโหลด…" ── */
+.skel { display: grid; gap: 10px; }
+.skel i {
+  display: block; height: 52px; border-radius: var(--r-2);
+  background: linear-gradient(90deg, var(--surface) 0%, var(--surface-2) 50%, var(--surface) 100%);
+  background-size: 200% 100%; animation: skel-shine 1.2s ease-in-out infinite;
+}
+.skel i:first-child { height: 92px; }
+@keyframes skel-shine { from { background-position: 100% 0; } to { background-position: -100% 0; } }

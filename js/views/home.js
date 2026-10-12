@@ -10,6 +10,7 @@ import { store } from '../storage.js';
 import { DAYS, currentSlot, slotsOn, hasTimetable } from '../timetable.js';
 import { readTimetable, openTimetableEditor } from './timetable.js';
 import { startCheckAt } from './attendance.js';
+import { icon, withIcon } from '../icons.js';
 
 export function viewHome() {
   // ตารางสอน → รู้ว่าตอนนี้ควรสอนห้องไหน (ไม่ได้ตั้ง = หน้าแรกแบบเดิมทุกอย่าง)
@@ -26,13 +27,12 @@ export function viewHome() {
     cur && nowCard(cur),
     today.length > 0 && todayCard(today, cur),
     state.cls && overviewCard(!cur),
-    !hasTimetable(tt) && ttTip(),
 
     h('div', { style: { display: 'flex', alignItems: 'center', gap: '12px', margin: '18px 0 12px' } },
-      h('div', { style: { fontSize: '15px', fontWeight: '700', flex: '1' } },
+      h('div', { style: { fontSize: 'var(--fs-base)', fontWeight: '700', flex: '1' } },
         state.classes.length || state.classesKnown
           ? `ห้องเรียนของฉัน · ${state.classes.length} ห้อง-วิชา` : 'ห้องเรียนของฉัน'),
-      h('button', { class: 'btn-dark', onclick: () => openClassForm() }, '+ เพิ่มห้อง')
+      h('button', { class: 'btn-dark', onclick: () => openClassForm() }, withIcon('plus', 'เพิ่มห้อง'))
     ),
 
     // ยังไม่รู้ว่ามีห้องอะไร (โหลดไม่ขึ้น/ยังรออยู่) ≠ ไม่มีห้อง
@@ -42,7 +42,7 @@ export function viewHome() {
           h('div', { class: 'empty-icon' }, state.classesError ? '⚠️' : '⏳'),
           h('div', { style: { fontWeight: '600' } },
             state.classesError ? 'โหลดรายชื่อห้องไม่สำเร็จ' : 'กำลังโหลดรายชื่อห้อง…'),
-          state.classesError && h('div', { style: { fontSize: '13px', margin: '4px 0 14px' } },
+          state.classesError && h('div', { style: { fontSize: 'var(--fs-sm)', margin: '4px 0 14px' } },
             state.classesError + ' — ห้องเรียนในชีตยังอยู่ครบ ไม่ได้หายไปไหน'),
           state.classesError && h('button', {
             class: 'btn',
@@ -55,10 +55,13 @@ export function viewHome() {
       ? h('div', { class: 'card empty' },
           h('div', { class: 'empty-icon' }, '📚'),
           h('div', { style: { fontWeight: '600' } }, 'ยังไม่มีห้องเรียน'),
-          h('div', { style: { fontSize: '13px', marginBottom: '14px' } },
+          h('div', { style: { fontSize: 'var(--fs-sm)', marginBottom: '14px' } },
             'สร้างห้องแรก เช่น "ม.1/1 · คณิตศาสตร์พื้นฐาน"'),
           h('button', { class: 'btn', onclick: () => openClassForm() }, 'สร้างห้องเรียนแรก'))
-      : h('div', { class: 'class-grid' }, state.classes.map(classCard))
+      : h('div', { class: 'class-grid' }, state.classes.map(classCard)),
+
+    // ชวนตั้งตารางสอนอยู่ท้ายหน้า — ของเดิมคั่นกลางระหว่างภาพรวมกับรายการห้อง ดูเหมือนหน้ายังทำไม่เสร็จ
+    !hasTimetable(tt) && ttTip()
   );
 }
 
@@ -78,9 +81,9 @@ function classCard(c) {
           `${c.studentCount || 0} คน${c.subjectCode ? ' · ' + c.subjectCode : ''}`))
     ),
     h('button', {
-      class: 'icon-btn', style: { color: 'var(--ink-3)' },
+      class: 'icon-btn', style: { color: 'var(--ink-3)' }, 'aria-label': 'จัดการห้องนี้',
       onclick: () => openClassMenu(c)
-    }, '⋯')
+    }, icon('more'))
   );
 }
 
@@ -112,7 +115,7 @@ function overviewCard(showHero = true) {
         `${rows.length} คน · ` + (attToday ? 'เช็คชื่อวันนี้แล้ว' : 'ยังไม่ได้เช็คชื่อวันนี้'))),
     h('div', { class: 'hero-actions' },
       h('button', { class: 'btn', onclick: () => go('att') },
-        attToday ? 'เช็คชื่อ' : '✓ เช็คชื่อวันนี้'),
+        attToday ? 'เช็คชื่อ' : 'เช็คชื่อวันนี้'),
       h('button', { class: 'hero-alt', onclick: () => go('work') }, 'กรอกคะแนน'))
   );
 
@@ -120,7 +123,7 @@ function overviewCard(showHero = true) {
   const pending = rows.reduce((a, r) => a + r.pending, 0);
   const todos = [];
   if (pending > 0) {
-    todos.push({ c: 'var(--st-late)', t: `ยังไม่ตรวจ ${pending} ช่อง`, go: 'work', cta: 'ตรวจ' });
+    todos.push({ c: 'var(--st-late)', t: `งานรอตรวจ ${pending} ชิ้น`, go: 'work', cta: 'ตรวจ' });
   }
   if (!String(state.config.mid_date || '').trim()) {
     todos.push({ c: 'var(--st-miss)', t: 'ยังไม่ได้ตั้งวันสอบกลางภาค', go: 'settings', cta: 'ตั้งค่า' });
@@ -138,19 +141,19 @@ function overviewCard(showHero = true) {
     // ดีไซน์วาง "ค้างอยู่" กับตัวเลขสรุปเคียงกันบน PC · ซ้อนกันบนมือถือ
     h('div', { class: 'home-grid' },
       h('div', { class: 'card' },
-        h('div', { style: { fontWeight: '700', fontSize: '14px', marginBottom: '10px' } },
+        h('div', { style: { fontWeight: '700', fontSize: 'var(--fs-md)', marginBottom: '10px' } },
           `ค้างอยู่ · ${[cls.meta.grade, cls.meta.room].filter(Boolean).join('/') || cls.meta.subject}`),
         todos.length === 0
-          ? h('div', { style: { fontSize: '13px', color: 'var(--ink-2)' } }, 'ไม่มีอะไรค้าง 🎉')
+          ? h('div', { style: { fontSize: 'var(--fs-sm)', color: 'var(--ink-2)' } }, 'ไม่มีอะไรค้าง 🎉')
           : todos.map(t => h('button', { class: 'todo-row', onclick: () => go(t.go) },
               h('i', { style: { background: t.c } }), t.t, h('b', null, t.cta + ' →')))),
 
       h('div', { class: 'card stats-card' },
         h('div', { class: 'stats' },
           stat('g', rows.length, 'นักเรียน'),
-          stat('b', avg === null ? '—' : avg.toFixed(1), 'คะแนนเฉลี่ย'),
+          stat('b', avg === null ? '—' : avg.toFixed(1), 'คะแนนเฉลี่ย /100'),
           stat('a', risk, 'เสี่ยง มส'),
-          stat('r', zero, 'เสี่ยงติด 0')),
+          stat('r', zero, 'เสี่ยงติดศูนย์')),
         avg === null && h('div', { class: 'hint' },
           'ยังไม่ได้เช็คชื่อหรือกรอกคะแนน — ตัวเลขจะขึ้นเมื่อเริ่มบันทึกข้อมูล'))
     )
@@ -199,7 +202,7 @@ function nowCard(r) {
         h('span', null, when))),
     h('div', { class: 'hero-actions' },
       h('button', { class: 'btn', onclick: () => openSlot(slot, 'att') },
-        done ? 'ดูการเช็คชื่อ' : '✓ เช็คชื่อคาบนี้'),
+        done ? 'ดูการเช็คชื่อ' : 'เช็คชื่อคาบนี้'),
       h('button', { class: 'hero-alt', onclick: () => openSlot(slot, 'work') }, 'กรอกคะแนน'))
   );
 }
@@ -241,7 +244,7 @@ function ttTip() {
     h('button', {
       class: 'icon-btn', 'aria-label': 'ไม่ต้องแสดงอีก',
       onclick: () => { store.set(TT_TIP, 'off'); emit(); }
-    }, '✕'));
+    }, icon('close')));
 }
 
 /* วาดหน้าแรกใหม่ทุกนาทีเพื่อให้การ์ด "ตอนนี้" เดินตามเวลา
@@ -314,11 +317,11 @@ function openClassForm(edit) {
 function openClassMenu(c) {
   modal((close) => h('div', null,
     h('h2', null, c.subject),
-    h('div', { style: { color: 'var(--ink-2)', fontSize: '13px', marginBottom: '14px' } },
+    h('div', { style: { color: 'var(--ink-2)', fontSize: 'var(--fs-sm)', marginBottom: '14px' } },
       `${[c.grade, c.room].filter(Boolean).join('/') || '—'} · ${c.studentCount || 0} คน · แท็บ “${c.sheetName}”`),
     h('div', { style: { display: 'grid', gap: '8px' } },
-      h('button', { class: 'btn btn-ghost btn-block', onclick: async () => { close(); await loadClass(c.classId); openRoster(state.cls); } }, '👥 จัดการรายชื่อนักเรียน'),
-      h('button', { class: 'btn btn-ghost btn-block', onclick: async () => { close(); await loadClass(c.classId); openClassForm(state.cls.meta); } }, '✏️ แก้ไขข้อมูลห้อง'),
+      h('button', { class: 'btn btn-ghost btn-block', onclick: async () => { close(); await loadClass(c.classId); openRoster(state.cls); } }, withIcon('users', 'จัดการรายชื่อนักเรียน')),
+      h('button', { class: 'btn btn-ghost btn-block', onclick: async () => { close(); await loadClass(c.classId); openClassForm(state.cls.meta); } }, withIcon('edit', 'แก้ไขข้อมูลห้อง')),
       h('button', {
         class: 'btn btn-danger btn-block',
         onclick: async () => {
@@ -329,7 +332,7 @@ function openClassMenu(c) {
           try { await deleteClass(c.classId); toast('ลบแล้ว', 'ok'); }
           catch (e) { toast(e.message, 'err'); }
         }
-      }, '🗑 ลบห้องเรียน')
+      }, withIcon('trash', 'ลบห้องเรียน'))
     )
   ));
 }
@@ -339,7 +342,7 @@ function openClassMenu(c) {
 function openRoster(cls) {
   const initial = (cls.students || [])
     .map(s => [s.no, s.sid, s.name].join('\t')).join('\n');
-  const ta = h('textarea', { rows: 14, value: initial, style: { fontFamily: 'ui-monospace, monospace', fontSize: '13px' } });
+  const ta = h('textarea', { rows: 14, value: initial, style: { fontFamily: 'ui-monospace, monospace', fontSize: 'var(--fs-sm)' } });
 
   modal((close) => {
     const save = h('button', { class: 'btn btn-block' }, 'บันทึกรายชื่อ');

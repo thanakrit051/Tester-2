@@ -3,7 +3,8 @@
 import { h, modal, toast, nf, printPage, copyText } from '../dom.js';
 import { state, emit, settings, recalcOnServer } from '../state.js';
 import { computeClass, BUCKETS, bucketColumns, parseWork, blankMissCols, effectiveRaw } from '../score.js';
-import { exportClassCSV } from './common.js';
+import { exportClassCSV, loadingPage } from './common.js';
+import { icon, withIcon } from '../icons.js';
 
 const ui = { phase: 0, fill: false, fi: 0 };   // phase 0 = ทั้งหมด · fill = โหมดกรอกทีละคน
 
@@ -53,8 +54,7 @@ function pendingMap(cls) {
 export function viewSummary() {
   const cls = state.cls;
   if (!cls) {
-    return h('div', { class: 'page empty' },
-      state.loadingClass ? 'กำลังโหลดห้องเรียน…' : 'ยังไม่ได้เลือกห้องเรียน');
+    return state.loadingClass ? loadingPage() : h('div', { class: 'page empty' }, 'ยังไม่ได้เลือกห้องเรียน');
   }
   if (!cls.students.length) {
     return h('div', { class: 'page' }, h('div', { class: 'card empty' },
@@ -79,21 +79,21 @@ export function viewSummary() {
     // ── แถบพร้อมกรอก + ปุ่มหลัก (ดีไซน์หน้า 05) ──
     h('div', { class: 'card', style: { display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' } },
       h('div', { style: { flex: '1', minWidth: '180px' } },
-        h('div', { style: { fontSize: '15px', fontWeight: '700' } }, `พร้อมกรอกลง SGS · ${rows.length} คน`),
-        h('div', { style: { fontSize: '12.5px', color: 'var(--ink-2)', marginTop: '2px' } },
+        h('div', { style: { fontSize: 'var(--fs-base)', fontWeight: '700' } }, `พร้อมกรอกลง SGS · ${rows.length} คน`),
+        h('div', { style: { fontSize: 'var(--fs-sm)', color: 'var(--ink-2)', marginTop: '2px' } },
           pendTotal > 0
             ? `ยังไม่ตรวจ ${pendTotal} รายการ — ช่องที่กระทบจะมีจุดส้มกำกับ`
             : 'ตรวจครบทุกรายการแล้ว')),
-      h('button', { class: 'btn btn-ghost btn-sm', onclick: () => { ui.fill = true; ui.fi = 0; emit(); } }, '⌨️ โหมดกรอกทีละคน'),
+      h('button', { class: 'btn btn-ghost btn-sm', onclick: () => { ui.fill = true; ui.fi = 0; emit(); } }, withIcon('users', 'โหมดกรอกทีละคน')),
       h('button', {
         class: 'btn btn-sm',
         onclick: async (e) => {
           const b = e.currentTarget; b.disabled = true; b.textContent = 'กำลังบันทึก…';
-          try { await recalcOnServer(); toast('เขียนลงชีตแล้ว ✅', 'ok'); }
+          try { await recalcOnServer(); toast('เขียนลงชีตแล้ว', 'ok'); }
           catch (err) { toast(err.message, 'err', 5000); }
-          finally { b.disabled = false; b.textContent = '💾 บันทึกลงชีต'; }
+          finally { b.disabled = false; b.replaceChildren(...withIcon('save', 'บันทึกลงชีต')); }
         }
-      }, '💾 บันทึกลงชีต')
+      }, withIcon('save', 'บันทึกลงชีต'))
     ),
 
     h('div', { class: 'card card-tight' },
@@ -104,9 +104,9 @@ export function viewSummary() {
       h('span', null, '= ช่องนี้ยังมีงานค้างตรวจ ตัวเลขอาจเปลี่ยน · แตะหัวคอลัมน์เพื่อคัดลอกทั้งช่องไปวางใน SGS')),
 
     h('div', { class: 'btn-row', style: { marginTop: '10px' } },
-      h('button', { class: 'btn btn-ghost btn-sm', onclick: () => copyTable(rows, cols) }, '📋 คัดลอกทั้งตาราง'),
-      h('button', { class: 'btn btn-ghost btn-sm', onclick: () => exportClassCSV(rows) }, '⬇️ CSV'),
-      h('button', { class: 'btn btn-ghost btn-sm', onclick: () => printSummary(rows, cols, S, pend) }, '🖨 พิมพ์'))
+      h('button', { class: 'btn btn-ghost btn-sm', onclick: () => copyTable(rows, cols) }, withIcon('copy', 'คัดลอกทั้งตาราง')),
+      h('button', { class: 'btn btn-ghost btn-sm', onclick: () => exportClassCSV(rows) }, withIcon('download', 'CSV')),
+      h('button', { class: 'btn btn-ghost btn-sm', onclick: () => printSummary(rows, cols, S, pend) }, withIcon('printer', 'พิมพ์')))
   );
 }
 
@@ -189,7 +189,7 @@ function fillScreen(rows, S, pend) {
     ),
 
     h('div', { class: 'pager' },
-      h('button', { class: 'btn btn-ghost', disabled: ui.fi === 0, onclick: () => step(-1) }, '‹'),
+      h('button', { class: 'btn btn-ghost', disabled: ui.fi === 0, 'aria-label': 'คนก่อนหน้า', onclick: () => step(-1) }, icon('back')),
       h('button', {
         class: 'btn',
         onclick: () => {
@@ -215,7 +215,7 @@ function table(rows, cols, S, pend) {
           onclick: () => copyColumn(rows, c)
         },
           h('div', { style: { fontWeight: '700' } }, c.head),
-          h('div', { style: { fontWeight: '400', fontSize: '11px', opacity: '.8' } },
+          h('div', { style: { fontWeight: '400', fontSize: 'var(--fs-2xs)', opacity: '.8' } },
             c.sub || String(S.weight[c.id]))
         )),
         h('th', { class: 'h-total' }, 'รวม'),

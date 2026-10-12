@@ -9,6 +9,7 @@ import * as api from '../api.js';
 import { auth } from '../auth.js';
 import { APP_VERSION, NEEDS_SERVER, SERVER_BUILT_FOR, cmpVersion, FEATURES } from '../version.js';
 import { badCuts } from '../score.js';
+import { icon } from '../icons.js';
 
 /** ข้อความสรุปหัวหน้า — ใช้ทั้งแถบเข้ม (มือถือ) และแถบบริบท (PC) */
 function summary(items) {
@@ -24,7 +25,7 @@ viewHealth.head = function () {
   const s = summary(runChecks());
   return h('header', { class: 'pagehead' },
     h('div', { class: 'ph-row' },
-      h('button', { class: 'ph-back', 'aria-label': 'กลับ', onclick: () => go('settings') }, '‹'),
+      h('button', { class: 'ph-back', 'aria-label': 'กลับ', onclick: () => go('settings') }, icon('back')),
       h('div', { class: 'ph-grow' },
         h('div', { class: 'ph-title' }, 'ตรวจสอบระบบ'),
         h('div', { class: 'ph-sub' }, s.title)))
@@ -60,7 +61,7 @@ export function viewHealth() {
         h('div', { class: 'card card-tight' }, list.map(checkRow)));
     }),
 
-    h('div', { style: { textAlign: 'center', color: 'var(--ink-3)', fontSize: '11.5px', padding: '6px 0 14px' } },
+    h('div', { style: { textAlign: 'center', color: 'var(--ink-3)', fontSize: 'var(--fs-xs)', padding: '6px 0 14px' } },
       `หน้าเว็บ v${APP_VERSION} · โค้ดในชีต v${api.serverInfo.version || 'ไม่ทราบ'}`)
   );
 }
@@ -150,7 +151,7 @@ function runChecks() {
       level: 'warn', title: 'ยังใช้รหัสลับอยู่',
       detail: 'ใช้งานได้ปกติ แต่ย้ายเครื่องต้องพิมพ์รหัสใหม่ทุกครั้ง',
       fix: 'ถ้าจะใช้หลายเครื่อง แนะนำเปิดล็อกอิน Google (ตั้งค่า oauth_client_id ในชีต)',
-      action: { label: '📱 คัดลอกลิงก์ย้ายเครื่อง', run: copyTransfer }
+      action: { label: 'คัดลอกลิงก์ย้ายเครื่อง', run: copyTransfer }
     });
   } else {
     out.push({ level: 'err', title: 'ยังไม่ได้ยืนยันตัวตน', detail: 'ยังบันทึกข้อมูลไม่ได้', fix: 'เชื่อมต่อใหม่ในหน้าตั้งค่า' });
@@ -178,7 +179,7 @@ function runChecks() {
       level: 'warn', title: 'ยังไม่ได้ตั้งวันสอบกลางภาค',
       detail: 'ตอนนี้ระบบเดาว่าทุกวันอยู่ "ก่อนกลางภาค" — พอเลยกลางภาคไปแล้วคะแนนจะลงผิดช่อง',
       fix: 'ตั้งครั้งเดียวจบ ใช้ได้ทั้งเทอม',
-      action: { label: '⚙️ ไปตั้งค่า', run: () => go('settings') }
+      action: { label: 'ไปตั้งค่า', run: () => go('settings') }
     });
   } else {
     out.push({ level: 'ok', title: 'ตั้งวันสอบกลางภาคแล้ว', detail: mid + ' — ระบบแยกช่วงให้อัตโนมัติ' });
@@ -190,7 +191,7 @@ function runChecks() {
   out.push(sum === 100
     ? { level: 'ok', title: 'น้ำหนักคะแนนรวม 100 พอดี', detail: '10+10+5+20 · 10+10+5+30' }
     : { level: 'err', title: `น้ำหนักคะแนนรวม ${sum} ไม่เท่ากับ 100`, detail: 'คะแนนที่กรอกลง SGS จะไม่ตรง',
-        fix: 'ตั้งค่า → น้ำหนักคะแนน', action: { label: '⚙️ ไปแก้', run: () => go('settings') } });
+        fix: 'ตั้งค่า → น้ำหนักคะแนน', action: { label: 'ไปแก้', run: () => go('settings') } });
 
   // 7) เกณฑ์เกรดเขียนถูกรูปแบบไหม
   const cutErr = badCuts(state.config.grade_cuts);
@@ -200,7 +201,7 @@ function runChecks() {
       title: `เกณฑ์เกรดเขียนผิดรูปแบบ ${cutErr.length} ช่วง`,
       detail: `ช่วงที่อ่านไม่ออก: ${cutErr.join(' · ')} — ระบบข้ามช่วงนี้ไป เกรดที่ออกมาจะไม่ตรงกับที่ตั้งใจ`,
       fix: 'เขียนเป็น คะแนน:เกรด คั่นด้วยจุลภาค เช่น 80:4,75:3.5,70:3 (ระวังพิมพ์ตัว O แทนเลข 0)',
-      action: { label: '⚙️ ไปแก้', run: () => go('settings') }
+      action: { label: 'ไปแก้', run: () => go('settings') }
     });
   }
 
@@ -254,7 +255,7 @@ function runChecks() {
     out.push({
       level: 'warn', title: 'ยังไม่ได้ติดตั้งเป็นแอป',
       detail: 'ติดตั้งแล้วจะเปิดเร็วขึ้นและใช้ตอนไม่มีเน็ตได้',
-      action: { label: '⬇️ ติดตั้งเลย', run: async () => {
+      action: { label: 'ติดตั้งเลย', run: async () => {
         const e = state.installPrompt; state.installPrompt = null;
         e.prompt(); await e.userChoice; emit();
       } }
@@ -287,7 +288,7 @@ const shortUrl = (u) => u.replace(/^https:\/\/script\.google\.com\/macros\/s\//,
 async function testConn() {
   try {
     await api.call('ping');
-    toast('เชื่อมต่อได้ปกติ ✅', 'ok');
+    toast('เชื่อมต่อได้ปกติ', 'ok');
   } catch (e) {
     toast(e.message, 'err', 6000);
   }
@@ -301,8 +302,8 @@ async function copyTransfer() {
 
 function showUpdateSteps() {
   modal((close) => h('div', null,
-    h('h2', null, '🔄 อัปเดตโค้ดในชีต'),
-    h('ol', { style: { paddingLeft: '20px', fontSize: '14px', lineHeight: '2' } },
+    h('h2', null, 'อัปเดตโค้ดในชีต'),
+    h('ol', { style: { paddingLeft: '20px', fontSize: 'var(--fs-md)', lineHeight: '2' } },
       h('li', null, 'เปิดชีต → ', h('b', null, 'ส่วนขยาย → Apps Script')),
       h('li', null, 'คลิกในช่องโค้ด กด ', h('b', null, 'Ctrl+A'), ' แล้ววางไฟล์ ',
         h('code', null, 'ALL-IN-ONE.gs'), ' ทับ'),
@@ -312,7 +313,7 @@ function showUpdateSteps() {
         h('b', null, 'New version'), ' → ', h('b', null, 'Deploy'))
     ),
     h('div', {
-      style: { background: 'var(--amber-soft)', padding: '11px', borderRadius: '10px', fontSize: '13px', margin: '4px 0 14px' }
+      style: { background: 'var(--amber-soft)', padding: '11px', borderRadius: 'var(--r-sm)', fontSize: 'var(--fs-sm)', margin: '4px 0 14px' }
     }, h('b', null, 'ข้อ 5 สำคัญที่สุด'), ' — ถ้าแค่กด Ctrl+S แล้วไม่ Deploy โค้ดใหม่จะยังไม่ถูกใช้งาน'),
     h('button', { class: 'btn btn-block', onclick: async () => { close(); await testConn(); } }, 'ทำเสร็จแล้ว — ตรวจอีกครั้ง')
   ));

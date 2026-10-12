@@ -7,10 +7,10 @@
  */
 
 import { h, toast, todayISO, fmtDate, fmtDayFull, isToday, confirmBox, modal, matchStudent, printPage } from '../dom.js';
-import { icon } from '../icons.js';
+import { icon, withIcon } from '../icons.js';
 import { state, emit, ensureColumn, setCells, getCell, deleteColumn, go } from '../state.js';
 import { ATT_CODES, ATT_NAMES, attStats } from '../score.js';
-import { undoAction } from './common.js';
+import { undoAction, loadingPage } from './common.js';
 
 const ui = {
   // ดีไซน์ให้แตะ "เช็คชื่อ" แล้วเข้าหน้าเช็คของวันนี้เลย ไม่ต้องผ่านหน้าเลือกวัน
@@ -90,8 +90,7 @@ export function startCheckAt(period) {
 export function viewAttendance() {
   const cls = state.cls;
   if (!cls) {
-    return h('div', { class: 'page empty' },
-      state.loadingClass ? 'กำลังโหลดห้องเรียน…' : 'ยังไม่ได้เลือกห้องเรียน');
+    return state.loadingClass ? loadingPage() : h('div', { class: 'page empty' }, 'ยังไม่ได้เลือกห้องเรียน');
   }
   if (!cls.students.length) {
     return h('div', { class: 'page' }, h('div', { class: 'card empty' },
@@ -145,7 +144,7 @@ viewAttendance.head = function () {
         h('button', {
           class: 'ph-back', 'aria-label': 'กลับไปเช็ควันนี้',
           onclick: () => enterCheck(todayISO(), periodsOn(todayISO())[0]?.period || 1)
-        }, '‹'),
+        }, icon('back')),
         h('div', { class: 'ph-grow' },
           h('div', { class: 'ph-title' }, 'ประวัติการเช็คชื่อ'),
           h('div', { class: 'ph-sub' },
@@ -157,7 +156,7 @@ viewAttendance.head = function () {
 
   return h('header', { class: 'pagehead' },
     h('div', { class: 'ph-row' },
-      h('button', { class: 'ph-back', 'aria-label': 'กลับ', onclick: () => { ui.mode = 'list'; emit(); } }, '‹'),
+      h('button', { class: 'ph-back', 'aria-label': 'กลับ', onclick: () => { ui.mode = 'list'; emit(); } }, icon('back')),
       h('div', { class: 'ph-grow' },
         h('div', { class: 'ph-title' },
           // คาบเดียวของวันก็บอกเลขคาบถ้าไม่ใช่คาบ 1 (มาจากตารางสอน) ครูจะได้มั่นใจว่าเช็คถูกคาบ
@@ -165,7 +164,7 @@ viewAttendance.head = function () {
         h('div', { class: 'ph-sub' },
           `${[cls.meta.grade, cls.meta.room].filter(Boolean).join('/')} ${cls.meta.subject}`)),
       h('div', { class: 'ph-badge' }, `${done}/${cls.students.length}`),
-      h('button', { class: 'ph-back', 'aria-label': 'ตัวเลือกเพิ่มเติม', onclick: () => openMenu(available, key) }, '⋯')
+      h('button', { class: 'ph-back', 'aria-label': 'ตัวเลือกเพิ่มเติม', onclick: () => openMenu(available, key) }, icon('more'))
     ),
     // คาบเรียนใช้ dropdown — จำนวนคาบไม่จำกัด ถ้าเรียงเป็นชิปจะกินที่แถบหัว
     // ไปเรื่อย ๆ ตามจำนวนคาบ และหาคาบที่ต้องการยากขึ้นเมื่อมีหลายคาบ
@@ -178,16 +177,16 @@ viewAttendance.head = function () {
         }, available.map(pn => h('option', {
           value: String(pn), selected: pn === ui.period
         }, String(pn))))),
-      h('button', { class: 'ph-chip add', onclick: () => addPeriod(available, ui.date) }, '+ เพิ่มคาบ')
+      h('button', { class: 'ph-chip add', onclick: () => addPeriod(available, ui.date) }, withIcon('plus', 'เพิ่มคาบ'))
     ),
     h('div', { class: 'ph-actions' },
-      h('button', { class: 'ph-main', onclick: () => markAll(key, 'ม') }, '✓ ทุกคนมา'),
+      h('button', { class: 'ph-main', onclick: () => markAll(key, 'ม') }, withIcon('check', 'ทุกคนมา')),
       st.blank > 0
         ? h('button', {
             class: 'ph-side', 'data-on': ui.onlyBlank ? '1' : '0',
             onclick: () => { ui.onlyBlank = !ui.onlyBlank; emit(); }
           }, ui.onlyBlank ? 'แสดงทุกคน' : `ยังว่าง ${st.blank}`)
-        : h('div', { class: 'ph-side' }, 'ครบแล้ว')
+        : h('div', { class: 'ph-side done' }, withIcon('check', 'ครบแล้ว'))
     )
   );
 };
@@ -205,7 +204,7 @@ function dayListScreen() {
       h('button', {
         class: 'ctx-step', 'aria-label': 'กลับไปเช็ควันนี้',
         onclick: () => enterCheck(today, cols[0]?.period || 1)
-      }, '‹'),
+      }, icon('back')),
       h('div', { style: { flex: '1', minWidth: '0' } },
         h('div', { class: 'ctx-title' }, 'ประวัติการเช็คชื่อ'),
         h('div', { class: 'ctx-sub' },
@@ -214,11 +213,11 @@ function dayListScreen() {
             : 'วันนี้ยังไม่ได้เช็คชื่อ')),
       h('div', { class: 'ctx-end' },
         h('button', { class: 'btn', onclick: () => enterCheck(today, cols[0]?.period || 1) },
-          checked ? 'เช็คชื่อวันนี้ต่อ' : '✓ เริ่มเช็คชื่อวันนี้'))),
+          checked ? 'เช็คชื่อวันนี้ต่อ' : 'เริ่มเช็คชื่อวันนี้'))),
 
     // ── ย้อนไปวันอื่น ──
     h('div', { class: 'card', style: { display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' } },
-      h('span', { style: { fontSize: '13px', color: 'var(--ink-2)', flex: 'none' } }, 'ย้อนไปเช็ควันอื่น'),
+      h('span', { style: { fontSize: 'var(--fs-sm)', color: 'var(--ink-2)', flex: 'none' } }, 'ย้อนไปเช็ควันอื่น'),
       h('input', {
         type: 'date', value: ui.date, style: { flex: '1', minWidth: '160px' },
         onchange: (e) => {
@@ -232,7 +231,7 @@ function dayListScreen() {
       h('button', {
         class: 'btn pc-hide', style: { flexBasis: '100%' },
         onclick: () => enterCheck(today, cols[0]?.period || 1)
-      }, checked ? 'เช็คชื่อวันนี้ต่อ' : '✓ เริ่มเช็คชื่อวันนี้')
+      }, checked ? 'เช็คชื่อวันนี้ต่อ' : 'เริ่มเช็คชื่อวันนี้')
     ),
 
     historyCard()
@@ -251,7 +250,7 @@ function historyCard() {
   if (!dates.length) {
     return h('div', { class: 'card empty' },
       h('div', { class: 'empty-icon' }, '🗓'),
-      h('div', { style: { fontSize: '13px' } },
+      h('div', { style: { fontSize: 'var(--fs-sm)' } },
         'ยังไม่เคยเช็คชื่อห้องนี้', h('br'), 'เช็ควันไหน ระบบจะบันทึกวันนั้นให้เอง วันที่ไม่เช็คไม่ถูกนำมาคิดคะแนน'));
   }
 
@@ -278,7 +277,7 @@ function historyCard() {
           h('button', {
             class: 'icon-btn', style: { color: 'var(--ink-3)' }, title: 'แก้ไข / ลบ',
             onclick: () => openDayMenu(d, cols)
-          }, '⋯')
+          }, icon('more'))
         );
       })
     ));
@@ -295,7 +294,7 @@ function openDayMenu(dateISO, cols) {
       ...cols.map(c => h('button', {
         class: 'btn btn-ghost btn-block',
         onclick: () => { close(); enterCheck(dateISO, c.period); }
-      }, cols.length > 1 ? `✏️ แก้ไขคาบ ${c.period}` : '✏️ แก้ไขการเช็คชื่อ')),
+      }, withIcon('edit', cols.length > 1 ? `แก้ไขคาบ ${c.period}` : 'แก้ไขการเช็คชื่อ'))),
 
       h('div', { class: 'sep' }, 'ลบ'),
 
@@ -308,7 +307,7 @@ function openDayMenu(dateISO, cols) {
           await deleteColumn(c.key);
           toast('ลบแล้ว', 'ok');
         }
-      }, cols.length > 1 ? `🗑 ลบคาบ ${c.period}` : '🗑 ลบการเช็คชื่อวันนี้')),
+      }, withIcon('trash', cols.length > 1 ? `ลบคาบ ${c.period}` : 'ลบการเช็คชื่อวันนี้'))),
 
       cols.length > 1 && h('button', {
         class: 'btn btn-danger btn-block',
@@ -318,7 +317,7 @@ function openDayMenu(dateISO, cols) {
           for (const c of cols) await deleteColumn(c.key);
           toast(`ลบ ${cols.length} คาบแล้ว`, 'ok');
         }
-      }, `🗑 ลบทั้งวัน (${cols.length} คาบ)`)
+      }, withIcon('trash', `ลบทั้งวัน (${cols.length} คาบ)`))
     )
   ));
 }
@@ -338,12 +337,12 @@ function checkScreen() {
 
     // ── PC: บริบทของหน้าเป็นการ์ดขาว (มือถืออยู่ในแถบเข้มด้านบนแล้ว) ──
     h('div', { class: 'ctxbar' },
-      h('button', { class: 'ctx-step', 'aria-label': 'วันก่อนหน้า', onclick: () => stepDay(-1) }, '‹'),
+      h('button', { class: 'ctx-step', 'aria-label': 'วันก่อนหน้า', onclick: () => stepDay(-1) }, icon('back')),
       h('div', null,
         h('div', { class: 'ctx-title' }, fmtDayFull(ui.date)),
         h('div', { class: 'ctx-sub' },
-          `${halfOf(ui.date) === 1 ? 'ก่อนกลางภาค' : 'หลังกลางภาค'} · แก้ช่วงได้ในเมนู ⋯`)),
-      h('button', { class: 'ctx-step', 'aria-label': 'วันถัดไป', onclick: () => stepDay(1) }, '›'),
+          `คะแนนช่วง${halfOf(ui.date) === 1 ? 'ก่อนกลางภาค' : 'หลังกลางภาค'}`)),
+      h('button', { class: 'ctx-step', 'aria-label': 'วันถัดไป', onclick: () => stepDay(1) }, icon('next')),
 
       h('div', { class: 'ph-chips', style: { marginTop: '0', gap: '6px' } },
         available.length > 1 && h('label', { class: 'pickbox' },
@@ -354,19 +353,19 @@ function checkScreen() {
           }, available.map(pn => h('option', {
             value: String(pn), selected: pn === ui.period
           }, String(pn))))),
-        h('button', { class: 'chip', onclick: () => addPeriod(available, ui.date) }, '+ เพิ่มคาบ')),
+        h('button', { class: 'chip', onclick: () => addPeriod(available, ui.date) }, withIcon('plus', 'เพิ่มคาบ'))),
 
       h('div', { class: 'ctx-end' },
-        h('span', { class: 'tnum', 'data-t': 'done', style: { fontSize: '13px', color: 'var(--ink-2)' } },
+        h('span', { class: 'tnum', 'data-t': 'done', style: { fontSize: 'var(--fs-sm)', color: 'var(--ink-2)' } },
           `เช็คแล้ว ${done}/${total}`),
-        h('button', { class: 'btn btn-sm', onclick: () => markAll(key, 'ม') }, '✓ ทุกคนมา'),
-        h('button', { class: 'icon-btn', onclick: () => openMenu(available, key) }, '⋯'))
+        h('button', { class: 'btn btn-sm', onclick: () => markAll(key, 'ม') }, withIcon('check', 'ทุกคนมา')),
+        h('button', { class: 'icon-btn', 'aria-label': 'ตัวเลือกเพิ่มเติม', onclick: () => openMenu(available, key) }, icon('more')))
     ),
 
     h('div', { class: 'find-row' }, searchBox(), h('button', {
       class: 'dice-btn', 'aria-label': 'สุ่มเรียกชื่อ', title: 'สุ่มเรียกชื่อ',
       onclick: () => openPicker(key)
-    }, '🎲')),
+    }, icon('shuffle'))),
 
     // ── แถวกรอง + ตัวนับ (ตามดีไซน์ วางอยู่เหนือรายชื่อ) ──
     h('div', { class: 'filter-row', style: { display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '10px' } },
@@ -378,7 +377,7 @@ function checkScreen() {
         class: 'chip', 'data-on': ui.onlyBlank ? '1' : '0',
         onclick: () => { ui.onlyBlank = st.blank > 0 ? !ui.onlyBlank : false; emit(); }
       }, h('span', { 'data-t': 'blank' }, `ยังว่าง ${st.blank}`)),
-      h('span', { class: 'chip' }, h('span', { 'data-t': 'odd' }, `ไม่ปกติ ${odd}`)),
+      h('span', { class: 'chip static' }, h('span', { 'data-t': 'odd' }, `ไม่ปกติ ${odd}`)),
       h('div', { class: 'tally', style: { marginLeft: 'auto' } },
         h('b', { class: 't-ok', 'data-t': 'ม' }, `มา ${st['ม']}`),
         h('b', { class: 't-late', 'data-t': 'ส' }, `สาย ${st['ส']}`),
@@ -507,7 +506,7 @@ function openPicker(key) {
     roll();
 
     return h('div', null,
-      h('h2', null, '🎲 สุ่มเรียกชื่อ'),
+      h('h2', null, 'สุ่มเรียกชื่อ'),
       h('div', { class: 'pick-card' }, sub, name),
       left,
       h('div', { class: 'hint', style: { textAlign: 'center', marginBottom: '12px' } },
@@ -532,20 +531,20 @@ function openMenu(available, key) {
       h('button', {
         class: 'btn btn-ghost btn-block',
         onclick: () => { close(); addPeriod(available, ui.date); }
-      }, '➕ เพิ่มคาบของวันนี้'),
+      }, withIcon('plus', 'เพิ่มคาบของวันนี้')),
 
       h('button', {
         class: 'btn btn-ghost btn-block',
         onclick: () => { close(); printBlankSheet(); }
-      }, '🖨 พิมพ์ใบเช็คชื่อเปล่า'),
+      }, withIcon('printer', 'พิมพ์ใบเช็คชื่อเปล่า')),
 
       // บน PC ไม่มีปุ่ม ‹ แบบมือถือ ทางเข้าหน้าประวัติจึงต้องอยู่ในเมนูนี้
       h('button', {
         class: 'btn btn-ghost btn-block',
         onclick: () => { close(); ui.mode = 'list'; emit(); }
-      }, '🗓 ประวัติการเช็ค / เลือกวันอื่น'),
+      }, withIcon('calendar', 'ประวัติการเช็ค / เลือกวันอื่น')),
 
-      h('div', { style: { fontSize: '12.5px', color: 'var(--ink-2)', marginTop: '6px' } },
+      h('div', { style: { fontSize: 'var(--fs-sm)', color: 'var(--ink-2)', marginTop: '6px' } },
         `ช่วงคะแนน: ${half === 1 ? 'ก่อนกลางภาค' : 'หลังกลางภาค'}`,
         midSet ? ' (คำนวณจากวันสอบกลางภาค)' : ' — ยังไม่ได้ตั้งวันสอบกลางภาค'),
       h('div', { class: 'btn-row' },
@@ -560,7 +559,7 @@ function openMenu(available, key) {
       !midSet && h('button', {
         class: 'btn btn-soft btn-block btn-sm',
         onclick: () => { close(); go('settings'); }
-      }, '⚙️ ไปตั้งวันสอบกลางภาค (ตั้งครั้งเดียวจบ)'),
+      }, withIcon('gear', 'ไปตั้งวันสอบกลางภาค (ตั้งครั้งเดียวจบ)')),
 
       exists && h('button', {
         class: 'btn btn-danger btn-block', style: { marginTop: '10px' },
@@ -572,7 +571,7 @@ function openMenu(available, key) {
           ui.period = 1; ui.mode = 'list';
           toast('ลบแล้ว', 'ok');
         }
-      }, '🗑 ลบการเช็คครั้งนี้')
+      }, withIcon('trash', 'ลบการเช็คครั้งนี้'))
     )
   ));
 }

@@ -3,6 +3,7 @@
 import { h, toast } from '../dom.js';
 import * as api from '../api.js';
 import { auth, renderSignInButton } from '../auth.js';
+import { withIcon } from '../icons.js';
 
 const ui = {
   step: 1,
@@ -177,7 +178,7 @@ function stepSignIn() {
           ? h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', minHeight: '48px' } },
               h('div', { class: 'boot-spin' }),
               h('span', { class: 'setup-p' }, 'กำลังอ่านการตั้งค่าจากชีต…'))
-          : h('div', { style: { background: 'var(--amber-soft)', padding: '11px 13px', borderRadius: '11px', fontSize: '13px', color: 'var(--warn-ink)', lineHeight: '1.6' } },
+          : h('div', { style: { background: 'var(--amber-soft)', padding: '11px 13px', borderRadius: 'var(--r-1)', fontSize: 'var(--fs-sm)', color: 'var(--warn-ink)', lineHeight: '1.6' } },
               h('b', null, 'ยังไม่ได้เปิดใช้การเข้าสู่ระบบด้วย Google'), h('br'),
               'ใส่ ', h('code', null, 'oauth_client_id'), ' ในแท็บ ⚙️ ตั้งค่า ของชีต แล้ว Deploy ใหม่ (ดูวิธีด้านล่าง)',
               h('br'), 'หรือเลือก "รหัสลับ" ด้านบนเพื่อเริ่มใช้ก่อน'))
@@ -190,14 +191,14 @@ function stepSignIn() {
     h('button', {
       class: 'btn btn-ghost btn-block btn-sm', style: { marginTop: '8px' },
       onclick: () => { ui.editUrl = true; ui.step = 1; render(); }
-    }, '‹ เปลี่ยน URL')
+    }, withIcon('back', 'เปลี่ยน URL'))
   );
 }
 
 function helpCard() {
   return h('details', { class: 'card' },
-    h('summary', { style: { fontWeight: '700', cursor: 'pointer' } }, '📋 ขั้นตอนติดตั้ง (ทำครั้งเดียว)'),
-    h('ol', { style: { paddingLeft: '20px', fontSize: '13.5px', lineHeight: '1.85', color: 'var(--ink-2)' } },
+    h('summary', { style: { fontWeight: '700', cursor: 'pointer' } }, 'ขั้นตอนติดตั้ง (ทำครั้งเดียว)'),
+    h('ol', { style: { paddingLeft: '20px', fontSize: 'var(--fs-md)', lineHeight: '1.85', color: 'var(--ink-2)' } },
       h('li', null, 'สร้าง Google Sheet ใหม่ → ', h('b', null, 'ส่วนขยาย → Apps Script')),
       h('li', null, 'วางไฟล์ ', h('code', null, 'ALL-IN-ONE.gs'), ' ทับโค้ดเดิม แล้วบันทึก'),
       h('li', null, 'กลับไปที่ชีต รีเฟรช → เมนู ', h('b', null, '📗 AssignCheck → 🚀 ติดตั้ง')),
@@ -205,8 +206,8 @@ function helpCard() {
         'Execute as: ', h('b', null, 'Me'), ' · Who has access: ', h('b', null, 'Anyone')),
       h('li', null, 'คัดลอก Web app URL มาใส่ด้านบน')
     ),
-    h('div', { style: { fontWeight: '700', marginTop: '10px', fontSize: '13.5px' } }, '🔐 เปิดใช้เข้าสู่ระบบด้วย Google'),
-    h('ol', { style: { paddingLeft: '20px', fontSize: '13.5px', lineHeight: '1.85', color: 'var(--ink-2)' } },
+    h('div', { style: { fontWeight: '700', marginTop: '10px', fontSize: 'var(--fs-md)' } }, 'เปิดใช้เข้าสู่ระบบด้วย Google'),
+    h('ol', { style: { paddingLeft: '20px', fontSize: 'var(--fs-md)', lineHeight: '1.85', color: 'var(--ink-2)' } },
       h('li', null, 'ไปที่ ', h('code', null, 'console.cloud.google.com'), ' → สร้างโปรเจกต์'),
       h('li', null, h('b', null, 'APIs & Services → OAuth consent screen'), ' → External → ใส่ชื่อแอปกับอีเมล'),
       h('li', null, h('b', null, 'Credentials → Create credentials → OAuth client ID'), ' → Web application'),

@@ -15,6 +15,14 @@ export const isWide = () => {
   try { return matchMedia('(min-width: 900px)').matches; } catch (e) { return false; }
 };
 
+/**
+ * โครงหน้าระหว่างรอข้อมูลห้องเรียน — แทนตัวหนังสือ "กำลังโหลดห้องเรียน…" กลางจอว่าง
+ * ครูเห็นว่ากำลังจะมีอะไรขึ้นตรงไหน รอ Apps Script 1–3 วินาทีแล้วไม่รู้สึกว่าแอปค้าง
+ */
+export const loadingPage = () => h('div', { class: 'page' },
+  h('div', { class: 'skel', role: 'status', 'aria-busy': 'true', 'aria-label': 'กำลังโหลดห้องเรียน' },
+    h('i'), h('i'), h('i'), h('i'), h('i')));
+
 /** "ม.1/1" จากข้อมูลห้อง */
 export const roomOf = (c) => [c.grade, c.room].filter(Boolean).join('/');
 

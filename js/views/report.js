@@ -9,7 +9,8 @@ import { state, emit, settings, go, sync, refreshClass, fetchedAt } from '../sta
 import * as api from '../api.js';
 import { computeClass, parseWork, BUCKETS, ATT_CODES, passMarkOf, passOf, blankMissCols, effectiveRaw } from '../score.js';
 import { openCopyList } from './chase.js';
-import { exportClassCSV } from './common.js';
+import { exportClassCSV, loadingPage } from './common.js';
+import { icon, withIcon } from '../icons.js';
 
 /* tab:    'class' ภาพรวม · 'follow' ตามงาน (ใครยังค้างชิ้นไหน) · 'student' รายคน
  * follow: ตัวกรองของแท็บตามงาน · phase: 0 ทั้งเทอม / 1 ก่อนกลางภาค / 2 หลังกลางภาค
@@ -39,8 +40,7 @@ const statusLabel = (k, col) => (isExam(col) ? WORK_STYLE[k].exam : WORK_STYLE[k
 export function viewReport() {
   const cls = state.cls;
   if (!cls) {
-    return h('div', { class: 'page empty' },
-      state.loadingClass ? 'กำลังโหลดห้องเรียน…' : 'ยังไม่ได้เลือกห้องเรียน');
+    return state.loadingClass ? loadingPage() : h('div', { class: 'page empty' }, 'ยังไม่ได้เลือกห้องเรียน');
   }
   if (!cls.students.length) {
     return h('div', { class: 'page' }, h('div', { class: 'card empty' },
@@ -56,7 +56,7 @@ export function viewReport() {
       h('button', {
         class: 'chip', style: { marginLeft: 'auto' },
         onclick: () => exportClassCSV(computeClass(cls, settings()))
-      }, '⤓ CSV')
+      }, withIcon('download', 'CSV'))
     ),
     freshness(),
     ui.tab === 'class' ? classReport() : ui.tab === 'follow' ? followReport() : studentReport()
@@ -83,7 +83,7 @@ function freshness() {
     h('button', {
       class: 'rep-fresh-btn', disabled: busy,
       onclick: async () => { await sync(); await refreshClass({ force: true, loud: true }); }
-    }, '↻ ดึงใหม่'));
+    }, withIcon('refresh', 'ดึงใหม่')));
 }
 
 
@@ -166,11 +166,14 @@ function classReport() {
 
   const attSegs = ATT_CODES.map(k => ({ key: k, n: att[k], c: ATT_STYLE[k].c, t: ATT_STYLE[k].t, label: ATT_STYLE[k].label }));
 
-  // การกระจายเกรด
-  const gradeOrder = ['4', '3.5', '3', '2.5', '2', '1.5', '1', '0', 'มส'];
+  // การกระจายเกรด — แสดงครบทุกขั้นตามเกณฑ์ในหน้าตั้งค่าเสมอ ขั้นที่ไม่มีใครได้เป็นแท่งว่าง
+  // ของเดิมโชว์เฉพาะเกรดที่มีคน แกนจึงเหลือแค่ 1.5 · 1 · 0 · มส อ่านไม่ออกว่าขั้นที่หายไปคือไม่มีใคร
+  // หรือกราฟผิด และแท่งขยับตำแหน่งทุกครั้งที่มีคนเปลี่ยนเกรด
+  const gradeOrder = [...new Set([...S.cuts.map(c => c.grade), 'มส'])];
   const gCount = {};
   rows.forEach(r => { gCount[r.grade] = (gCount[r.grade] || 0) + 1; });
-  const grades = gradeOrder.filter(g => gCount[g]).map(g => ({ g, n: gCount[g] }));
+  const grades = gradeOrder.map(g => ({ g, n: gCount[g] || 0 }));
+  const anyGrade = grades.some(x => x.n > 0);
   const gMax = Math.max(...grades.map(x => x.n), 1);
 
   // ผู้ที่ต้องติดตาม
@@ -209,16 +212,16 @@ function classReport() {
         h('div', { class: 'rep-head' },
           h('h3', null, 'การกระจายเกรด'),
           h('span', null, 'ประมาณการ')),
-        grades.length === 0
+        !anyGrade
           ? h('div', { class: 'bar-empty' }, 'ยังไม่มีคะแนนพอจะตัดเกรด')
           : h('div', null,
               h('div', { class: 'gradebars' },
-                grades.map(x => h('div', { class: 'gcol' },
+                grades.map(x => h('div', { class: 'gcol' + (x.n ? '' : ' zero') },
                   h('div', { class: 'gcol-n' }, String(x.n)),
                   h('div', {
                     // ดีไซน์: เกรด 1 = ส้มเตือน · เกรด 0 กับ มส = แดง
                     class: 'gcol-bar' + ((x.g === 'มส' || x.g === '0') ? ' bad' : (x.g === '1' ? ' warn' : '')),
-                    style: { height: Math.round(8 + (x.n / gMax) * 56) + 'px' },
+                    style: { height: x.n ? Math.round(8 + (x.n / gMax) * 56) + 'px' : '3px' },
                     title: `เกรด ${x.g} · ${x.n} คน`
                   })))),
               h('div', { class: 'gaxis' }, grades.map(x => h('div', null, x.g))))
@@ -228,7 +231,7 @@ function classReport() {
     // ── การส่งงาน รายชิ้น ──
     h('div', { class: 'card' },
       h('div', { class: 'rep-head' },
-        h('h3', null, '📝 การส่งงานรายชิ้น'),
+        h('h3', null, 'การส่งงานรายชิ้น'),
         h('span', null, `${wCols.length} รายการ`)),
       wCols.length === 0
         ? h('div', { class: 'bar-empty' }, 'ยังไม่มีรายการงาน/สอบ')
@@ -433,7 +436,7 @@ function followCard(c, g, groups, S) {
   return h('div', { class: 'card follow-card' },
     h('div', { class: 'rep-head' },
       h('h3', null, c.label),
-      groups.some(({ k }) => k.id !== 'none') && h('button', { class: 'rep-fresh-btn', onclick: copy }, '📣 คัดลอกไปไลน์')),
+      groups.some(({ k }) => k.id !== 'none') && h('button', { class: 'rep-fresh-btn', onclick: copy }, withIcon('copy', 'คัดลอกไปไลน์'))),
     h('div', { class: 'follow-meta' },
       bucketName(c)
         + (mark !== null ? ` · ผ่านที่ ${nf(mark)}` : '')
@@ -478,7 +481,7 @@ function studentReport() {
         h('div', { class: 'ctx-sub' }, `เลขที่ ${r.no}${r.sid ? ' · ' + r.sid : ''}`)),
       h('div', { style: { position: 'relative' } },
         h('input', {
-          placeholder: '🔍 ค้นหาชื่อ หรือเลขที่', value: ui.q, style: { minWidth: '210px' },
+          placeholder: 'ค้นหาชื่อ หรือเลขที่', value: ui.q, style: { minWidth: '210px' },
           oninput: (e) => { ui.q = e.target.value; emit(); }
         }),
         matches.length > 0 && h('div', { class: 'search-hits' },
@@ -486,8 +489,8 @@ function studentReport() {
             class: 'chip', onclick: () => { ui.sid = s.sid; ui.q = ''; emit(); }
           }, `${s.no}. ${s.name}`)))),
       h('div', { class: 'ctx-end' },
-        h('button', { class: 'btn btn-ghost btn-sm', onclick: () => moveStudent(-1, rows) }, '‹'),
-        h('button', { class: 'btn btn-ghost btn-sm', onclick: () => moveStudent(1, rows) }, '›'))),
+        h('button', { class: 'btn btn-ghost btn-sm', 'aria-label': 'คนก่อนหน้า', onclick: () => moveStudent(-1, rows) }, icon('back')),
+        h('button', { class: 'btn btn-ghost btn-sm', 'aria-label': 'คนถัดไป', onclick: () => moveStudent(1, rows) }, icon('next')))),
 
     // เลือกคนได้ตรง ๆ เหมือนโหมดรายคนของหน้างาน/คะแนน
     // เดิมบนมือถือ .ctxbar ถูกซ่อน (max-width:899px) จึงไม่มีทางเปลี่ยนคนเลย
@@ -497,7 +500,7 @@ function studentReport() {
         class: 'btn btn-ghost btn-sm', 'aria-label': 'คนก่อนหน้า',
         disabled: rows.findIndex(x => x.sid === ui.sid) <= 0,
         onclick: () => moveStudent(-1, rows)
-      }, '‹'),
+      }, icon('back')),
       h('label', { class: 'pickbox grow' },
         h('span', null, 'นักเรียน'),
         h('select', {
@@ -509,7 +512,7 @@ function studentReport() {
         class: 'btn btn-ghost btn-sm', 'aria-label': 'คนถัดไป',
         disabled: rows.findIndex(x => x.sid === ui.sid) >= rows.length - 1,
         onclick: () => moveStudent(1, rows)
-      }, '›')),
+      }, icon('next'))),
 
     // ── ธงเตือน — พื้นหลังบอกระดับตามดีไซน์ ──
     r.flag && h('div', {
@@ -519,9 +522,9 @@ function studentReport() {
         display: 'flex', gap: '10px', alignItems: 'center', padding: '12px 14px'
       }
     },
-      h('div', { style: { fontSize: '13px', fontWeight: '700', color: r.grade === 'มส' ? 'var(--st-miss)' : 'var(--warn-ink)' } },
+      h('div', { style: { fontSize: 'var(--fs-sm)', fontWeight: '700', color: r.grade === 'มส' ? 'var(--st-miss)' : 'var(--warn-ink)' } },
         r.grade === 'มส' ? 'มส' : '⚠️'),
-      h('div', { style: { fontSize: '12.5px', flex: '1', color: r.grade === 'มส' ? 'var(--st-miss)' : 'var(--warn-ink)' } },
+      h('div', { style: { fontSize: 'var(--fs-sm)', flex: '1', color: r.grade === 'มส' ? 'var(--st-miss)' : 'var(--warn-ink)' } },
         r.attN && r.pct < S.minPct
           ? `เวลาเรียน ${r.pct}% ต่ำกว่าเกณฑ์ ${S.minPct}% · ขาด ${att['ข']} คาบ`
           : r.flag)),
@@ -529,12 +532,12 @@ function studentReport() {
     // ── คะแนน 8 ช่อง — ตารางย่อ 2 คอลัมน์ (ดีไซน์หน้า 04 มือถือ) ──
     h('div', { class: 'card' },
       h('div', { style: { display: 'flex', alignItems: 'baseline', gap: '8px', marginBottom: '12px' } },
-        h('div', { style: { fontSize: '13.5px', fontWeight: '700', flex: '1' } }, 'คะแนน 8 ช่อง'),
+        h('div', { style: { fontSize: 'var(--fs-md)', fontWeight: '700', flex: '1' } }, 'คะแนน 8 ช่อง'),
         h('div', {
           class: 'tnum',
-          style: { fontSize: '20px', fontWeight: '700', color: r.grade === 'มส' || r.grade === '0' ? 'var(--st-miss)' : 'var(--ink)' }
+          style: { fontSize: 'var(--fs-xl)', fontWeight: '700', color: r.grade === 'มส' || r.grade === '0' ? 'var(--st-miss)' : 'var(--ink)' }
         }, r.dataN ? nf(r.total) : '—'),
-        h('div', { style: { fontSize: '12.5px', color: 'var(--ink-2)' } }, `/100 · เกรด ${r.grade}`)),
+        h('div', { style: { fontSize: 'var(--fs-sm)', color: 'var(--ink-2)' } }, `/100 · เกรด ${r.grade}`)),
       h('div', { class: 'score8' },
         BUCKETS.map(b => h('div', { class: 'score8-cell', title: `SGS ช่อง ${b.sgs}` },
           // สอบกลางภาค/ปลายภาคมีครั้งเดียว ไม่ต้องมีเลขช่วงต่อท้าย
@@ -546,7 +549,7 @@ function studentReport() {
 
     // ── วันที่ขาด/สาย/ลา — ป้ายสั้น ๆ เรียงกัน (ดีไซน์หน้า 04) ──
     att['ข'] + att['ส'] + att['ล'] > 0 && h('div', { class: 'card' },
-      h('div', { style: { fontSize: '13.5px', fontWeight: '700', marginBottom: '10px' } },
+      h('div', { style: { fontSize: 'var(--fs-md)', fontWeight: '700', marginBottom: '10px' } },
         `วันที่ขาด / สาย / ลา · ${att['ข'] + att['ส'] + att['ล']} คาบ`),
       h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '6px' } },
         attColumns().map(c => {
@@ -562,9 +565,9 @@ function studentReport() {
     // หน้านี้เป็น "รายงาน" ไม่ใช่หน้ากรอกคะแนน จึงโชว์เฉพาะสิ่งที่ต้องตามต่อ
     // (รายการงานครบทุกชิ้นพร้อมปุ่มกด อยู่ที่ งาน/คะแนน → รายคน)
     todo.length > 0 && h('div', { class: 'card' },
-      h('div', { style: { fontSize: '13.5px', fontWeight: '700', marginBottom: '10px' } },
+      h('div', { style: { fontSize: 'var(--fs-md)', fontWeight: '700', marginBottom: '10px' } },
         `งานที่ยังไม่ส่ง / ยังไม่ตรวจ · ${todo.length} ชิ้น`),
-      h('div', { style: { display: 'flex', flexDirection: 'column', gap: '7px', fontSize: '13px' } },
+      h('div', { style: { display: 'flex', flexDirection: 'column', gap: '7px', fontSize: 'var(--fs-sm)' } },
         todo.map(({ c, w }) => h('div', { style: { display: 'flex', gap: '10px' } },
           h('span', { style: { flex: '1', minWidth: '0' } }, c.label),
           h('span', { style: { color: w.status === 'miss' ? 'var(--st-miss)' : 'var(--ink-3)', flex: 'none' } },
@@ -573,7 +576,7 @@ function studentReport() {
     h('button', {
       class: 'btn btn-ghost btn-block', style: { marginTop: '4px' },
       onclick: () => go('work')
-    }, '📝 ไปกรอกงาน / คะแนนของคนนี้')
+    }, withIcon('doc', 'ไปกรอกงาน / คะแนนของคนนี้'))
   );
 }
 

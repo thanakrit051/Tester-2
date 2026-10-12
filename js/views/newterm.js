@@ -8,6 +8,7 @@ import { h, modal, toast, confirmBox } from '../dom.js';
 import { state, startNewTerm } from '../state.js';
 import * as api from '../api.js';
 import { serverSupports } from '../version.js';
+import { withIcon } from '../icons.js';
 import { parseTimetable, serializeTimetable, hasTimetable, withoutClasses } from '../timetable.js';
 
 const CHOICES = [
@@ -120,7 +121,7 @@ export function openNewTerm({ setMidDate } = {}) {
 /** แจ้งผล + ลิงก์ไฟล์สำรอง (ครูต้องรู้ว่าของเทอมเก่าไปอยู่ไหน) + ทางไปตั้งวันสอบกลางภาคที่เพิ่งถูกล้าง */
 function done(res, from, to, setMidDate) {
   modal((close) => h('div', null,
-    h('h2', null, `เริ่มภาคเรียนที่ ${to} แล้ว ✅`),
+    h('h2', null, `เริ่มภาคเรียนที่ ${to} แล้ว`),
     h('p', { style: { color: 'var(--ink-2)', marginTop: 0, lineHeight: '1.7' } },
       [res.reset && `ล้างคะแนน ${res.reset} ห้อง`, res.dropped && `ลบ ${res.dropped} ห้อง`].filter(Boolean).join(' · ') ||
         'ไม่ได้แตะห้องไหน',
@@ -128,7 +129,7 @@ function done(res, from, to, setMidDate) {
     res.archive && h('a', {
       class: 'btn btn-ghost btn-block', href: res.archive.url, target: '_blank', rel: 'noopener',
       style: { marginBottom: '8px', textDecoration: 'none' }
-    }, '📂 เปิดไฟล์สำรอง'),
+    }, withIcon('folder', 'เปิดไฟล์สำรอง')),
     setMidDate && h('button', {
       class: 'btn btn-block', style: { marginBottom: '8px' }, onclick: () => { close(); setMidDate(); }
     }, 'ต่อไป: ตั้งวันสอบกลางภาค'),

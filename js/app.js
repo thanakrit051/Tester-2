@@ -2,7 +2,7 @@
 
 import { h, mount, toast, closeTopModal, copyText } from './dom.js';
 import * as api from './api.js';
-import { state, subscribe, bootAll, sync, isSyncing, go, pushView } from './state.js';
+import { state, subscribe, bootAll, sync, isSyncing, savedAt, go, pushView } from './state.js';
 import { auth, restoreSession } from './auth.js';
 import { icon } from './icons.js';
 import { applyTheme, watchSystemTheme } from './theme.js';
@@ -160,13 +160,13 @@ function showFatal(err) {
   try { app.hidden = false; } catch (e) {}
   mount(app, h('div', { class: 'page' },
     h('div', { class: 'card' },
-      h('div', { style: { fontSize: '17px', fontWeight: '700', marginBottom: '8px' } }, 'เปิดแอปไม่สำเร็จ'),
-      h('div', { style: { fontSize: '13.5px', color: 'var(--ink-2)', marginBottom: '12px', lineHeight: '1.6' } },
+      h('div', { style: { fontSize: 'var(--fs-lg)', fontWeight: '700', marginBottom: '8px' } }, 'เปิดแอปไม่สำเร็จ'),
+      h('div', { style: { fontSize: 'var(--fs-md)', color: 'var(--ink-2)', marginBottom: '12px', lineHeight: '1.6' } },
         'ลองกดโหลดใหม่ก่อน ถ้ายังไม่หาย ให้กดคัดลอกรายงานแล้วส่งให้คนดูแลระบบ'),
       h('pre', {
         style: {
-          background: 'var(--surface-3)', padding: '11px 13px', borderRadius: '10px',
-          fontSize: '12px', whiteSpace: 'pre-wrap', wordBreak: 'break-word', margin: '0 0 12px'
+          background: 'var(--surface-3)', padding: '11px 13px', borderRadius: 'var(--r-sm)',
+          fontSize: 'var(--fs-xs)', whiteSpace: 'pre-wrap', wordBreak: 'break-word', margin: '0 0 12px'
         }
       }, msg),
       h('div', { class: 'btn-row' },
@@ -194,10 +194,8 @@ window.addEventListener('unhandledrejection', (e) => {
  */
 function syncBits() {
   const online = navigator.onLine;
-  const pending = api.queue.size;
+  // จำนวนที่ค้างส่งย้ายไปอยู่ในป้ายสถานะการบันทึก (refreshSaveState) ซึ่งเห็นได้ทุกหน้า
   return [
-    pending > 0 && h('span', { class: 'sync-pill' + (online ? '' : ' off') },
-      isSyncing() ? 'กำลังซิงค์…' : `ค้าง ${pending}`),
     !online && h('span', { class: 'sync-pill off' }, 'ออฟไลน์'),
     // ตัวเลขที่เห็นมาจากสำเนาในเครื่อง ยังไม่ได้คุยกับชีตรอบนี้
     // เดิมมี state.stale แต่ไม่เคยเอามาแสดง ครูจึงแยกไม่ออกว่ากำลังดูของสดหรือของเก่า
@@ -211,6 +209,39 @@ function syncBits() {
 function refreshSyncSlot() {
   const slot = document.querySelector('.appbar .sync-slot');
   if (slot) slot.replaceChildren(...syncBits());
+  refreshSaveState();
+}
+
+/**
+ * ป้ายสถานะการบันทึก ลอยมุมล่างจอ — "กำลังบันทึก…" → "✓ บันทึกแล้ว" แล้วหายไปเอง
+ *
+ * ของเดิมมีแค่ป้าย "ค้าง N" ในแถบหัว ซึ่งโผล่แล้วหายไปเงียบ ๆ ครูแยกไม่ออกว่าข้อมูลขึ้นชีตแล้ว
+ * หรือหายไป และบนมือถือหน้าเช็คชื่อ/กรอกคะแนนใช้แถบหัวของตัวเอง จึงไม่เห็นป้ายนั้นเลย
+ * ป้ายนี้อยู่นอก render() จึงเห็นได้ทุกหน้า และไม่ทำให้ช่องที่ครูกำลังพิมพ์ถูกวาดใหม่
+ */
+let savedTimer = null;
+function refreshSaveState() {
+  let el = document.getElementById('savestate');
+  if (!el) {
+    el = h('div', { id: 'savestate', class: 'savestate', role: 'status', 'aria-live': 'polite' });
+    document.body.appendChild(el);
+  }
+  const pending = api.queue.size;
+  const justSaved = !pending && Date.now() - savedAt() < 1800;
+  let mode = '', text = '';
+  if (pending && !navigator.onLine) { mode = 'off'; text = `ออฟไลน์ · เก็บไว้ในเครื่อง ${pending} รายการ`; }
+  else if (pending && api.queue.maxTries() > 0 && !isSyncing()) { mode = 'off'; text = `ยังส่งไม่ได้ · ค้าง ${pending} รายการ`; }
+  else if (pending) { mode = 'busy'; text = 'กำลังบันทึก…'; }
+  else if (justSaved) { mode = 'ok'; text = 'บันทึกแล้ว'; }
+
+  el.dataset.mode = mode;
+  if (mode) {
+    el.replaceChildren(
+      mode === 'ok' ? icon('check', 'ico ico-sm') : h('i', { class: 'savestate-dot' }),
+      h('span', null, text));
+  }
+  clearTimeout(savedTimer);
+  if (justSaved) savedTimer = setTimeout(refreshSaveState, 1900);
 }
 
 /**
@@ -342,13 +373,13 @@ function showBroken(err) {
   reveal();
   mount(app, h('div', { class: 'page' },
     h('div', { class: 'card' },
-      h('div', { style: { fontSize: '17px', fontWeight: '700', marginBottom: '8px' } }, 'หน้านี้เปิดไม่ขึ้น'),
-      h('div', { style: { fontSize: '13.5px', color: 'var(--ink-2)', marginBottom: '12px', lineHeight: '1.6' } },
+      h('div', { style: { fontSize: 'var(--fs-lg)', fontWeight: '700', marginBottom: '8px' } }, 'หน้านี้เปิดไม่ขึ้น'),
+      h('div', { style: { fontSize: 'var(--fs-md)', color: 'var(--ink-2)', marginBottom: '12px', lineHeight: '1.6' } },
         'ข้อมูลที่กรอกไว้ยังอยู่ครบและยังส่งขึ้นชีตตามปกติ — กลับไปหน้าอื่นแล้วใช้งานต่อได้เลย'),
       h('pre', {
         style: {
-          background: 'var(--surface-3)', padding: '11px 13px', borderRadius: '10px',
-          fontSize: '12px', whiteSpace: 'pre-wrap', wordBreak: 'break-word', margin: '0 0 12px'
+          background: 'var(--surface-3)', padding: '11px 13px', borderRadius: 'var(--r-sm)',
+          fontSize: 'var(--fs-xs)', whiteSpace: 'pre-wrap', wordBreak: 'break-word', margin: '0 0 12px'
         }
       }, msg),
       h('div', { class: 'btn-row' },
@@ -409,6 +440,9 @@ try {
 
 window.addEventListener('ac:rerender', safeRender);
 window.addEventListener('ac:sync', refreshSyncSlot);
+window.addEventListener('online', refreshSaveState);
+window.addEventListener('offline', refreshSaveState);
+try { refreshSaveState(); } catch (e) {}   // ค้างส่งจากรอบก่อน (ปิดแอปตอนออฟไลน์) ต้องเห็นตั้งแต่เปิด
 window.addEventListener('ac:busy', refreshNetBar);
 auth.onChange(safeRender);
 

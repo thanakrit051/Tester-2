@@ -1,9 +1,9 @@
 /* หน้ากรอกงานและคะแนนสอบ (ส่งงาน · สอบเก็บคะแนน · กลางภาค · ปลายภาค) */
 
 import { h, modal, toast, confirmBox, nf, matchStudent } from '../dom.js';
-import { icon } from '../icons.js';
+import { icon, withIcon } from '../icons.js';
 import { openCopyList } from './chase.js';
-import { undoAction, classSelect } from './common.js';
+import { undoAction, classSelect, loadingPage } from './common.js';
 import { state, emit, loadClass, ensureColumn, setCells, getCell, deleteColumn, updateColumn, settings, addColumnToMany } from '../state.js';
 import { BUCKETS, NOT_SUBMITTED, RETAKE_KINDS, parseWork, formatWork, formatRetake, passMarkOf, passOf, blankMissCols, effectiveRaw } from '../score.js';
 import { serverInfo } from '../api.js';
@@ -94,8 +94,7 @@ function columnsIn(bucketId) {
 export function viewWork() {
   const cls = state.cls;
   if (!cls) {
-    return h('div', { class: 'page empty' },
-      state.loadingClass ? 'กำลังโหลดห้องเรียน…' : 'ยังไม่ได้เลือกห้องเรียน');
+    return state.loadingClass ? loadingPage() : h('div', { class: 'page empty' }, 'ยังไม่ได้เลือกห้องเรียน');
   }
   if (!cls.students.length) {
     return h('div', { class: 'page' }, h('div', { class: 'card empty' },
@@ -137,7 +136,7 @@ viewWork.head = function () {
 
   return h('header', { class: 'pagehead' },
     h('div', { class: 'ph-row' },
-      h('button', { class: 'ph-back', 'aria-label': 'กลับ', onclick: () => { ui.open = null; emit(); } }, '‹'),
+      h('button', { class: 'ph-back', 'aria-label': 'กลับ', onclick: () => { ui.open = null; emit(); } }, icon('back')),
       h('div', { class: 'ph-grow' },
         h('div', { class: 'ph-title' }, byStudent ? (s.name || '—') : col.label),
         h('div', { class: 'ph-sub' }, byStudent
@@ -150,7 +149,7 @@ viewWork.head = function () {
     !byStudent && h('button', { class: 'ph-box', onclick: () => openItemPicker(col) },
       h('b', null, col.label),
       h('span', null, isFixedKind(col.kind) && siblings.length <= 1 ? 'สอบครั้งเดียว' : `${siblings.length} ชิ้นในถังนี้`),
-      h('i', null, '⌄'))
+      h('i', null, icon('down', 'ico ico-sm')))
   );
 };
 
@@ -239,8 +238,8 @@ function openItemPicker(cur) {
       !isFixedKind(ui.kind) &&
         h('button', { class: 'btn btn-soft btn-block', onclick: () => { close(); openItemForm(); } }, '+ เพิ่มรายการ'),
       h('div', { class: 'sep' }, 'จัดการชิ้นนี้'),
-      h('button', { class: 'btn btn-ghost btn-block', onclick: () => { close(); openItemMenu(cur); } }, '✏️ แก้ไข / รายละเอียด / ลบ'),
-      h('button', { class: 'btn btn-ghost btn-block', onclick: () => { close(); openPaste(cur); } }, '📋 วางคะแนนจาก Excel'))
+      h('button', { class: 'btn btn-ghost btn-block', onclick: () => { close(); openItemMenu(cur); } }, withIcon('edit', 'แก้ไข / รายละเอียด / ลบ')),
+      h('button', { class: 'btn btn-ghost btn-block', onclick: () => { close(); openPaste(cur); } }, withIcon('paste', 'วางคะแนนจาก Excel')))
   ));
 }
 
@@ -258,8 +257,8 @@ function listScreen() {
       bucketBar(false),
       h('div', { class: 'card' },
         h('div', { style: { fontWeight: '700' } }, `${b.label} · ${b.phase === 1 ? 'ก่อนกลางภาค' : 'หลังกลางภาค'}`),
-        h('div', { style: { fontSize: '12.5px', color: 'var(--ink-2)' } },
-          `สอบครั้งเดียว · คิดเป็น ${S.weight[b.id]} คะแนน (SGS ${b.sgs})`)),
+        h('div', { style: { fontSize: 'var(--fs-sm)', color: 'var(--ink-2)' } },
+          `สอบครั้งเดียว · คิดเป็น ${S.weight[b.id]} คะแนนใน SGS ช่อง ${b.sgs}`)),
       cols.length
         ? h('div', { class: 'card card-tight' }, cols.map(itemRow))
         : h('div', { class: 'card empty' },
@@ -278,16 +277,16 @@ function listScreen() {
     h('div', { class: 'card', style: { display: 'flex', alignItems: 'center', gap: '10px' } },
       h('div', { style: { flex: '1' } },
         h('div', { style: { fontWeight: '700' } }, `${b.label} · ${b.phase === 1 ? 'ก่อนกลางภาค' : 'หลังกลางภาค'}`),
-        h('div', { style: { fontSize: '12.5px', color: 'var(--ink-2)' } },
-          `${cols.length} รายการ · คะแนนดิบรวม ${totalMax} → เทียบเป็น ${S.weight[curBucket().id]} คะแนน (SGS ${b.sgs})`)),
-      h('button', { class: 'btn btn-soft btn-sm', onclick: () => openItemForm() }, '+ เพิ่ม')
+        h('div', { style: { fontSize: 'var(--fs-sm)', color: 'var(--ink-2)' } },
+          `${cols.length} รายการ · รวม ${totalMax} คะแนน · คิดเป็น ${S.weight[curBucket().id]} คะแนนใน SGS ช่อง ${b.sgs}`)),
+      h('button', { class: 'btn btn-soft btn-sm', onclick: () => openItemForm() }, withIcon('plus', 'เพิ่ม'))
     ),
 
     cols.length === 0
       ? h('div', { class: 'card empty' },
           h('div', { class: 'empty-icon' }, '📝'),
           h('div', null, `ยังไม่มีรายการใน "${b.label}"`),
-          h('div', { style: { fontSize: '13px', marginBottom: '12px' } },
+          h('div', { style: { fontSize: 'var(--fs-sm)', marginBottom: '12px' } },
             'เพิ่มกี่ชิ้นก็ได้ คะแนนเต็มเท่าไหร่ก็ได้ ระบบเทียบสัดส่วนให้อัตโนมัติ'),
           h('button', { class: 'btn', onclick: () => openItemForm() }, 'เพิ่มรายการแรก'))
       : h('div', { class: 'card card-tight' }, cols.map(itemRow))
@@ -339,9 +338,9 @@ function itemRow(col) {
           : h('span', { class: 'badge a' }, `${isExam(col) ? 'ค้าง' : 'ยังไม่ส่ง'} ${t.left}`)
     ),
     h('button', {
-      class: 'icon-btn', style: { color: 'var(--ink-3)' }, title: 'แก้ไข / ลบ',
+      class: 'icon-btn', style: { color: 'var(--ink-3)' }, title: 'แก้ไข / ลบ', 'aria-label': 'แก้ไข / ลบ',
       onclick: () => openItemMenu(col)
-    }, '⋯')
+    }, icon('more'))
   );
 }
 
@@ -392,7 +391,8 @@ function scoreRow(col, s, { head, nextInput } = {}) {
   // ค่า · สี · ปุ่มที่ติด ตั้งใน paint() ที่เดียวท้ายฟังก์ชัน (ทั้งตอนสร้างและหลังแก้ทุกครั้ง)
   const inp = h('input', {
     class: 'score-inp',
-    type: 'number', inputmode: 'decimal', min: '0', max: String(col.max), step: 'any',
+    type: 'text', inputmode: 'decimal', autocomplete: 'off', enterkeyhint: 'next',
+    'aria-label': `คะแนน ${s.name || 'เลขที่ ' + s.no} · ${col.label} (เต็ม ${col.max})`,
     onkeydown: (e) => {
       if (e.key !== 'Enter') return;
       e.preventDefault();
@@ -400,7 +400,7 @@ function scoreRow(col, s, { head, nextInput } = {}) {
       if (n) { n.focus(); n.select(); }
     },
     onchange: (e) => {
-      const v = e.target.value.trim();
+      const v = e.target.value.trim().replace(',', '.');   // แป้นบางเครื่องให้จุลภาคแทนจุดทศนิยม
       if (v === '') return apply('none');
       let n = Number(v);
       if (isNaN(n)) { e.target.value = ''; return apply('none'); }
@@ -496,7 +496,7 @@ function openRetake(col, s, done) {
   const mark = passMarkOf(col, settings());
   const first = w.retake ? w.orig : ((w.status === 'ok' || w.status === 'late') ? w.score : null);
   const numInput = (value, placeholder) => h('input', {
-    type: 'number', inputmode: 'decimal', min: '0', max: String(col.max), step: 'any',
+    type: 'text', inputmode: 'decimal', autocomplete: 'off',
     value: value === null ? '' : String(value), placeholder
   });
   const origIn = numInput(first, 'เว้นว่าง = ขาดสอบ');
@@ -504,7 +504,7 @@ function openRetake(col, s, done) {
 
   /** อ่านช่องตัวเลข · ว่าง = null · นอกช่วงคะแนน = โยนข้อความให้ครูอ่าน */
   const readNum = (el, what) => {
-    const v = el.value.trim();
+    const v = el.value.trim().replace(',', '.');
     if (v === '') return null;
     const n = Number(v);
     if (!isFinite(n) || n < 0 || n > col.max) throw new Error(`${what}ต้องอยู่ระหว่าง 0–${col.max}`);
@@ -581,11 +581,10 @@ function gradeScreen(col) {
         class: 'item-pill', 'data-on': c.key === col.key ? '1' : '0',
         onclick: () => { ui.open = c.key; emit(); }
       }, `${c.label} · เต็ม ${c.max}`)),
-      !isFixedKind(col.kind) && h('button', { class: 'item-pill add', onclick: () => openItemForm() }, '+ เพิ่มงาน'),
+      !isFixedKind(col.kind) && h('button', { class: 'item-pill add', onclick: () => openItemForm() }, withIcon('plus', 'เพิ่มงาน')),
       h('div', { style: { marginLeft: 'auto', display: 'flex', gap: '8px' } },
-        h('button', { class: 'btn btn-ghost btn-sm', onclick: () => chase(col) }, '📣 ตามงาน'),
-        h('button', { class: 'btn btn-ghost btn-sm', onclick: () => openPaste(col) }, '📋 วางจาก Excel'),
-        h('button', { class: 'icon-btn', title: 'ตัวเลือกเพิ่มเติม', onclick: () => openItemMenu(col) }, '⋯'))
+        h('button', { class: 'btn btn-ghost btn-sm', onclick: () => chase(col) }, withIcon('megaphone', 'ตามงาน')),
+        h('button', { class: 'icon-btn', title: 'ตัวเลือกเพิ่มเติม', 'aria-label': 'ตัวเลือกเพิ่มเติม', onclick: () => openItemMenu(col) }, icon('more')))
     ),
 
     // ── หัวเรื่องชิ้นงาน + ความคืบหน้า (PC · มือถืออยู่ในแถบเข้มแล้ว) ──
@@ -595,17 +594,17 @@ function gradeScreen(col) {
         h('div', { class: 'ctx-sub', id: 'grade-progress' }, progressText(col)),
         h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '8px' } },
           h('button', { class: 'tagbtn', onclick: () => openItemForm(col) },
-            isExam(col) ? '✎ รายละเอียดการสอบ' : '✎ รายละเอียดงาน'),
+            withIcon('edit', isExam(col) ? 'รายละเอียดการสอบ' : 'รายละเอียดงาน')),
           col.desc
-            ? h('span', { class: 'tag-on' }, '👁 นักเรียนเห็น')
-            : h('span', { class: 'tag-off' }, '👁 ยังไม่มีคำสั่งให้นักเรียนอ่าน')),
+            ? h('span', { class: 'tag-on' }, withIcon('eye', 'นักเรียนเห็น'))
+            : h('span', { class: 'tag-off' }, withIcon('eyeOff', 'ยังไม่มีคำสั่งให้นักเรียนอ่าน'))),
         col.desc && h('div', {
-          style: { fontSize: '12.5px', color: 'var(--ink-2)', marginTop: '5px', whiteSpace: 'pre-wrap' }
+          style: { fontSize: 'var(--fs-sm)', color: 'var(--ink-2)', marginTop: '5px', whiteSpace: 'pre-wrap' }
         }, col.desc)),
       modeSeg('seg seg-inline'),
       h('div', { style: { textAlign: 'right', flex: 'none' } },
-        h('div', { style: { fontSize: '12.5px', color: 'var(--ink-2)' } }, W.done),
-        h('div', { class: 'tnum', id: 'grade-count', style: { fontSize: '19px', fontWeight: '700' } },
+        h('div', { style: { fontSize: 'var(--fs-sm)', color: 'var(--ink-2)' } }, W.done),
+        h('div', { class: 'tnum', id: 'grade-count', style: { fontSize: 'var(--fs-xl)', fontWeight: '700' } },
           `${tally(col).done} / ${tally(col).total}`)),
       h('div', { style: { width: '180px', flex: 'none' } }, progressBar(col))
     ),
@@ -619,7 +618,7 @@ function gradeScreen(col) {
             setCells(state.cls.students.map(s => ({ key: col.key, sid: s.sid, value: col.max })));
             toast(W.bulkToast, 'ok', 1400, undoAction());
           }
-        }, `✓ ${W.bulk} (${col.max})`),
+        }, withIcon('check', `${W.bulk} (${col.max})`)),
         h('button', {
           class: 'btn btn-ghost btn-sm',
           onclick: async () => {
@@ -627,8 +626,8 @@ function gradeScreen(col) {
             setCells(state.cls.students.map(s => ({ key: col.key, sid: s.sid, value: '' })));
             toast('ล้างคะแนนแล้ว', 'ok', 1400, undoAction());
           }
-        }, '↺ ล้าง'),
-        h('button', { class: 'btn btn-ghost btn-sm', onclick: () => chase(col) }, '📣 ตามงาน')
+        }, withIcon('broom', 'ล้าง')),
+        h('button', { class: 'btn btn-ghost btn-sm', onclick: () => chase(col) }, withIcon('megaphone', 'ตามงาน'))
       )),
 
     find.el,
@@ -717,7 +716,7 @@ function studentScreen(col) {
   cols.forEach((c, i) => {
     rows.push(scoreRow(c, s, {
       head: h('div', { style: { flex: '1', minWidth: '0' } },
-        h('div', { class: 'work-name', style: { fontSize: '14.5px' } }, c.label),
+        h('div', { class: 'work-name', style: { fontSize: 'var(--fs-md)' } }, c.label),
         h('div', { class: 'stu-sid' }, `เต็ม ${c.max}${c.desc ? ' · ' + c.desc : ''}`)),
       nextInput: () => rows[i + 1] && rows[i + 1].__input
     }));
@@ -735,8 +734,8 @@ function studentScreen(col) {
         h('div', { class: 'ctx-sub' }, `เลขที่ ${s.no}${s.sid ? ' · ' + s.sid : ''} · คนที่ ${ui.si + 1} จาก ${cls.students.length}`)),
       modeSeg('seg seg-inline'),
       h('div', { class: 'ctx-end' },
-        h('button', { class: 'btn btn-ghost btn-sm', disabled: ui.si === 0, onclick: () => step(-1) }, '‹'),
-        h('button', { class: 'btn btn-ghost btn-sm', disabled: ui.si >= cls.students.length - 1, onclick: () => step(1) }, '›'))),
+        h('button', { class: 'btn btn-ghost btn-sm', disabled: ui.si === 0, 'aria-label': 'คนก่อนหน้า', onclick: () => step(-1) }, icon('back')),
+        h('button', { class: 'btn btn-ghost btn-sm', disabled: ui.si >= cls.students.length - 1, 'aria-label': 'คนถัดไป', onclick: () => step(1) }, icon('next')))),
 
     // เลือกห้อง แล้วเลือกคน — เลื่อนหาเร็วกว่าพิมพ์ชื่อ โดยเฉพาะบนมือถือ
     h('div', { class: 'pick2row' },
@@ -764,19 +763,19 @@ function studentScreen(col) {
     // สรุปคะแนนถังนี้ของคนนี้
     h('div', { class: 'card', style: { display: 'flex', alignItems: 'center', gap: '10px' } },
       h('div', { style: { flex: '1' } },
-        h('div', { style: { fontSize: '13px', color: 'var(--ink-2)' } },
+        h('div', { style: { fontSize: 'var(--fs-sm)', color: 'var(--ink-2)' } },
           `${b.label} · ${b.phase === 1 ? 'ก่อนกลางภาค' : 'หลังกลางภาค'}`),
-        h('div', { style: { fontSize: '12px', color: 'var(--ink-3)', marginTop: '1px' } },
+        h('div', { style: { fontSize: 'var(--fs-xs)', color: 'var(--ink-3)', marginTop: '1px' } },
           `${words(col).done} ${done} จาก ${cols.length} ชิ้น`)),
       h('div', { style: { textAlign: 'right' } },
-        h('div', { class: 'tnum', style: { fontSize: '19px', fontWeight: '700' } },
+        h('div', { class: 'tnum', style: { fontSize: 'var(--fs-xl)', fontWeight: '700' } },
           bucketScore === null ? '—' : nf(bucketScore)),
-        h('div', { style: { fontSize: '11.5px', color: 'var(--ink-2)' } }, '/' + S.weight[curBucket().id]))),
+        h('div', { style: { fontSize: 'var(--fs-xs)', color: 'var(--ink-2)' } }, '/' + S.weight[curBucket().id]))),
 
     h('div', { class: 'work-list by-student' + (isExam(col) ? '' : ' st2') }, rows),
 
     h('div', { class: 'pager' },
-      h('button', { class: 'btn btn-ghost', disabled: ui.si === 0, onclick: () => step(-1) }, '‹'),
+      h('button', { class: 'btn btn-ghost', disabled: ui.si === 0, 'aria-label': 'คนก่อนหน้า', onclick: () => step(-1) }, icon('back')),
       h('button', {
         class: 'btn',
         disabled: ui.si >= cls.students.length - 1,
@@ -1029,9 +1028,10 @@ function openItemMenu(col) {
     h('div', { class: 'hint', style: { marginBottom: '12px' } },
       `เต็ม ${col.max} · ${words(col).done} ${t.done}/${t.total}`),
     h('div', { style: { display: 'grid', gap: '8px' } },
-      h('button', { class: 'btn btn-ghost btn-block', onclick: () => { close(); ui.open = col.key; emit(); } }, '📝 กรอกคะแนน'),
-      h('button', { class: 'btn btn-ghost btn-block', onclick: () => { close(); openItemForm(col); } }, '✏️ แก้ไขชื่อ / รายละเอียด / คะแนนเต็ม'),
-      h('button', { class: 'btn btn-ghost btn-block', onclick: () => { close(); chase(col); } }, '📣 ตามงาน · คัดลอกรายชื่อไปไลน์'),
+      h('button', { class: 'btn btn-ghost btn-block', onclick: () => { close(); ui.open = col.key; emit(); } }, withIcon('doc', 'กรอกคะแนน')),
+      h('button', { class: 'btn btn-ghost btn-block', onclick: () => { close(); openItemForm(col); } }, withIcon('edit', 'แก้ไขชื่อ / รายละเอียด / คะแนนเต็ม')),
+      h('button', { class: 'btn btn-ghost btn-block', onclick: () => { close(); chase(col); } }, withIcon('megaphone', 'ตามงาน · คัดลอกรายชื่อไปไลน์')),
+      h('button', { class: 'btn btn-ghost btn-block', onclick: () => { close(); openPaste(col); } }, withIcon('paste', 'วางคะแนนจาก Excel')),
       h('button', {
         class: 'btn btn-ghost btn-block',
         onclick: () => {
@@ -1039,7 +1039,7 @@ function openItemMenu(col) {
           setCells(state.cls.students.map(s => ({ key: col.key, sid: s.sid, value: col.max })));
           toast(words(col).bulkToast, 'ok', 1400, undoAction());
         }
-      }, `✓ ${words(col).bulk} (${col.max})`),
+      }, withIcon('check', `${words(col).bulk} (${col.max})`)),
       h('button', {
         class: 'btn btn-ghost btn-block',
         onclick: async () => {
@@ -1048,7 +1048,7 @@ function openItemMenu(col) {
           setCells(state.cls.students.map(s => ({ key: col.key, sid: s.sid, value: '' })));
           toast('ล้างคะแนนแล้ว', 'ok', 1400, undoAction());
         }
-      }, '↺ ล้างคะแนนทั้งรายการ'),
+      }, withIcon('broom', 'ล้างคะแนนทั้งรายการ')),
       // สอบกลาง/ปลายภาคช่องเดียว ลบไปก็ถูกสร้างใหม่ตอนเปิดครั้งหน้า — ให้ลบได้เฉพาะช่องที่เกินมา
       // (ห้องที่สร้างไว้ก่อนมีช่องตายตัว อาจมีหลายช่อง)
       (!isFixedKind(col.kind) ||
@@ -1062,7 +1062,7 @@ function openItemMenu(col) {
           await deleteColumn(col.key);
           toast('ลบแล้ว', 'ok');
         }
-      }, '🗑 ลบรายการ')
+      }, withIcon('trash', 'ลบรายการ'))
     )
   ));
 }
