@@ -137,23 +137,6 @@ export function pushView(view, replace) {
 }
 
 /**
- * วาดหน้าใหม่แบบค่อย ๆ จางเข้า (View Transitions) — ใช้เฉพาะตอนเปลี่ยนหน้า
- *
- * ของเดิมสลับหน้าแบบตัดฉับ เนื้อหาเก่าหายแล้วของใหม่โผล่ในเฟรมเดียว ดูกระตุกทั้งที่จริงเร็วมาก
- * ไม่ใช้กับการวาดใหม่ทั่วไป (กดเช็คชื่อ · พิมพ์คะแนน) เพราะเกิดถี่และต้องตอบสนองทันที
- * เบราว์เซอร์ที่ไม่รองรับ หรือเครื่องที่ตั้งลดภาพเคลื่อนไหว = วาดตรง ๆ แบบเดิม
- */
-function withTransition(fn) {
-  try {
-    if (document.startViewTransition && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      document.startViewTransition(fn);
-      return;
-    }
-  } catch (e) { /* ตกไปวาดตรง ๆ */ }
-  fn();
-}
-
-/**
  * เปลี่ยนหน้า
  * @param opts.silent  true = มาจากปุ่มย้อนกลับ อย่าไปเพิ่มรายการประวัติซ้ำ
  */
@@ -168,7 +151,7 @@ export function go(view, opts = {}) {
     pushView(view);
   }
   window.scrollTo({ top: 0 });
-  withTransition(emit);
+  emit();
   // หน้าที่ "อ่านสรุป" ต้องเป็นของล่าสุด — ครูมักเช็คชื่อจากอีกเครื่องแล้วมาดูตรงนี้
   if (READ_VIEWS.includes(view)) refreshClass({ maxAge: REFRESH_AFTER });
 }

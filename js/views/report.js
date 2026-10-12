@@ -95,6 +95,9 @@ function attColumns() {
     .sort((a, b) => (a.date + String(a.period).padStart(3, '0')).localeCompare(b.date + String(b.period).padStart(3, '0')));
 }
 
+/** สอบกลางภาค/ปลายภาค — สอบครั้งเดียวของภาค ไม่ใช่ "ชิ้นงาน" ที่ครูสั่งเพิ่มได้หลายชิ้น */
+const isTermExam = (c) => c.kind === 'MID' || c.kind === 'FIN';
+
 function workColumns() {
   return (state.cls.columns || []).filter(c => ['WORK', 'QUIZ', 'MID', 'FIN'].includes(c.kind));
 }
@@ -228,35 +231,10 @@ function classReport() {
       )
     ),
 
-    // ── การส่งงาน รายชิ้น ──
-    h('div', { class: 'card' },
-      h('div', { class: 'rep-head' },
-        h('h3', null, 'การส่งงานรายชิ้น'),
-        h('span', null, `${wCols.length} รายการ`)),
-      wCols.length === 0
-        ? h('div', { class: 'bar-empty' }, 'ยังไม่มีรายการงาน/สอบ')
-        : h('div', null,
-            h('div', { class: 'legend', style: { marginBottom: '8px' } },
-              Object.entries(WORK_STYLE).map(([, v]) => {
-                const hasWork = wCols.some(c => !isExam(c)), hasExam = wCols.some(isExam);
-                const txt = hasWork && hasExam && v.label !== v.exam
-                  ? `${v.label} / ${v.exam}` : (hasExam && !hasWork ? v.exam : v.label);
-                return h('span', { class: 'legend-item' }, h('i', { style: { background: v.c } }), txt);
-              })),
-            // กดแถวไหน = ไปดูรายชื่อคนที่ยังค้างของชิ้นนั้นในแท็บ "ตามงาน"
-            wCols.map(c => {
-              const t = workCount(c);
-              const segs = ['ok', 'late', 'miss', 'none'].map(k =>
-                ({ key: k, n: t[k], c: WORK_STYLE[k].c, t: WORK_STYLE[k].t, label: statusLabel(k, c) }));
-              return h('button', {
-                class: 'multi-row multi-btn', title: 'ดูรายชื่อคนที่ยังค้างของรายการนี้',
-                onclick: () => { ui.tab = 'follow'; ui.focus = c.key; ui.follow = 'all'; emit(); window.scrollTo({ top: 0 }); }
-              },
-                h('div', { class: 'multi-label' }, c.label,
-                  h('span', null, bucketName(c) + ' ›')),
-                stackBar(segs, { height: 18 }));
-            }))
-    ),
+    // ── งานกับสอบเก็บคะแนน รายชิ้น · สอบกลางภาค/ปลายภาคแยกการ์ด ──
+    // เดิมรวมกันในการ์ด "การส่งงานรายชิ้น" ใบเดียว สอบกลางภาค/ปลายภาคจึงถูกนับเป็นชิ้นงานไปด้วย
+    pieceCard('งานและสอบเก็บคะแนน · รายชิ้น', wCols.filter(c => !isTermExam(c)), 'ยังไม่มีงานหรือสอบเก็บคะแนน'),
+    wCols.some(isTermExam) && pieceCard('สอบกลางภาค · ปลายภาค', wCols.filter(isTermExam)),
 
     // ── ยอดค้างรวม → ไปแท็บตามงาน ──
     (owe.miss + owe.fix + owe.none) > 0 && h('button', {
@@ -295,6 +273,41 @@ function classReport() {
           })
     )
   );
+}
+
+/**
+ * การ์ดแถบสถานะรายชิ้น (ส่ง/ช้า/ไม่ส่ง/ยังไม่ตรวจ) — กดแถวไหน = ไปดูรายชื่อคนที่ค้างในแท็บ "ตามงาน"
+ * @param emptyText ข้อความตอนไม่มีรายการ · ไม่ส่งมา = ไม่ต้องวาดการ์ดเลยถ้าว่าง
+ */
+function pieceCard(title, cols, emptyText) {
+  if (!cols.length && !emptyText) return null;
+  const hasWork = cols.some(c => !isExam(c)), hasExam = cols.some(isExam);
+  return h('div', { class: 'card' },
+    h('div', { class: 'rep-head' },
+      h('h3', null, title),
+      h('span', null, `${cols.length} รายการ`)),
+    cols.length === 0
+      ? h('div', { class: 'bar-empty' }, emptyText)
+      : h('div', null,
+          h('div', { class: 'legend', style: { marginBottom: '8px' } },
+            // ข้อสอบไม่มีสถานะส่งช้า — การ์ดที่มีแต่ข้อสอบไม่ต้องโชว์สีนี้
+            Object.entries(WORK_STYLE).filter(([k]) => hasWork || k !== 'late').map(([, v]) => {
+              const txt = hasWork && hasExam && v.label !== v.exam
+                ? `${v.label} / ${v.exam}` : (hasExam && !hasWork ? v.exam : v.label);
+              return h('span', { class: 'legend-item' }, h('i', { style: { background: v.c } }), txt);
+            })),
+          cols.map(c => {
+            const t = workCount(c);
+            const segs = ['ok', 'late', 'miss', 'none'].map(k =>
+              ({ key: k, n: t[k], c: WORK_STYLE[k].c, t: WORK_STYLE[k].t, label: statusLabel(k, c) }));
+            return h('button', {
+              class: 'multi-row multi-btn', title: 'ดูรายชื่อคนที่ยังค้างของรายการนี้',
+              onclick: () => { ui.tab = 'follow'; ui.focus = c.key; ui.follow = 'all'; emit(); window.scrollTo({ top: 0 }); }
+            },
+              h('div', { class: 'multi-label' }, c.label,
+                h('span', null, bucketName(c) + ' ›')),
+              stackBar(segs, { height: 18 }));
+          })));
 }
 
 function bucketName(c) {
@@ -468,7 +481,8 @@ function studentReport() {
 
   // งานที่ยังไม่ส่ง หรือครูยังไม่ได้ตรวจ — เรียงไม่ส่งขึ้นก่อน
   const mb = blankMissCols(cls);
-  const todo = workColumns()
+  // ไม่รวมสอบกลางภาค/ปลายภาค — การ์ด 8 ช่องด้านบนบอก "ยังไม่สอบ" อยู่แล้ว และไม่ใช่ชิ้นงาน
+  const todo = workColumns().filter(c => !isTermExam(c))
     .map(c => ({ c, w: parseWork(effectiveRaw((cls.values[c.key] || {})[r.sid], mb[c.key])) }))
     .filter(x => x.w.status === 'miss' || x.w.status === 'none')
     .sort((a, b) => (a.w.status === 'miss' ? 0 : 1) - (b.w.status === 'miss' ? 0 : 1));
@@ -539,7 +553,7 @@ function studentReport() {
         }, r.dataN ? nf(r.total) : '—'),
         h('div', { style: { fontSize: 'var(--fs-sm)', color: 'var(--ink-2)' } }, `/100 · เกรด ${r.grade}`)),
       h('div', { class: 'score8' },
-        BUCKETS.map(b => h('div', { class: 'score8-cell', title: `SGS ช่อง ${b.sgs}` },
+        BUCKETS.map(b => h('div', { class: 'score8-cell', title: `SGS ${b.sgs}` },
           // สอบกลางภาค/ปลายภาคมีครั้งเดียว ไม่ต้องมีเลขช่วงต่อท้าย
           h('span', null, (b.kind === 'MID' || b.kind === 'FIN') ? b.label : `${b.label} ${b.phase}`),
           h('b', { class: r['_has_' + b.id] ? 'tnum' : 'tnum none' },

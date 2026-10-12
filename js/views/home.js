@@ -4,7 +4,7 @@ import { h, modal, toast, confirmBox, todayISO } from '../dom.js';
 import {
   state, go, emit, loadClass, createClass, updateClassMeta, deleteClass, setStudents, settings, bootAll
 } from '../state.js';
-import { computeClass } from '../score.js';
+import { computeClass, parseWork } from '../score.js';
 import * as api from '../api.js';
 import { store } from '../storage.js';
 import { DAYS, currentSlot, slotsOn, hasTimetable } from '../timetable.js';
@@ -120,10 +120,16 @@ function overviewCard(showHero = true) {
   );
 
   // ── สิ่งที่ยังค้าง ──
-  const pending = rows.reduce((a, r) => a + r.pending, 0);
+  /* นับเป็น "ชิ้น" จริง ๆ ไม่ใช่จำนวนช่องในชีต · งานกับการสอบแยกบรรทัดกัน
+   * เดิมรวมช่องว่างของทุกอย่าง (สอบกลางภาค/ปลายภาค 20 คน = 20) แล้วขึ้นว่า "งานรอตรวจ 27 ชิ้น"
+   * ทั้งที่งานค้างจริงมีชิ้นเดียว ที่เหลือคือข้อสอบที่ยังไม่ได้กรอกคะแนน */
   const todos = [];
-  if (pending > 0) {
-    todos.push({ c: 'var(--st-late)', t: `งานรอตรวจ ${pending} ชิ้น`, go: 'work', cta: 'ตรวจ' });
+  const { works, exams } = pendingItems(cls);
+  if (works > 0) {
+    todos.push({ c: 'var(--st-late)', t: `งานที่ยังไม่ได้ตรวจ ${works} ชิ้น`, go: 'work', cta: 'ตรวจ' });
+  }
+  if (exams > 0) {
+    todos.push({ c: 'var(--st-late)', t: `คะแนนสอบที่ยังกรอกไม่ครบ ${exams} รายการ`, go: 'work', cta: 'กรอก' });
   }
   if (!String(state.config.mid_date || '').trim()) {
     todos.push({ c: 'var(--st-miss)', t: 'ยังไม่ได้ตั้งวันสอบกลางภาค', go: 'settings', cta: 'ตั้งค่า' });
@@ -158,6 +164,25 @@ function overviewCard(showHero = true) {
           'ยังไม่ได้เช็คชื่อหรือกรอกคะแนน — ตัวเลขจะขึ้นเมื่อเริ่มบันทึกข้อมูล'))
     )
   );
+}
+
+/**
+ * สิ่งที่ครูยังต้องตรวจ/กรอก นับเป็นรายการ (ไม่ใช่รายช่อง)
+ *   works = งานส่งที่ยังไม่ได้ตรวจใครเลย — งานที่เริ่มตรวจแล้ว ช่องว่าง = ไม่ส่ง ไม่ใช่งานค้างของครู
+ *           (กติกาเดียวกับ blankMissCols ใน js/score.js)
+ *   exams = สอบเก็บคะแนน / กลางภาค / ปลายภาค ที่ยังมีคนไม่ได้กรอกคะแนน
+ */
+function pendingItems(cls) {
+  const V = cls.values || {};
+  const out = { works: 0, exams: 0 };
+  for (const c of cls.columns || []) {
+    if (!['WORK', 'QUIZ', 'MID', 'FIN'].includes(c.kind)) continue;
+    const vals = V[c.key] || {};
+    const blank = cls.students.filter(s => parseWork(vals[s.sid]).status === 'none').length;
+    if (c.kind === 'WORK') { if (cls.students.length && blank === cls.students.length) out.works++; }
+    else if (blank > 0) out.exams++;
+  }
+  return out;
 }
 
 // ── ตารางสอน: การ์ด "ตอนนี้" + คาบของวันนี้ ─────────────────

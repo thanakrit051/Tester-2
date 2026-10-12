@@ -1788,15 +1788,11 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
 .att-btn, .st-btn { transition: background .13s, color .13s, transform .08s; }
 .att-btn:active { transform: scale(.9); }
 
-/* ── สลับหน้าแบบจางเข้า (เรียกจาก go() ใน js/state.js) ──
-   แถบเมนูกับแถบหัวมีชื่อของตัวเอง จึงอยู่นิ่งระหว่างเปลี่ยนหน้า มีแค่เนื้อหาที่จางเข้า
-   ต้องสั้น — ระหว่างเล่นภาพเคลื่อนไหวหน้าจอกดไม่ได้ */
-.nav    { view-transition-name: ac-nav; }
-.appbar { view-transition-name: ac-appbar; }
-::view-transition-old(root) { animation: vt-out .1s ease-in both; }
-::view-transition-new(root) { animation: vt-in .18s ease-out both; }
-@keyframes vt-out { to { opacity: 0; } }
-@keyframes vt-in  { from { opacity: 0; transform: translateY(6px); } }
+/* ── เปลี่ยนหน้าแล้วเนื้อหาใหม่ค่อย ๆ จางเข้า (enter() ใน js/app.js) ──
+   ขยับเฉพาะเนื้อหาหน้าใหม่ ไม่ถ่ายภาพหน้าเดิมค้างไว้ กดรัว ๆ ก็ไม่ย้อนไปหน้าก่อน และกดต่อได้ทันที
+   เริ่มที่ความทึบ .35 ไม่ใช่ 0 — เห็นเนื้อหาตั้งแต่เฟรมแรก ไม่รู้สึกว่าต้องรอ */
+.page-enter { animation: page-in .16s ease-out; }
+@keyframes page-in { from { opacity: .35; transform: translateY(4px); } }
 
 /* ── ป้ายสถานะการบันทึก (js/app.js · refreshSaveState) ── */
 .savestate {

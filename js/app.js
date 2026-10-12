@@ -315,6 +315,16 @@ function classPicker() {
   return h('div', { class: 'class-pick' }, icon('book'), classSelect());
 }
 
+/**
+ * หน้าที่วาดไปล่าสุด — เปลี่ยนหน้าเมื่อไหร่ เนื้อหาหน้าใหม่ค่อย ๆ จางเข้า (.page-enter ใน styles.css)
+ *
+ * 3.16.0 เคยใช้ View Transitions ซึ่งถ่ายภาพหน้าเดิมค้างไว้ระหว่างเล่นภาพเคลื่อนไหว
+ * กดเปลี่ยนหน้าไว ๆ แล้วภาพหน้าที่เพิ่งโหลดเสร็จโผล่กลับมาอีกรอบก่อนไปหน้าใหม่ (ดูเหมือนแอปแลค)
+ * และระหว่างนั้นกดอะไรไม่ได้ — ตอนนี้ภาพเคลื่อนไหวอยู่ที่เนื้อหาใหม่อย่างเดียว ไม่ขวางการกด
+ * วาดใหม่ในหน้าเดิม (กดเช็คชื่อ · พิมพ์คะแนน) ไม่มีภาพเคลื่อนไหว
+ */
+let shownView = '';
+
 function render() {
   if (!api.conn.ready) { mount(app, viewSetup()); return; }
 
@@ -342,11 +352,19 @@ function render() {
       }, h('span', null, (alert.level === 'warn' ? '⚠️ ' : '❌ ') + alert.text), h('b', null, 'แก้ ›')),
       !wide() && nav(),
       !head && classPicker(),
-      view()
+      enter(view())
     )
   );
 
   if (readyToShow()) reveal();
+}
+
+function enter(el) {
+  if (state.view !== shownView) {
+    shownView = state.view;
+    if (el && el.classList) el.classList.add('page-enter');
+  }
+  return el;
 }
 
 /**

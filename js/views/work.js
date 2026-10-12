@@ -155,18 +155,16 @@ viewWork.head = function () {
 
 /**
  * แถวเลือกชนิดคะแนน + ช่วง (ดีไซน์หน้า 03 แถวบนสุด)
- * @param openFirst true = ย้ายไปกรอกชิ้นแรกของถังใหม่ทันที (ใช้ตอนอยู่ในหน้ากรอก)
+ *
+ * กดแท็บไหน = ไปหน้าภาพรวมของถังนั้นเสมอ (รายการชิ้นงาน / สรุปการสอบ) แล้วค่อยเลือกกรอก
+ * เดิมแท็บกลางภาค/ปลายภาคเด้งเข้าหน้ากรอกคะแนนทันที และในหน้ากรอก แท็บอื่นก็พาไปกรอกชิ้นแรกเลย
+ * ครูแค่อยากดูภาพรวมก็โดนพาไปหน้ากรอก ต้องกดย้อนกลับเอง
  */
-function bucketBar(openFirst) {
+function bucketBar() {
   const S = settings();
   const fixed = kindOf(ui.kind).fixed;
 
-  const jump = () => {
-    if (!openFirst) { emit(); return; }
-    const first = columnsIn(curBucket().id)[0];
-    ui.open = first ? first.key : null;
-    emit();
-  };
+  const jump = () => { ui.open = null; emit(); };
 
   // ถังคะแนนมี 4 อันตายตัว จึงวางเป็นตาราง 4 ช่องเท่ากันให้เห็นครบในครั้งเดียว
   // ของเดิมเป็นแถวเลื่อนแนวนอน ซึ่งตัดคำว่า "กลางภาค" ทิ้งไว้ที่ขอบจอ
@@ -176,12 +174,7 @@ function bucketBar(openFirst) {
       const b = BUCKETS.find(x => x.kind === k.kind && x.half === (k.fixed || ui.phase));
       return h('button', {
         class: 'kind-cell', 'data-on': ui.kind === k.kind ? '1' : '0',
-        onclick: () => {
-          ui.kind = k.kind;
-          // กลางภาค/ปลายภาค: ไปหน้ากรอกคะแนนเลย ไม่ต้องผ่านหน้ารายการ
-          if (k.fixed) { openFixedExam(); emit(); return; }
-          jump();
-        }
+        onclick: () => { ui.kind = k.kind; jump(); }
       },
         h('span', { class: 'kc-ic' }, icon(k.ic)),
         h('span', { class: 'kc-label' }, k.label),
@@ -254,11 +247,11 @@ function listScreen() {
   // กลางภาค/ปลายภาค: สอบครั้งเดียว ไม่มีปุ่มเพิ่ม · ยังไม่มีช่องก็กดกรอกได้เลย (สร้างให้ตอนกด)
   if (isFixedKind(b.kind)) {
     return h('div', { class: 'page' },
-      bucketBar(false),
+      bucketBar(),
       h('div', { class: 'card' },
-        h('div', { style: { fontWeight: '700' } }, `${b.label} · ${b.phase === 1 ? 'ก่อนกลางภาค' : 'หลังกลางภาค'}`),
+        h('div', { style: { fontWeight: '700' } }, b.label),
         h('div', { style: { fontSize: 'var(--fs-sm)', color: 'var(--ink-2)' } },
-          `สอบครั้งเดียว · คิดเป็น ${S.weight[b.id]} คะแนนใน SGS ช่อง ${b.sgs}`)),
+          `สอบครั้งเดียว · คิดเป็น ${S.weight[b.id]} คะแนนใน SGS ${b.sgs}`)),
       cols.length
         ? h('div', { class: 'card card-tight' }, cols.map(itemRow))
         : h('div', { class: 'card empty' },
@@ -272,13 +265,13 @@ function listScreen() {
   }
 
   return h('div', { class: 'page' },
-    bucketBar(false),
+    bucketBar(),
 
     h('div', { class: 'card', style: { display: 'flex', alignItems: 'center', gap: '10px' } },
       h('div', { style: { flex: '1' } },
         h('div', { style: { fontWeight: '700' } }, `${b.label} · ${b.phase === 1 ? 'ก่อนกลางภาค' : 'หลังกลางภาค'}`),
         h('div', { style: { fontSize: 'var(--fs-sm)', color: 'var(--ink-2)' } },
-          `${cols.length} รายการ · รวม ${totalMax} คะแนน · คิดเป็น ${S.weight[curBucket().id]} คะแนนใน SGS ช่อง ${b.sgs}`)),
+          `${cols.length} รายการ · รวม ${totalMax} คะแนน · คิดเป็น ${S.weight[curBucket().id]} คะแนนใน SGS ${b.sgs}`)),
       h('button', { class: 'btn btn-soft btn-sm', onclick: () => openItemForm() }, withIcon('plus', 'เพิ่ม'))
     ),
 
@@ -573,7 +566,7 @@ function gradeScreen(col) {
   return h('div', { class: 'page' },
 
     // ── ถัง (PC) — ดีไซน์วางไว้แถวบนสุด ──
-    h('div', { class: 'pc-only-block' }, bucketBar(true)),
+    h('div', { class: 'pc-only-block' }, bucketBar()),
 
     // ── ชิ้นงานในถังนี้ (PC) ──
     h('div', { class: 'item-bar' },
@@ -726,7 +719,7 @@ function studentScreen(col) {
 
   return h('div', { class: 'page' },
 
-    h('div', { class: 'pc-only-block' }, bucketBar(true)),
+    h('div', { class: 'pc-only-block' }, bucketBar()),
 
     h('div', { class: 'ctxbar' },
       h('div', { style: { flex: '1', minWidth: '0' } },
