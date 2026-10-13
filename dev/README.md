@@ -11,8 +11,11 @@
 ## วิธีเปิด
 
 ```bash
-python -m http.server 5599
+python tools/serve.py 5599
 ```
+
+(ใช้ `tools/serve.py` แทน `python -m http.server` — ส่ง `Cache-Control: no-cache`
+แก้ไฟล์แล้วรีเฟรชเห็นของใหม่ทันที ไม่ติดแคชของเบราว์เซอร์)
 
 แล้วเปิด `http://localhost:5599/dev/demo.html`
 เติม `?setup=1` ถ้าอยากดูหน้าติดตั้งครั้งแรก

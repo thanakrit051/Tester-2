@@ -28,4 +28,4 @@ echo   ============================================
 echo.
 
 start "" http://localhost:5599
-python -m http.server 5599 --directory "%APPDIR%"
+python "%APPDIR%\tools\serve.py" 5599 "%APPDIR%"
