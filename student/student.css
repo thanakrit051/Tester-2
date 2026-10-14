@@ -4,11 +4,12 @@
 
 /* ── หน้ากรอกเลขประจำตัว ── */
 .gate { min-height: 100dvh; display: grid; align-content: center; gap: 18px; padding: 24px 16px; }
+/* ไทล์สีแถบหัวกับไอคอนไลม์ — ชุดเดียวกับการ์ดคะแนนที่นักเรียนจะเห็นถัดไป
+   (เดิมไล่สีเขียวน้ำทะเล + เงาเรืองแสงสีเดียวกัน หน้าตาเหมือนแอปสำเร็จรูป ไม่ใช่ของแอปนี้) */
 .gate-mark {
   width: 68px; height: 68px; border-radius: var(--r-3); margin: 0 auto;
-  background: linear-gradient(150deg, var(--accent-2), var(--accent));
-  color: #fff; display: grid; place-content: center;
-  box-shadow: 0 14px 34px -12px color-mix(in srgb, var(--accent) 65%, transparent);
+  background: var(--bar); color: var(--lime); border: 1px solid var(--bar-3);
+  display: grid; place-content: center; box-shadow: var(--sh-2);
 }
 .gate-mark svg { width: 32px; height: 32px; }
 .gate h1 { font-size: var(--fs-xl); margin: 0; text-align: center; letter-spacing: -.3px; }
@@ -44,11 +45,14 @@
   font-size: var(--fs-xl); font-weight: 700; color: #fff; margin-top: 2px; letter-spacing: -.2px;
   overflow: hidden; text-overflow: ellipsis;
 }
-.hero-out {
-  flex: none; min-height: 42px; padding: 0 16px; border-radius: var(--r-2);
-  border: 1px solid var(--bar-3); color: #fff; font-size: var(--fs-md); font-weight: 600;
+/* ท้ายหน้า: ดูของเลขไหนอยู่ + ออก (ย้ายมาจากแถบเข้มบนสุด ที่เคยอยู่ติดปุ่มแชร์) */
+.stu-out {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line);
+  font-size: var(--fs-sm); color: var(--ink-2);
 }
-.hero-out:hover { background: var(--bar-2); }
+.stu-out b { color: var(--ink); }
+.stu-out .btn { flex: none; min-height: 44px; padding-inline: 18px; }
 .hero-back {
   flex: none; width: 44px; height: 44px; margin: -10px 0 -10px -12px;
   display: grid; place-content: center; border-radius: var(--r-1); color: var(--bar-ink);
@@ -63,12 +67,12 @@
 }
 .hero-subj::-webkit-scrollbar { display: none; }
 .subj-pill {
-  flex: none; min-height: 40px; padding: 0 16px; border-radius: var(--r-pill); white-space: nowrap;
+  flex: none; min-height: 44px; padding: 0 16px; border-radius: var(--r-pill); white-space: nowrap;
   border: 1px solid var(--bar-3); background: var(--bar-2); color: #fff;
   font-size: var(--fs-md); font-weight: 500;
 }
 .subj-pill[aria-current="true"] {
-  background: var(--lime); border-color: var(--lime); color: var(--on-lime); font-weight: 700;
+  background: var(--bar-ink); border-color: var(--bar-ink); color: var(--bar); font-weight: 700;
 }
 
 .hero-score { display: flex; align-items: flex-end; gap: 12px; }
@@ -217,7 +221,7 @@
 .exam-h .ico { width: 18px; height: 18px; flex: none; }
 .exam-tag {
   flex: none; font-size: var(--fs-xs); font-weight: 700; padding: 4px 10px; border-radius: var(--r-pill);
-  background: var(--lime); color: var(--on-lime);
+  background: var(--bar-3); color: var(--bar-ink);
 }
 .exam-score { display: flex; align-items: flex-end; gap: 12px; }
 .exam-score > span { font-size: var(--fs-sm); color: var(--bar-ink-2); }
@@ -426,10 +430,10 @@ button.todo-item:hover { background: var(--surface-2); }
 .gate-acts .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
 .gate-acts .ico { width: 18px; height: 18px; }
 
-/* ── ปุ่มบนแถบเข้ม: โหลดใหม่ + ออก ── */
+/* ── ปุ่มบนแถบเข้ม: แชร์ + โหลดใหม่ ── */
 .hero-acts { display: flex; gap: 8px; flex: none; }
 .hero-icon {
-  width: 42px; height: 42px; border-radius: var(--r-2); flex: none;
+  width: 44px; height: 44px; border-radius: var(--r-2); flex: none;
   display: grid; place-content: center; border: 1px solid var(--bar-3); color: #fff;
 }
 .hero-icon:hover { background: var(--bar-2); }

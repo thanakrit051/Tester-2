@@ -2,7 +2,7 @@
 
 import { h, modal, toast, nf, printPage, copyText } from '../dom.js';
 import { state, emit, settings, recalcOnServer } from '../state.js';
-import { computeClass, BUCKETS, bucketColumns, parseWork, blankMissCols, effectiveRaw } from '../score.js';
+import { computeClass, gradeNow, BUCKETS, bucketColumns, parseWork, blankMissCols, effectiveRaw } from '../score.js';
 import { exportClassCSV, loadingPage } from './common.js';
 import { icon, withIcon } from '../icons.js';
 
@@ -58,7 +58,7 @@ export function viewSummary() {
   }
   if (!cls.students.length) {
     return h('div', { class: 'page' }, h('div', { class: 'card empty' },
-      h('div', { class: 'empty-icon' }, '👥'), 'ห้องนี้ยังไม่มีรายชื่อนักเรียน'));
+      h('div', { class: 'empty-icon' }, icon('users')), 'ห้องนี้ยังไม่มีรายชื่อนักเรียน'));
   }
 
   const S = settings();
@@ -66,6 +66,7 @@ export function viewSummary() {
   const cols = SGS_COLS.filter(c => ui.phase === 0 || c.phase === ui.phase);
   const pend = pendingMap(cls);
   const pendTotal = rows.reduce((a, r) => a + r.pending, 0);
+  const anyEst = rows.some(r => r.dataN > 0 && gradeNow(r).est);
 
   if (ui.fill) return fillScreen(rows, S, pend);
 
@@ -79,14 +80,16 @@ export function viewSummary() {
     // ── แถบพร้อมกรอก + ปุ่มหลัก (ดีไซน์หน้า 05) ──
     h('div', { class: 'card', style: { display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' } },
       h('div', { style: { flex: '1', minWidth: '180px' } },
-        h('div', { style: { fontSize: 'var(--fs-base)', fontWeight: '700' } }, `พร้อมกรอกลง SGS · ${rows.length} คน`),
+        // "พร้อมกรอก" เฉพาะตอนพร้อมจริง — เดิมขึ้นตลอด แม้บรรทัดถัดไปจะบอกว่ายังไม่ตรวจอีก 27 ช่อง
+        h('div', { style: { fontSize: 'var(--fs-base)', fontWeight: '700' } },
+          pendTotal === 0 && !anyEst ? `พร้อมกรอกลง SGS · ${rows.length} คน` : `สรุปคะแนนสำหรับ SGS · ${rows.length} คน`),
         h('div', { style: { fontSize: 'var(--fs-sm)', color: 'var(--ink-2)', marginTop: '2px' } },
-          pendTotal > 0
-            ? `ยังไม่ตรวจ ${pendTotal} รายการ — ช่องที่กระทบจะมีจุดส้มกำกับ`
-            : 'ตรวจครบทุกรายการแล้ว')),
+          [pendTotal > 0 ? `ยังไม่ได้ตรวจ ${pendTotal} ช่องคะแนน — ช่องที่กระทบมีจุดส้มกำกับ` : 'ตรวจครบทุกรายการแล้ว',
+           anyEst ? 'เกรดเป็นค่าประมาณจนกว่าจะกรอกคะแนนปลายภาค' : ''].filter(Boolean).join(' · '))),
       h('button', { class: 'btn btn-ghost btn-sm', onclick: () => { ui.fill = true; ui.fi = 0; emit(); } }, withIcon('users', 'โหมดกรอกทีละคน')),
+      // ไม่ใช่ไลม์ — แอปบันทึกลงชีตเองอยู่แล้ว ปุ่มนี้แค่สั่งชีตคิดสรุปใหม่ ไม่ใช่สิ่งที่ต้องกดทุกครั้ง
       h('button', {
-        class: 'btn btn-sm',
+        class: 'btn btn-ghost btn-sm',
         onclick: async (e) => {
           const b = e.currentTarget; b.disabled = true; b.textContent = 'กำลังบันทึก…';
           try { await recalcOnServer(); toast('เขียนลงชีตแล้ว', 'ok'); }
@@ -101,7 +104,8 @@ export function viewSummary() {
 
     h('div', { class: 'sgs-note' },
       h('span', { class: 'dot-pend' }, '•'),
-      h('span', null, '= ช่องนี้ยังมีงานค้างตรวจ ตัวเลขอาจเปลี่ยน · แตะหัวคอลัมน์เพื่อคัดลอกทั้งช่องไปวางใน SGS')),
+      h('span', null, '= ช่องนี้ยังมีงานค้างตรวจ ตัวเลขอาจเปลี่ยน · แตะหัวคอลัมน์เพื่อคัดลอกทั้งช่องไปวางใน SGS'
+        + (anyEst ? ' · ≈ = เกรดประมาณจากคะแนนที่ตรวจแล้ว (ยังไม่มีปลายภาค)' : ''))),
 
     h('div', { class: 'btn-row', style: { marginTop: '10px' } },
       h('button', { class: 'btn btn-ghost btn-sm', onclick: () => copyTable(rows, cols) }, withIcon('copy', 'คัดลอกทั้งตาราง')),
@@ -156,6 +160,7 @@ function fillScreen(rows, S, pend) {
   if (!rows.length) { ui.fill = false; return h('div', { class: 'page empty' }, 'ไม่มีนักเรียน'); }
   if (ui.fi >= rows.length) ui.fi = 0;
   const r = rows[ui.fi];
+  const now = gradeNow(r);
   const step = (d) => { ui.fi = Math.min(rows.length - 1, Math.max(0, ui.fi + d)); emit(); };
 
   return h('div', { class: 'page' },
@@ -180,12 +185,13 @@ function fillScreen(rows, S, pend) {
 
       h('div', { class: 'fill-total' },
         h('span', null, 'รวม · เกรด'),
-        h('b', { style: { color: r.grade === 'มส' || r.grade === '0' ? 'var(--st-miss)' : 'var(--ink)' } },
+        h('b', { style: { color: !now.est && (r.grade === 'มส' || r.grade === '0') ? 'var(--st-miss)' : 'var(--ink)' } },
           r.dataN ? nf(r.total) : '—'),
         h('span', {
-          class: 'badge ' + (r.grade === 'มส' || r.grade === '0' ? 'r' : 'g'),
-          style: { flex: 'none' }
-        }, `เกรด ${r.grade}`))
+          class: 'badge ' + (now.est ? 'n' : (r.grade === 'มส' || r.grade === '0' ? 'r' : 'g')),
+          style: { flex: 'none' },
+          title: now.est ? `ได้ ${nf(r.proj, 0)}% ของคะแนนที่ตรวจแล้ว · ยังไม่มีคะแนนปลายภาค` : null
+        }, now.est ? `เกรดประมาณ ${now.g}` : `เกรด ${r.grade}`))
     ),
 
     h('div', { class: 'pager' },
@@ -194,13 +200,31 @@ function fillScreen(rows, S, pend) {
         class: 'btn',
         onclick: () => {
           if (ui.fi < rows.length - 1) step(1);
-          else { toast('ครบทุกคนแล้ว 🎉', 'ok'); ui.fill = false; emit(); }
+          else { toast('ครบทุกคนแล้ว', 'ok'); ui.fill = false; emit(); }
         }
       }, ui.fi < rows.length - 1 ? `คนถัดไป · ${rows[ui.fi + 1].name || ''} ›` : 'เสร็จสิ้น'))
   );
 }
 
 // ── ตาราง ───────────────────────────────────────────────────
+
+/**
+ * ช่องรวม + เกรดท้ายแถว — ยังไม่จบภาคเกรดขึ้นเป็น "≈3" สีจาง (ประมาณจากคะแนนที่ตรวจแล้ว)
+ * ช่องรวมยังเป็นเลขจริงเต็ม 100 ที่ต้องลง SGS แต่ไม่ทาแดงตอนยังไม่จบภาค — ต่ำเพราะปลายภาคยังว่าง ไม่ใช่ตก
+ */
+function gradeCells(r) {
+  const now = gradeNow(r);
+  const bad = !now.est && (r.grade === 'มส' || r.grade === '0');
+  return [
+    h('td', { class: 'num total', style: bad ? { color: 'var(--st-miss)' } : null }, r.dataN ? nf(r.total) : '—'),
+    now.est
+      ? h('td', {
+          class: 'num', style: { color: 'var(--ink-2)' },
+          title: `เกรดประมาณ · ได้ ${nf(r.proj, 0)}% ของคะแนนที่ตรวจแล้ว`
+        }, '≈' + now.g)
+      : h('td', { class: 'num', style: bad ? { color: 'var(--st-miss)' } : null }, r.grade)
+  ];
+}
 
 function table(rows, cols, S, pend) {
   return h('table', { class: 'grid' },
@@ -235,14 +259,7 @@ function table(rows, cols, S, pend) {
         return h('td', { class: 'num', style: r['_has_' + c.id] ? null : { color: 'var(--ink-3)' } },
           cellText(r, c.id), p > 0 && h('span', { class: 'dot-pend' }, '•'));
       }),
-      h('td', {
-        class: 'num total',
-        style: (r.grade === 'มส' || r.grade === '0') ? { color: 'var(--st-miss)' } : null
-      }, r.dataN ? nf(r.total) : '—'),
-      h('td', {
-        class: 'num',
-        style: (r.grade === 'มส' || r.grade === '0') ? { color: 'var(--st-miss)' } : null
-      }, r.grade)
+      gradeCells(r)
     )))
   );
 }
@@ -260,7 +277,7 @@ async function toClipboard(text, msg) {
     h('div', { class: 'hint', style: { marginBottom: '8px' } }, 'เบราว์เซอร์ไม่อนุญาตให้คัดลอกอัตโนมัติ — กดค้างเพื่อเลือกทั้งหมด'),
     h('textarea', { rows: 12, value: text, style: { fontFamily: 'ui-monospace, monospace' } }),
     h('div', { style: { height: '10px' } }),
-    h('button', { class: 'btn btn-block', onclick: close }, 'ปิด')
+    h('button', { class: 'btn btn-ghost btn-block', onclick: close }, 'ปิด')
   ));
 }
 

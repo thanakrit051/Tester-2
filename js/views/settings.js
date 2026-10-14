@@ -113,11 +113,19 @@ function refreshMidDateRow(el) {
 // ── ชิ้นส่วนที่ใช้ซ้ำ ────────────────────────────────────────
 
 /** แถวตั้งค่า 1 บรรทัด: ชื่อ + คำอธิบาย ทางซ้าย · ตัวควบคุมทางขวา */
-const row = (name, desc, ctl, bad) => h('div', { class: 'set-row' },
-  h('div', null,
-    h('div', { class: 'set-name' }, name),
-    desc && h('div', { class: 'set-desc' + (bad ? ' bad' : ''), 'data-desc': '1' }, desc)),
-  h('div', { class: 'set-ctl' }, ctl));
+const row = (name, desc, ctl, bad) => {
+  const box = h('div', { class: 'set-ctl' }, ctl);
+  // ช่องกรอกในแถวตั้งค่าไม่มี <label> — ใช้ชื่อแถวเป็นชื่อช่อง (เฉพาะแถวที่มีช่องเดียว)
+  const fields = box.querySelectorAll('input,select,textarea');
+  if (fields.length === 1 && typeof name === 'string' && !fields[0].getAttribute('aria-label')) {
+    fields[0].setAttribute('aria-label', name);
+  }
+  return h('div', { class: 'set-row' },
+    h('div', null,
+      h('div', { class: 'set-name' }, name),
+      desc && h('div', { class: 'set-desc' + (bad ? ' bad' : ''), 'data-desc': '1' }, desc)),
+    box);
+};
 
 const numInput = (k, { step, suffix, width } = {}) => [
   h('input', {
@@ -181,7 +189,8 @@ function secScore() {
         numInput('late_penalty_pct', { step: '5', suffix: '%' })),
       row('การปัดเศษ', 'ใช้กับคะแนนทุกช่องก่อนแสดงและก่อนเขียนลงชีต',
         [selectInput('round_digits', [['0', 'จำนวนเต็ม'], ['1', 'ทศนิยม 1 ตำแหน่ง'], ['2', 'ทศนิยม 2 ตำแหน่ง']]),
-         selectInput('round_mode', [['half', 'ปัดครึ่งขึ้น'], ['up', 'ปัดขึ้นเสมอ'], ['down', 'ปัดลงเสมอ']])]),
+         selectInput('round_mode', [['half', 'ปัดครึ่งขึ้น'], ['up', 'ปัดขึ้นเสมอ'], ['down', 'ปัดลงเสมอ']])]
+          .map((el, i) => { el.setAttribute('aria-label', i ? 'วิธีปัดเศษ' : 'ปัดเศษกี่ตำแหน่ง'); return el; })),
       row('เกณฑ์เกรด', 'รูปแบบ คะแนน:เกรด คั่นด้วยจุลภาค',
         h('input', {
           value: String(cfg('grade_cuts')), style: { minWidth: '260px' },
@@ -301,7 +310,7 @@ function secAcct() {
           onclick: (e) => switchToGoogle(e.currentTarget)
         }, withIcon('login', 'เข้าสู่ระบบด้วย Google')),
         state.installPrompt && h('button', {
-          class: 'btn btn-sm',
+          class: 'btn btn-soft btn-sm',
           onclick: async () => {
             const e = state.installPrompt;
             state.installPrompt = null;
@@ -686,7 +695,7 @@ function showTransfer() {
         else toast('กดค้างที่ข้อความเพื่อคัดลอก');
       }
     }, 'คัดลอกลิงก์'),
-    h('div', { class: 'hint', style: { marginTop: '10px' } },
-      '⚠️ ลิงก์นี้มีสิทธิ์เข้าถึงข้อมูลทั้งหมด อย่าส่งให้คนอื่นหรือโพสต์สาธารณะ')
+    h('div', { class: 'hint hint-warn', style: { marginTop: '10px' } },
+      icon('alert', 'ico ico-sm'), 'ลิงก์นี้มีสิทธิ์เข้าถึงข้อมูลทั้งหมด อย่าส่งให้คนอื่นหรือโพสต์สาธารณะ')
   ));
 }

@@ -228,17 +228,23 @@ function refreshSaveState() {
   }
   const pending = api.queue.size;
   const justSaved = !pending && Date.now() - savedAt() < 1800;
-  let mode = '', text = '';
+  let mode = '', text = '', retry = false;
   if (pending && !navigator.onLine) { mode = 'off'; text = `ออฟไลน์ · เก็บไว้ในเครื่อง ${pending} รายการ`; }
-  else if (pending && api.queue.maxTries() > 0 && !isSyncing()) { mode = 'off'; text = `ยังส่งไม่ได้ · ค้าง ${pending} รายการ`; }
+  else if (pending && api.queue.maxTries() > 0 && !isSyncing()) { mode = 'off'; text = `ยังส่งไม่ได้ · ค้าง ${pending} รายการ`; retry = true; }
   else if (pending) { mode = 'busy'; text = 'กำลังบันทึก…'; }
   else if (justSaved) { mode = 'ok'; text = 'บันทึกแล้ว'; }
 
   el.dataset.mode = mode;
+  el.toggleAttribute('data-retry', retry);
   if (mode) {
-    el.replaceChildren(
+    // replaceChildren ของเบราว์เซอร์ไม่กรอง false แบบ h() — ต้อง filter เอง ไม่งั้นขึ้นคำว่า "false"
+    el.replaceChildren(...[
       mode === 'ok' ? icon('check', 'ico ico-sm') : h('i', { class: 'savestate-dot' }),
-      h('span', null, text));
+      h('span', null, text),
+      // มีเน็ตแต่ส่งไม่ผ่าน — ระบบลองใหม่เองแบบเว้นช่วงยาวขึ้นเรื่อย ๆ (สูงสุด 1 นาที)
+      // ครูที่กำลังจะปิดแอปไม่ควรต้องนั่งรอ ให้กดส่งเดี๋ยวนี้ได้
+      retry && h('button', { class: 'savestate-retry', onclick: () => sync({ loud: true }) }, 'ลองอีกครั้ง')
+    ].filter(Boolean));
   }
   clearTimeout(savedTimer);
   if (justSaved) savedTimer = setTimeout(refreshSaveState, 1900);
@@ -349,9 +355,11 @@ function render() {
       alert && state.view !== 'health' && h('button', {
         class: 'alert-bar' + (alert.level === 'warn' ? ' warn' : ''),
         onclick: () => go('health')
-      }, h('span', null, (alert.level === 'warn' ? '⚠️ ' : '❌ ') + alert.text), h('b', null, 'แก้ ›')),
+      }, icon('alert'), h('span', null, alert.text), h('b', null, 'แก้ ›')),
       !wide() && nav(),
       !head && classPicker(),
+      // ชื่อหน้าสำหรับโปรแกรมอ่านหน้าจอ — เดิมทุกหน้าไม่มีหัวข้อเลย กระโดดตามหัวข้อไม่ได้
+      h('h1', { class: 'sr-only' }, pageName()),
       enter(view())
     )
   );
@@ -359,7 +367,15 @@ function render() {
   if (readyToShow()) reveal();
 }
 
+function pageName() {
+  const n = NAV.find(x => x.id === state.view);
+  if (n) return `${n.label}${state.cls?.meta?.subject ? ' · ' + state.cls.meta.subject : ''}`;
+  return { settings: 'ตั้งค่า', health: 'ตรวจสภาพระบบ' }[state.view] || 'AssignCheck';
+}
+
 function enter(el) {
+  // เนื้อหาหลักของหน้า — ให้กระโดดข้ามแถบหัว/แถบเมนูไปที่เนื้อหาได้ทันที
+  if (el && el.setAttribute) el.setAttribute('role', 'main');
   if (state.view !== shownView) {
     shownView = state.view;
     if (el && el.classList) el.classList.add('page-enter');

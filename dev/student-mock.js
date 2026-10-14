@@ -26,7 +26,9 @@ window.fetch=function(){
   var cls={subject:'คณิตศาสตร์พื้นฐาน',subjectCode:'ค21101',grade:'ม.1',room:'1',no:'1',
     buckets:buckets,earned:61.3,outOf:70,fullTotal:100,
     att:{present:20,late:2,leave:1,absent:1,checked:24,pct:75,minPct:80,risk:true},
-    items:items,pending:1,total:61.3,letter:'2',termDone:false};
+    items:items,pending:1,total:61.3,letter:'2',termDone:false,
+    // เกรดประมาณจากคะแนนที่ตรวจแล้ว (ชีต 2.21.0+) — 61.3/70 = 87.6% → 4
+    proj:87.6,projLetter:'4'};
   var cls2=JSON.parse(JSON.stringify(cls)); cls2.subject='วิทยาการคำนวณ'; cls2.subjectCode='ว23103'; cls2.grade='ม.1'; cls2.room='1'; cls2.total=78.5; cls2.letter='3.5'; cls2.termDone=true; cls2.pending=0; cls2.outOf=100; cls2.att.risk=false; cls2.buckets[7].has=true; cls2.buckets[7].score=24; var cls3=JSON.parse(JSON.stringify(cls)); cls3.subject='ภาษาอังกฤษ'; cls3.subjectCode='อ21101'; delete cls3.total; delete cls3.letter; delete cls3.termDone; cls3.att.risk=false;
   var classes=[cls,cls2,cls3];
   // ?lock=1 = ครูปิดคะแนนปลายภาค — ทำแบบเดียวกับ hideExams_ ใน 05_Student.gs
@@ -35,7 +37,8 @@ window.fetch=function(){
     c.buckets.forEach(function(b){ if(hidden.indexOf(b.id)>=0){b.score=null;b.has=false;b.hidden=true;} if(b.has){e+=b.score;o+=b.max;} });
     c.earned=Math.round(e*100)/100; c.outOf=o;
     c.items.forEach(function(it){ if(hidden.indexOf(it.bucket)>=0){it.hidden=true;it.status='none';it.score=null;it.passed=null;} });
-    delete c.total; delete c.letter; delete c.termDone; });
+    delete c.total; delete c.letter; delete c.termDone;
+    c.proj=Math.round(c.earned/c.outOf*1000)/10; c.projLetter=c.proj>=80?'4':c.proj>=75?'3.5':c.proj>=70?'3':c.proj>=65?'2.5':c.proj>=60?'2':c.proj>=55?'1.5':c.proj>=50?'1':'0'; });
   return Promise.resolve({text:function(){return Promise.resolve(JSON.stringify(
-    {ok:true,data:{name:'กฤตภาส คงพลอย',sid:'61475',summary:true,hidden:hidden,classes:classes},version:'2.17.0'}));}});
+    {ok:true,data:{name:'กฤตภาส คงพลอย',sid:'61475',summary:true,hidden:hidden,classes:classes},version:'2.21.0'}));}});
 };

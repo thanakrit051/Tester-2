@@ -15,13 +15,13 @@ import { serverSupports } from '../version.js';
  * รวมกันได้ 8 ถัง เท่ากับ 8 ช่องของ SGS เหมือนเดิม
  * กลางภาค/ปลายภาคมีช่วงเดียว จึงบังคับช่วงให้เอง
  */
-/* ic = ไอคอนเส้นใน js/icons.js (ชุดเดียวกับแถบเมนู) · emoji ใช้เฉพาะหน้าว่างเปล่า
+/* ic = ไอคอนเส้นใน js/icons.js (ชุดเดียวกับแถบเมนู)
  * ของเดิมใช้อีโมจิบนปุ่ม ซึ่งแต่ละเครื่องวาดไม่เหมือนกันและไม่เข้ากับไอคอนส่วนอื่นของแอป */
 const KINDS = [
-  { kind: 'WORK', ic: 'doc',    emoji: '📝', label: 'ส่งงาน' },
-  { kind: 'QUIZ', ic: 'pencil', emoji: '✍️', label: 'สอบเก็บ' },
-  { kind: 'MID',  ic: 'exam',   emoji: '📄', label: 'กลางภาค', fixed: 1 },
-  { kind: 'FIN',  ic: 'flag',   emoji: '📕', label: 'ปลายภาค', fixed: 2 }
+  { kind: 'WORK', ic: 'doc',    label: 'ส่งงาน' },
+  { kind: 'QUIZ', ic: 'pencil', label: 'สอบเก็บ' },
+  { kind: 'MID',  ic: 'exam',   label: 'กลางภาค', fixed: 1 },
+  { kind: 'FIN',  ic: 'flag',   label: 'ปลายภาค', fixed: 2 }
 ];
 
 const ui = {
@@ -80,9 +80,58 @@ const isExam = (col) => col && col.kind !== 'WORK';
 
 const words = (col) => (isExam(col)
   ? { done: 'สอบแล้ว', miss: 'ยังไม่ได้สอบ', missShort: 'ยังไม่สอบ',
-      bulk: 'ให้เต็มทุกคน', bulkToast: 'ให้คะแนนเต็มทั้งห้อง' }
+      bulk: 'ให้เต็มทุกคน', bulkToast: 'ให้คะแนนเต็มทั้งห้อง',
+      fill: 'ให้เต็ม', fillToast: 'ให้คะแนนเต็ม', over: 'ให้เต็มทุกคน ทับคะแนนเดิม' }
   : { done: 'ส่งแล้ว', miss: 'ไม่ส่ง', missShort: 'ไม่ส่ง',
-      bulk: 'ส่งครบทุกคน', bulkToast: 'ให้ "ส่ง" เต็มทั้งห้อง' });
+      bulk: 'ส่งครบทุกคน', bulkToast: 'ให้ "ส่ง" เต็มทั้งห้อง',
+      fill: 'ให้ส่งครบ', fillToast: 'ให้ "ส่ง" เต็ม', over: 'ให้ส่งครบทุกคน ทับคะแนนเดิม' });
+
+/* ── ปุ่มลัดทั้งห้อง ──────────────────────────────────────────
+ * เติมคะแนนเต็มเฉพาะคนที่ยังว่าง ไม่แตะช่องที่ครูกรอกไว้แล้ว
+ * ของเดิมเขียนเต็มทับทุกคน — ใบงานที่ตรวจไปแล้ว 18 คนถูกทับหมดในแตะเดียว
+ * เหลือแค่ปุ่มเลิกทำใน toast ไม่กี่วินาที ขณะที่ปุ่ม "ล้าง" ข้าง ๆ ยังถามยืนยัน
+ * ช่อง x / ยังไม่สอบ ที่ครูกดไว้เองไม่นับว่าว่าง
+ * "ทับทุกคน" ยังทำได้จากเมนู ⋯ แต่ต้องยืนยันก่อน และไม่แตะช่องสอบซ่อม (เก็บคะแนนเดิมไว้ในช่อง) */
+function blankSids(col) {
+  const vals = state.cls.values[col.key] || {};
+  return state.cls.students.filter(s => parseWork(vals[s.sid]).status === 'none').map(s => s.sid);
+}
+
+function overwriteSids(col) {
+  const vals = state.cls.values[col.key] || {};
+  return state.cls.students.filter(s => {
+    const w = parseWork(vals[s.sid]);
+    return w.status !== 'none' && !w.retake && String(vals[s.sid]).trim() !== String(col.max);
+  }).map(s => s.sid);
+}
+
+/** ทุกคนยังว่าง = ปุ่มเดิม "ส่งครบทุกคน (10)" · ตรวจไปบ้างแล้ว = บอกจำนวนที่จะเติมจริง
+ * ใช้คำว่า "ยังว่าง" ไม่ใช่ "ที่เหลือ" — คนที่ครูกดไม่ส่ง (x) ไว้เองนับอยู่ใน "ยังไม่ส่ง" แต่ปุ่มนี้ไม่แตะ */
+const fillLabel = (col, n) => (n >= state.cls.students.length
+  ? `${words(col).bulk} (${col.max})`
+  : `ยังว่าง ${n} คน · ${words(col).fill}`);
+
+function fillBlanks(col) {
+  const sids = blankSids(col);
+  if (!sids.length) return;
+  const W = words(col);
+  setCells(sids.map(sid => ({ key: col.key, sid, value: col.max })));
+  toast(sids.length >= state.cls.students.length ? W.bulkToast : `${W.fillToast} ${sids.length} คนที่ยังว่าง`,
+    'ok', 1400, undoAction());
+}
+
+async function fillAll(col) {
+  const over = overwriteSids(col);
+  if (!over.length) return fillBlanks(col);
+  const W = words(col);
+  const blank = blankSids(col);
+  if (!await confirmBox(`${W.over}?`,
+    `คะแนนที่กรอกไว้แล้ว ${over.length} คนจะถูกเปลี่ยนเป็น ${col.max} เต็ม`
+    + (blank.length ? ` · ถ้าแค่อยากเติม ${blank.length} คนที่ยังว่าง ใช้ปุ่ม "ยังว่าง ${blank.length} คน · ${W.fill}" แทน` : ''),
+    'ทับทั้งหมด')) return;
+  setCells([...blank, ...over].map(sid => ({ key: col.key, sid, value: col.max })));
+  toast(`${W.bulkToast} · ทับ ${over.length} คน`, 'ok', 1400, undoAction());
+}
 
 function columnsIn(bucketId) {
   const b = bucketOf(bucketId);
@@ -98,7 +147,7 @@ export function viewWork() {
   }
   if (!cls.students.length) {
     return h('div', { class: 'page' }, h('div', { class: 'card empty' },
-      h('div', { class: 'empty-icon' }, '👥'), 'ห้องนี้ยังไม่มีรายชื่อนักเรียน'));
+      h('div', { class: 'empty-icon' }, icon('users')), 'ห้องนี้ยังไม่มีรายชื่อนักเรียน'));
   }
   const col = openCol();
   if (!col) return listScreen();
@@ -130,26 +179,34 @@ viewWork.head = function () {
 
   const b = BUCKETS.find(x => x.kind === col.kind && x.half === col.half);
   const t = tally(col);
-  const siblings = (cls.columns || []).filter(c => c.kind === col.kind && c.half === col.half);
   const s = curStudent();
   const byStudent = ui.by === 'student';
 
+  /* แถบหัวเหลือ 2 แถว: ชื่อ + สลับรายชิ้นงาน/รายคน (ผู้ใช้ใช้ทั้งคู่ รายคนบ่อยกว่า — ต้องเห็นตลอด)
+   *  · เลือกชิ้นงาน = แตะที่ชื่อชิ้นงาน — เดิมเป็นกล่องอีกแถวที่เขียนชื่อชิ้นงานซ้ำกับแถวบน
+   *  · ⋯ = เมนูของชิ้นนี้ (ให้เต็มที่ยังว่าง · ตามงาน · วางจาก Excel · ล้าง · แก้ไข · ลบ)
+   *    แทนการ์ดปุ่มลัด 3 ปุ่มที่เคยคั่นระหว่างแถบหัวกับรายชื่อ (สูง 116px เพราะตัดเป็น 2 บรรทัด) */
   return h('header', { class: 'pagehead' },
     h('div', { class: 'ph-row' },
       h('button', { class: 'ph-back', 'aria-label': 'กลับ', onclick: () => { ui.open = null; emit(); } }, icon('back')),
       h('div', { class: 'ph-grow' },
-        h('div', { class: 'ph-title' }, byStudent ? (s.name || '—') : col.label),
+        byStudent
+          ? h('div', { class: 'ph-title' }, s.name || '—')
+          : h('button', {
+              class: 'ph-title ph-title-pick', 'aria-haspopup': 'dialog',
+              'aria-label': `${col.label} · เปลี่ยนชิ้นงาน`, onclick: () => openItemPicker(col)
+            }, h('span', null, col.label), icon('down', 'ico ico-sm')),
         h('div', { class: 'ph-sub' }, byStudent
           ? `เลขที่ ${s.no}${s.sid ? ' · ' + s.sid : ''} · ${[cls.meta.grade, cls.meta.room].filter(Boolean).join('/')}`
-          : `${b ? b.label : ''} · ${col.half === 1 ? 'ก่อนกลางภาค' : 'หลังกลางภาค'} · เต็ม ${col.max}`)),
+          // คะแนนเต็มขึ้นก่อน — แถบแคบลงเพราะมีปุ่ม ⋯ ถ้าถูกตัดท้ายต้องเหลือเลขที่ใช้กรอกจริง
+          : `เต็ม ${col.max} · ${b ? b.label : ''} · ${col.half === 1 ? 'ก่อนกลางภาค' : 'หลังกลางภาค'}`)),
       h('div', { class: 'ph-badge', 'data-prog': '1' },
-        byStudent ? `${ui.si + 1}/${cls.students.length}` : `${t.done}/${t.total}`)
+        byStudent ? `${ui.si + 1}/${cls.students.length}` : `${t.done}/${t.total}`),
+      !byStudent && h('button', {
+        class: 'ph-back', 'aria-label': 'ตัวเลือกของชิ้นนี้', onclick: () => openItemMenu(col)
+      }, icon('more'))
     ),
-    modeSeg('ph-seg'),
-    !byStudent && h('button', { class: 'ph-box', onclick: () => openItemPicker(col) },
-      h('b', null, col.label),
-      h('span', null, isFixedKind(col.kind) && siblings.length <= 1 ? 'สอบครั้งเดียว' : `${siblings.length} ชิ้นในถังนี้`),
-      h('i', null, icon('down', 'ico ico-sm')))
+    modeSeg('ph-seg')
   );
 };
 
@@ -255,7 +312,7 @@ function listScreen() {
       cols.length
         ? h('div', { class: 'card card-tight' }, cols.map(itemRow))
         : h('div', { class: 'card empty' },
-            h('div', { class: 'empty-icon' }, kindOf(b.kind).emoji),
+            h('div', { class: 'empty-icon' }, icon(kindOf(b.kind).ic)),
             h('div', null, `ยังไม่ได้กรอกคะแนน${b.label}`),
             h('button', {
               class: 'btn', style: { marginTop: '12px' },
@@ -277,7 +334,7 @@ function listScreen() {
 
     cols.length === 0
       ? h('div', { class: 'card empty' },
-          h('div', { class: 'empty-icon' }, '📝'),
+          h('div', { class: 'empty-icon' }, icon('doc')),
           h('div', null, `ยังไม่มีรายการใน "${b.label}"`),
           h('div', { style: { fontSize: 'var(--fs-sm)', marginBottom: '12px' } },
             'เพิ่มกี่ชิ้นก็ได้ คะแนนเต็มเท่าไหร่ก็ได้ ระบบเทียบสัดส่วนให้อัตโนมัติ'),
@@ -482,7 +539,7 @@ function scoreRow(col, s, { head, nextInput } = {}) {
 function openRetake(col, s, done) {
   // ชีตรุ่นเก่าอ่าน "R15/6" ไม่ออก จะนับเป็นยังไม่ตรวจแล้วคะแนนสรุปของคนนี้หายจากชีต
   if (!serverSupports('retake', serverInfo)) {
-    return toast('โค้ดในชีตยังเป็นรุ่นเก่า อ่านคะแนนสอบซ่อมไม่ออก — อัปโค้ดในชีตก่อน (⚙️ ตั้งค่า → ตรวจสภาพระบบ)', 'err', 7000);
+    return toast('โค้ดในชีตยังเป็นรุ่นเก่า อ่านคะแนนสอบซ่อมไม่ออก — อัปโค้ดในชีตก่อน (ตั้งค่า → ตรวจสภาพระบบ)', 'err', 7000);
   }
 
   const w = parseWork(getCell(col.key, s.sid));
@@ -561,6 +618,7 @@ function gradeScreen(col) {
   });
 
   const W = words(col);
+  const nBlank = blankSids(col).length;
   const siblings = columnsIn(curBucket().id);
 
   return h('div', { class: 'page' },
@@ -602,27 +660,6 @@ function gradeScreen(col) {
       h('div', { style: { width: '180px', flex: 'none' } }, progressBar(col))
     ),
 
-    // ── ปุ่มลัดทั้งห้อง (มือถือ — บน PC อยู่ในเมนู ⋯ ของแถบชิ้นงาน) ──
-    h('div', { class: 'card pc-hide', style: { padding: '10px 12px' } },
-      h('div', { class: 'btn-row' },
-        h('button', {
-          class: 'btn btn-soft btn-sm',
-          onclick: () => {
-            setCells(state.cls.students.map(s => ({ key: col.key, sid: s.sid, value: col.max })));
-            toast(W.bulkToast, 'ok', 1400, undoAction());
-          }
-        }, withIcon('check', `${W.bulk} (${col.max})`)),
-        h('button', {
-          class: 'btn btn-ghost btn-sm',
-          onclick: async () => {
-            if (!await confirmBox('ล้างคะแนน?', 'คะแนนของรายการนี้จะถูกลบทั้งห้อง', 'ล้าง')) return;
-            setCells(state.cls.students.map(s => ({ key: col.key, sid: s.sid, value: '' })));
-            toast('ล้างคะแนนแล้ว', 'ok', 1400, undoAction());
-          }
-        }, withIcon('broom', 'ล้าง')),
-        h('button', { class: 'btn btn-ghost btn-sm', onclick: () => chase(col) }, withIcon('megaphone', 'ตามงาน'))
-      )),
-
     find.el,
 
     // ── รายชื่อ: มือถือ = การ์ดใบละคน · PC = ตาราง 4 คอลัมน์ ──
@@ -630,7 +667,15 @@ function gradeScreen(col) {
       h('div', { class: 'work-thead' },
         h('div', null, 'เลขที่'), h('div', null, 'ชื่อ-นามสกุล'),
         h('div', null, isExam(col) ? 'สถานะการสอบ' : 'สถานะการส่ง'), h('div', null, 'คะแนน')),
-      rows)
+      rows),
+
+    // ── ท้ายรายชื่อ (มือถือ): กรอกคนที่ไม่ปกติไล่ลงมาจนสุด แล้วเติมที่เหลือทีเดียว ──
+    // จังหวะเดียวกับ "ที่เหลือมา" ในหน้าเช็คชื่อ · ตรวจครบแล้วซ่อน · บน PC อยู่ในเมนู ⋯
+    h('div', { class: 'list-end pc-hide' },
+      h('button', {
+        class: 'btn btn-soft btn-block fill-blank', hidden: !nBlank,
+        onclick: () => fillBlanks(col)
+      }, withIcon('check', h('span', { 'data-fill': '' }, fillLabel(col, nBlank)))))
   );
 }
 
@@ -830,6 +875,15 @@ function refreshProgress(col) {
 
   const bar = document.querySelector('.ctxbar .prog-track');
   if (bar && bar.parentElement) bar.parentElement.replaceWith(progressBar(col));
+
+  // ปุ่ม "ยังว่าง N คน · ให้ส่งครบ" — จำนวนต้องลดตามที่ครูกรอกไปทีละคน ไม่งั้นป้ายโกหก
+  const fill = document.querySelector('.fill-blank');
+  if (fill) {
+    const n = blankSids(col).length;
+    fill.hidden = !n;
+    const label = fill.querySelector('[data-fill]');
+    if (label) label.textContent = fillLabel(col, n);
+  }
 }
 
 // ── เพิ่ม / แก้ไขรายการ ─────────────────────────────────────
@@ -1016,23 +1070,26 @@ function chase(col) {
 
 function openItemMenu(col) {
   const t = tally(col);
+  const nBlank = blankSids(col).length;
+  const nOver = overwriteSids(col).length;
   modal((close) => h('div', null,
     h('h2', null, col.label),
     h('div', { class: 'hint', style: { marginBottom: '12px' } },
       `เต็ม ${col.max} · ${words(col).done} ${t.done}/${t.total}`),
     h('div', { style: { display: 'grid', gap: '8px' } },
-      h('button', { class: 'btn btn-ghost btn-block', onclick: () => { close(); ui.open = col.key; emit(); } }, withIcon('doc', 'กรอกคะแนน')),
+      // เปิดจากในหน้ากรอกของชิ้นนี้เอง (⋯ บนแถบหัว) ไม่ต้องมีปุ่มพาไปหน้าที่อยู่แล้ว
+      ui.open !== col.key && h('button', { class: 'btn btn-ghost btn-block', onclick: () => { close(); ui.open = col.key; emit(); } }, withIcon('doc', 'กรอกคะแนน')),
       h('button', { class: 'btn btn-ghost btn-block', onclick: () => { close(); openItemForm(col); } }, withIcon('edit', 'แก้ไขชื่อ / รายละเอียด / คะแนนเต็ม')),
       h('button', { class: 'btn btn-ghost btn-block', onclick: () => { close(); chase(col); } }, withIcon('megaphone', 'ตามงาน · คัดลอกรายชื่อไปไลน์')),
       h('button', { class: 'btn btn-ghost btn-block', onclick: () => { close(); openPaste(col); } }, withIcon('paste', 'วางคะแนนจาก Excel')),
-      h('button', {
+      nBlank > 0 && h('button', {
         class: 'btn btn-ghost btn-block',
-        onclick: () => {
-          close();
-          setCells(state.cls.students.map(s => ({ key: col.key, sid: s.sid, value: col.max })));
-          toast(words(col).bulkToast, 'ok', 1400, undoAction());
-        }
-      }, withIcon('check', `${words(col).bulk} (${col.max})`)),
+        onclick: () => { close(); fillBlanks(col); }
+      }, withIcon('check', fillLabel(col, nBlank))),
+      nOver > 0 && h('button', {
+        class: 'btn btn-ghost btn-block',
+        onclick: () => { close(); fillAll(col); }
+      }, withIcon('check', `${words(col).over}…`)),
       h('button', {
         class: 'btn btn-ghost btn-block',
         onclick: async () => {

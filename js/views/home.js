@@ -4,7 +4,7 @@ import { h, modal, toast, confirmBox, todayISO } from '../dom.js';
 import {
   state, go, emit, loadClass, createClass, updateClassMeta, deleteClass, setStudents, settings, bootAll
 } from '../state.js';
-import { computeClass, parseWork } from '../score.js';
+import { computeClass, gradeNow, parseWork } from '../score.js';
 import * as api from '../api.js';
 import { store } from '../storage.js';
 import { DAYS, currentSlot, slotsOn, hasTimetable } from '../timetable.js';
@@ -39,7 +39,7 @@ export function viewHome() {
     // ห้ามชวนให้ "สร้างห้องแรก" ตอนนี้ ครูจะสร้างห้องซ้ำกับที่มีอยู่แล้วในชีต
     state.classes.length === 0 && !state.classesKnown
       ? h('div', { class: 'card empty' },
-          h('div', { class: 'empty-icon' }, state.classesError ? '⚠️' : '⏳'),
+          h('div', { class: 'empty-icon' }, icon(state.classesError ? 'alert' : 'clock')),
           h('div', { style: { fontWeight: '600' } },
             state.classesError ? 'โหลดรายชื่อห้องไม่สำเร็จ' : 'กำลังโหลดรายชื่อห้อง…'),
           state.classesError && h('div', { style: { fontSize: 'var(--fs-sm)', margin: '4px 0 14px' } },
@@ -53,7 +53,7 @@ export function viewHome() {
           }, 'ลองโหลดใหม่'))
     : state.classes.length === 0
       ? h('div', { class: 'card empty' },
-          h('div', { class: 'empty-icon' }, '📚'),
+          h('div', { class: 'empty-icon' }, icon('book')),
           h('div', { style: { fontWeight: '600' } }, 'ยังไม่มีห้องเรียน'),
           h('div', { style: { fontSize: 'var(--fs-sm)', marginBottom: '14px' } },
             'สร้างห้องแรก เช่น "ม.1/1 · คณิตศาสตร์พื้นฐาน"'),
@@ -91,15 +91,18 @@ function overviewCard(showHero = true) {
   const rows = computeClass(state.cls, settings());
   if (!rows.length) {
     return h('div', { class: 'card empty' },
-      h('div', { class: 'empty-icon' }, '👥'),
+      h('div', { class: 'empty-icon' }, icon('users')),
       h('div', { style: { fontWeight: '600', marginBottom: '10px' } }, 'ห้องนี้ยังไม่มีรายชื่อนักเรียน'),
       h('button', { class: 'btn', onclick: () => openRoster(state.cls) }, 'นำเข้ารายชื่อ'));
   }
   const S = settings();
   const risk  = rows.filter(r => r.attN > 0 && r.pct < S.minPct).length;
   const graded = rows.filter(r => r.dataN > 0);
-  const avg   = graded.length ? graded.reduce((a, r) => a + r.total, 0) / graded.length : null;
-  const zero  = rows.filter(r => r.flag.includes('เสี่ยงติด 0')).length;
+  // ยังไม่จบภาค ใช้คะแนนที่คิดจากส่วนที่ตรวจแล้ว (gradeNow) — ไม่งั้นช่วงกลางภาคเฉลี่ยออกมา 45/100
+  // และ "เสี่ยงติดศูนย์" ขึ้น 0 ขณะที่หน้ารายงานมีเกรด 0 ครึ่งห้อง ตัวเลขสองหน้าขัดกันเอง
+  const avg   = graded.length ? graded.reduce((a, r) => a + gradeNow(r).score, 0) / graded.length : null;
+  const anyEst = graded.some(r => gradeNow(r).est);
+  const zero  = rows.filter(r => r.flag.includes('เสี่ยงติด 0') || (gradeNow(r).est && r.projGrade === '0')).length;
 
   const cls = state.cls;
   const attToday = (cls.columns || []).some(c => c.kind === 'ATT' && c.date === todayISO());
@@ -150,14 +153,14 @@ function overviewCard(showHero = true) {
         h('div', { style: { fontWeight: '700', fontSize: 'var(--fs-md)', marginBottom: '10px' } },
           `ค้างอยู่ · ${[cls.meta.grade, cls.meta.room].filter(Boolean).join('/') || cls.meta.subject}`),
         todos.length === 0
-          ? h('div', { style: { fontSize: 'var(--fs-sm)', color: 'var(--ink-2)' } }, 'ไม่มีอะไรค้าง 🎉')
+          ? h('div', { style: { fontSize: 'var(--fs-sm)', color: 'var(--ink-2)' } }, 'ไม่มีอะไรค้าง')
           : todos.map(t => h('button', { class: 'todo-row', onclick: () => go(t.go) },
               h('i', { style: { background: t.c } }), t.t, h('b', null, t.cta + ' →')))),
 
       h('div', { class: 'card stats-card' },
         h('div', { class: 'stats' },
           stat('g', rows.length, 'นักเรียน'),
-          stat('b', avg === null ? '—' : avg.toFixed(1), 'คะแนนเฉลี่ย /100'),
+          stat('b', avg === null ? '—' : avg.toFixed(1), anyEst ? 'เฉลี่ย % ของที่ตรวจแล้ว' : 'คะแนนเฉลี่ย /100'),
           stat('a', risk, 'เสี่ยง มส'),
           stat('r', zero, 'เสี่ยงติดศูนย์')),
         avg === null && h('div', { class: 'hint' },
@@ -333,7 +336,7 @@ function openClassForm(edit) {
         h('label', null, 'รายชื่อนักเรียน (ไม่ใส่ตอนนี้ก็ได้)'), roster,
         h('div', { class: 'hint' }, 'รองรับ: “เลขที่ ⇥ เลขประจำตัว ⇥ ชื่อ” · “เลขประจำตัว ⇥ ชื่อ” · หรือชื่ออย่างเดียว')),
       !edit && h('div', { class: 'hint', style: { marginBottom: '10px' } },
-        '💡 แต่ละห้อง-วิชาจะได้แท็บของตัวเองใน Google Sheet เก็บทั้งเช็คชื่อ คะแนน และสรุปไว้ด้วยกัน'),
+        'แต่ละห้อง-วิชาจะได้แท็บของตัวเองใน Google Sheet เก็บทั้งเช็คชื่อ คะแนน และสรุปไว้ด้วยกัน'),
       save
     );
   });
@@ -389,8 +392,8 @@ function openRoster(cls) {
       h('div', { class: 'hint', style: { marginBottom: '8px' } },
         'หนึ่งบรรทัดต่อหนึ่งคน คั่นด้วย Tab หรือ , — วางจาก Excel ได้เลย'),
       ta,
-      h('div', { class: 'hint', style: { margin: '8px 0 12px' } },
-        '⚠️ คะแนนเดิมจะถูกจับคู่กลับด้วย “เลขประจำตัว” ถ้าเปลี่ยนเลขประจำตัว คะแนนของคนนั้นจะหาย'),
+      h('div', { class: 'hint hint-warn', style: { margin: '8px 0 12px' } },
+        icon('alert', 'ico ico-sm'), 'คะแนนเดิมจะถูกจับคู่กลับด้วย “เลขประจำตัว” ถ้าเปลี่ยนเลขประจำตัว คะแนนของคนนั้นจะหาย'),
       save
     );
   });

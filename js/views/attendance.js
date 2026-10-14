@@ -11,6 +11,7 @@ import { icon, withIcon } from '../icons.js';
 import { state, emit, ensureColumn, setCells, getCell, deleteColumn, go } from '../state.js';
 import { ATT_CODES, ATT_NAMES, attStats } from '../score.js';
 import { undoAction, loadingPage } from './common.js';
+import { queue } from '../api.js';
 
 const ui = {
   // ดีไซน์ให้แตะ "เช็คชื่อ" แล้วเข้าหน้าเช็คของวันนี้เลย ไม่ต้องผ่านหน้าเลือกวัน
@@ -21,6 +22,7 @@ const ui = {
   halfOverride: null,        // ตั้งเองเฉพาะกรณีที่ระบบเดาผิด
   pending: null,             // คาบที่เพิ่งกดเพิ่ม ยังไม่มีข้อมูลในชีต
   onlyBlank: false,          // กรองเฉพาะคนที่ยังไม่เช็ค
+  findOpen: false,           // มือถือ: เปิดช่องค้นหาจากไอคอนบนแถบหัว
   q: ''                      // คำค้นชื่อ/เลขที่
 };
 
@@ -61,6 +63,7 @@ function enterCheck(dateISO, period, { markAllPresent = false } = {}) {
   ui.pending = null;
   ui.onlyBlank = false;
   ui.q = '';
+  ui.findOpen = false;
   if (markAllPresent) {
     const key = keyFor(dateISO, period);
     ensureColumn(colSpecFromKey(key), { quiet: true });
@@ -83,6 +86,7 @@ export function startCheckAt(period) {
   ui.pending = { date: d, period };
   ui.onlyBlank = false;
   ui.q = '';
+  ui.findOpen = false;
 }
 
 // ── หน้าเข้าสู่การเช็ค ──────────────────────────────────────
@@ -94,7 +98,7 @@ export function viewAttendance() {
   }
   if (!cls.students.length) {
     return h('div', { class: 'page' }, h('div', { class: 'card empty' },
-      h('div', { class: 'empty-icon' }, '👥'), 'ห้องนี้ยังไม่มีรายชื่อนักเรียน'));
+      h('div', { class: 'empty-icon' }, icon('users')), 'ห้องนี้ยังไม่มีรายชื่อนักเรียน'));
   }
   return ui.mode === 'check' ? checkScreen() : dayListScreen();
 }
@@ -152,35 +156,39 @@ viewAttendance.head = function () {
   }
 
   const { available, key, st } = resolve();
-  const done = cls.students.length - st.blank;
+  // คาบเดียวของวันก็บอกเลขคาบถ้าไม่ใช่คาบ 1 (มาจากตารางสอน) ครูจะได้มั่นใจว่าเช็คถูกคาบ
+  const title = fmtDate(ui.date) + (available.length > 1 || ui.period !== 1 ? ` · คาบ ${ui.period}` : '');
 
+  /* แถบหัวเหลือ 2 แถว: ชื่อ + ปุ่มลัด — รายชื่อคนแรกขึ้นมาจาก ~300px เหลือ ~190px บนจอ 812
+   *  · เลือกคาบ = แตะที่ชื่อหน้า (select ใสทับอยู่ ได้ตัวเลือกของเครื่องเอง) เดิมกินแถวเต็ม
+   *  · เพิ่มคาบ / สุ่มเรียกชื่อ ย้ายเข้าเมนู ⋯ · ค้นหาเป็นไอคอน แตะแล้วช่องค้นหาโผล่ใต้แถบ
+   *  · ป้าย 15/20 เอาออก — ปุ่ม "ยังว่าง 5" กับแถวตัวนับบอกเรื่องเดียวกันอยู่แล้ว */
   return h('header', { class: 'pagehead' },
     h('div', { class: 'ph-row' },
       h('button', { class: 'ph-back', 'aria-label': 'กลับ', onclick: () => { ui.mode = 'list'; emit(); } }, icon('back')),
       h('div', { class: 'ph-grow' },
-        h('div', { class: 'ph-title' },
-          // คาบเดียวของวันก็บอกเลขคาบถ้าไม่ใช่คาบ 1 (มาจากตารางสอน) ครูจะได้มั่นใจว่าเช็คถูกคาบ
-          fmtDate(ui.date) + (available.length > 1 || ui.period !== 1 ? ` · คาบ ${ui.period}` : '')),
+        available.length > 1
+          ? h('label', { class: 'ph-title ph-title-pick' },
+              h('span', null, title), icon('down', 'ico ico-sm'),
+              h('select', {
+                'aria-label': 'เลือกคาบเรียน',
+                onchange: (e) => { ui.period = Number(e.target.value); ui.onlyBlank = false; emit(); }
+              }, available.map(pn => h('option', {
+                value: String(pn), selected: pn === ui.period
+              }, `คาบ ${pn}`))))
+          : h('div', { class: 'ph-title' }, title),
         h('div', { class: 'ph-sub' },
           `${[cls.meta.grade, cls.meta.room].filter(Boolean).join('/')} ${cls.meta.subject}`)),
-      h('div', { class: 'ph-badge' }, `${done}/${cls.students.length}`),
+      h('button', {
+        class: 'ph-back', 'aria-label': 'ค้นหานักเรียน', 'aria-pressed': findOpen() ? 'true' : 'false',
+        onclick: toggleFind
+      }, icon('search')),
       h('button', { class: 'ph-back', 'aria-label': 'ตัวเลือกเพิ่มเติม', onclick: () => openMenu(available, key) }, icon('more'))
     ),
-    // คาบเรียนใช้ dropdown — จำนวนคาบไม่จำกัด ถ้าเรียงเป็นชิปจะกินที่แถบหัว
-    // ไปเรื่อย ๆ ตามจำนวนคาบ และหาคาบที่ต้องการยากขึ้นเมื่อมีหลายคาบ
-    available.length > 1 && h('div', { class: 'ph-chips' },
-      h('label', { class: 'ph-pick' },
-        h('span', null, 'คาบ'),
-        h('select', {
-          'aria-label': 'เลือกคาบเรียน',
-          onchange: (e) => { ui.period = Number(e.target.value); ui.onlyBlank = false; emit(); }
-        }, available.map(pn => h('option', {
-          value: String(pn), selected: pn === ui.period
-        }, String(pn))))),
-      h('button', { class: 'ph-chip add', onclick: () => addPeriod(available, ui.date) }, withIcon('plus', 'เพิ่มคาบ'))
-    ),
     h('div', { class: 'ph-actions' },
-      h('button', { class: 'ph-main', onclick: () => markAll(key, 'ม') }, withIcon('check', 'ทุกคนมา')),
+      // เช็คครบแล้วซ่อนปุ่มลายม์ — สีนี้แปลว่า "กดตัวนี้ต่อ" ห้ามค้างอยู่ตอนไม่มีอะไรให้กด
+      h('button', { class: 'ph-main mark-rest', hidden: !st.blank, onclick: () => markRest(key) },
+        withIcon('check', h('span', { 'data-t': 'rest' }, restLabel(st.blank, cls.students.length)))),
       st.blank > 0
         ? h('button', {
             class: 'ph-side', 'data-on': ui.onlyBlank ? '1' : '0',
@@ -249,7 +257,7 @@ function historyCard() {
 
   if (!dates.length) {
     return h('div', { class: 'card empty' },
-      h('div', { class: 'empty-icon' }, '🗓'),
+      h('div', { class: 'empty-icon' }, icon('calendar')),
       h('div', { style: { fontSize: 'var(--fs-sm)' } },
         'ยังไม่เคยเช็คชื่อห้องนี้', h('br'), 'เช็ควันไหน ระบบจะบันทึกวันนั้นให้เอง วันที่ไม่เช็คไม่ถูกนำมาคิดคะแนน'));
   }
@@ -358,12 +366,14 @@ function checkScreen() {
       h('div', { class: 'ctx-end' },
         h('span', { class: 'tnum', 'data-t': 'done', style: { fontSize: 'var(--fs-sm)', color: 'var(--ink-2)' } },
           `เช็คแล้ว ${done}/${total}`),
-        h('button', { class: 'btn btn-sm', onclick: () => markAll(key, 'ม') }, withIcon('check', 'ทุกคนมา')),
+        h('button', { class: 'btn btn-sm mark-rest', hidden: !st.blank, onclick: () => markRest(key) },
+          withIcon('check', h('span', { 'data-t': 'rest' }, restLabel(st.blank, total)))),
         h('button', { class: 'icon-btn', 'aria-label': 'ตัวเลือกเพิ่มเติม', onclick: () => openMenu(available, key) }, icon('more')))
     ),
 
-    h('div', { class: 'find-row' }, searchBox(), h('button', {
-      class: 'dice-btn', 'aria-label': 'สุ่มเรียกชื่อ', title: 'สุ่มเรียกชื่อ',
+    // มือถือ: ซ่อนไว้จนกว่าจะแตะไอคอนค้นหาบนแถบหัว (หรือมีคำค้นค้างอยู่) · PC เห็นตลอด
+    h('div', { class: 'find-row' + (findOpen() ? '' : ' m-collapsed') }, searchBox(), h('button', {
+      class: 'dice-btn pc-only', 'aria-label': 'สุ่มเรียกชื่อ', title: 'สุ่มเรียกชื่อ',
       onclick: () => openPicker(key)
     }, icon('shuffle'))),
 
@@ -388,7 +398,8 @@ function checkScreen() {
     h('div', { class: 'att-list' },
       shown.length
         ? shown.map(s => studentRow(s, key))
-        : h('div', { class: 'card empty', style: { padding: '26px' } }, 'เช็คครบแล้ว 🎉')),
+        : h('div', { class: 'card empty', style: { padding: '26px' } },
+            h('div', { class: 'empty-icon ok' }, icon('check')), 'เช็คครบแล้ว')),
     h('div', {
       class: 'card empty att-nomatch',
       hidden: !ui.q.trim() || shown.some(s => matchStudent(s, ui.q))
@@ -398,9 +409,9 @@ function checkScreen() {
       h('div', { class: 'done-note' },
         'บันทึกอัตโนมัติทุกครั้งที่แตะ · ออฟไลน์ก็เช็คได้ ระบบส่งให้เมื่อมีเน็ต'),
       h('button', {
-        class: 'btn btn-solid',
+        class: 'btn btn-solid', 'data-t': 'finish',
         onclick: () => { ui.mode = 'list'; ui.onlyBlank = false; emit(); }
-      }, 'เสร็จสิ้น · บันทึกแล้ว'))
+      }, finishLabel()))
   );
 }
 
@@ -410,9 +421,12 @@ function studentRow(s, key) {
     h('div', { style: { flex: '1', minWidth: '0' } },
       h('div', { class: 'stu-name' }, s.name || '—'),
       h('div', { class: 'stu-sid' }, `เลขที่ ${s.no}${s.sid ? ' · ' + s.sid : ''}`)),
-    h('div', { class: 'att-group' },
+    // กลุ่มปุ่มบอกชื่อคน + aria-pressed บอกว่าตอนนี้เลือกอะไรอยู่ — เดิมโปรแกรมอ่านหน้าจออ่านแค่
+    // "มา ปุ่ม · สาย ปุ่ม" ทุกแถวเหมือนกัน ไม่รู้ว่าเป็นของใคร และไม่รู้ว่าเช็คไปแล้วหรือยัง
+    h('div', { class: 'att-group', role: 'group', 'aria-label': `เช็คชื่อ ${s.name || 'เลขที่ ' + s.no}` },
       ATT_CODES.map(code => h('button', {
         class: 'att-btn', 'data-code': code, 'data-on': cur === code ? '1' : '0',
+        'aria-pressed': cur === code ? 'true' : 'false',
         title: ATT_NAMES[code], 'aria-label': ATT_NAMES[code],
         onclick: (e) => {
           const now = String(getCell(key, s.sid) || '');
@@ -420,7 +434,11 @@ function studentRow(s, key) {
           ensureColumn(colSpecFromKey(key), { quiet: true });
           setCells([{ key, sid: s.sid, value: next }], { quiet: true });
           const group = e.currentTarget.parentElement;
-          [...group.children].forEach(b => { b.dataset.on = (b.dataset.code === next) ? '1' : '0'; });
+          [...group.children].forEach(b => {
+            const on = b.dataset.code === next;
+            b.dataset.on = on ? '1' : '0';
+            b.setAttribute('aria-pressed', on ? 'true' : 'false');
+          });
           refreshStats(key);
           buzz();
         }
@@ -446,6 +464,16 @@ function searchBox() {
     onclick: () => { ui.q = ''; input.value = ''; applySearch(); input.focus(); }
   }, icon('close'));
   return h('label', { class: 'find-box' }, icon('search'), input, clearBtn);
+}
+
+/** ช่องค้นหาบนมือถือโผล่ไหม — มีคำค้นค้างอยู่ก็ต้องเห็น ไม่งั้นรายชื่อถูกกรองโดยไม่รู้ตัว */
+const findOpen = () => ui.findOpen || !!ui.q.trim();
+
+function toggleFind() {
+  if (findOpen()) { ui.findOpen = false; ui.q = ''; emit(); return; }
+  ui.findOpen = true;
+  emit();
+  requestAnimationFrame(() => document.querySelector('.find-row input')?.focus());
 }
 
 function applySearch() {
@@ -527,6 +555,12 @@ function openMenu(available, key) {
   modal((close) => h('div', null,
     h('h2', null, fmtDayFull(ui.date)),
     h('div', { style: { display: 'grid', gap: '8px' } },
+
+      // มือถือย้ายปุ่มนี้ออกจากข้างช่องค้นหามาไว้ที่นี่ (ผู้ใช้เลือก 2026-10-14) · PC ยังมีไอคอนข้างช่องค้นหา
+      h('button', {
+        class: 'btn btn-ghost btn-block',
+        onclick: () => { close(); openPicker(key); }
+      }, withIcon('shuffle', 'สุ่มเรียกชื่อ')),
 
       h('button', {
         class: 'btn btn-ghost btn-block',
@@ -641,11 +675,32 @@ function addPeriod(used, dateISO) {
 
 // ── เขียนค่า / รีเฟรช ───────────────────────────────────────
 
-function markAll(key, value) {
+/**
+ * "ทุกคนมา" ใส่ ม ให้เฉพาะคนที่ยังว่าง — ไม่ทับ สาย/ลา/ขาด ที่ครูแตะไว้ก่อน
+ *
+ * ของเดิมเขียนทับทั้งห้อง: แตะคนสาย 1 คนแล้วกดปุ่มนี้ คนสายกลายเป็นมาเงียบ ๆ
+ * ครูหลายคนแตะคนที่ไม่ปกติก่อนแล้วค่อยกด "ที่เหลือมา" ลำดับนี้ต้องปลอดภัย
+ * อยากเปลี่ยนคนที่เช็คไปแล้ว ก็แตะที่คนนั้นตรง ๆ
+ */
+const isBlankAt = (key, sid) => !ATT_CODES.includes(String(getCell(key, sid) ?? '').trim());
+
+function markRest(key) {
+  const sids = state.cls.students.filter(s => isBlankAt(key, s.sid)).map(s => s.sid);
+  if (!sids.length) return;
   ensureColumn(colSpecFromKey(key), { quiet: true });
-  setCells(state.cls.students.map(s => ({ key, sid: s.sid, value })));
-  toast('ทำเครื่องหมาย "มา" ทั้งห้อง', 'ok', 1400, undoAction());
+  setCells(sids.map(sid => ({ key, sid, value: 'ม' })));
+  toast(sids.length >= state.cls.students.length
+    ? 'ทำเครื่องหมาย "มา" ทั้งห้อง'
+    : `ให้ "มา" อีก ${sids.length} คนที่ยังว่าง`, 'ok', 1400, undoAction());
 }
+
+/** ยังไม่มีใครถูกเช็ค = "ทุกคนมา" · เช็คไปบ้างแล้ว = บอกว่าจะใส่ให้กี่คน */
+const restLabel = (blank, total) => (blank >= total ? 'ทุกคนมา' : `ที่เหลือมา · ${blank} คน`);
+
+/** ป้ายปุ่มเสร็จสิ้น — ถ้ายังส่งขึ้นชีตไม่ได้ อย่าบอกว่า "บันทึกแล้ว" เฉย ๆ */
+const finishLabel = () => (queue.size && (!navigator.onLine || queue.maxTries() > 0)
+  ? 'เสร็จสิ้น · เก็บไว้ในเครื่องแล้ว'
+  : 'เสร็จสิ้น · บันทึกแล้ว');
 
 function colSpecFromKey(key) {
   const [, half, id] = key.split('|');
@@ -676,4 +731,8 @@ function refreshStats(key) {
 
   const side = document.querySelector('.pagehead .ph-side');
   if (side && !ui.onlyBlank) side.textContent = st.blank > 0 ? `ยังว่าง ${st.blank}` : 'ครบแล้ว';
+
+  for (const b of document.querySelectorAll('.mark-rest')) b.hidden = !st.blank;
+  for (const el of document.querySelectorAll('[data-t="rest"]')) el.textContent = restLabel(st.blank, total);
+  set('[data-t="finish"]', finishLabel());
 }

@@ -45,6 +45,7 @@
     refresh: '<path d="M20 11a8 8 0 1 0-2.34 5.66"/><path d="M20 4v7h-7"/>',
     wifiOff: '<path d="M2 8.8a15 15 0 0 1 4.2-2.6"/><path d="M10.7 5.1A15 15 0 0 1 22 8.8"/><path d="M5 12.6a10 10 0 0 1 5.2-2.5"/><path d="M16.9 11.2A10 10 0 0 1 19 12.6"/><path d="M8.5 16.4a5 5 0 0 1 7 0"/><path d="M12 20h.01"/><path d="m3 3 18 18"/>',
     left: '<path d="m15 6-6 6 6 6"/>',
+    out: '<path d="M10 4.5H6A1.5 1.5 0 0 0 4.5 6v12A1.5 1.5 0 0 0 6 19.5h4"/><path d="M20 12H9.5"/><path d="m16 8 4 4-4 4"/>',
     alert: '<circle cx="12" cy="12" r="9"/><path d="M12 7.5v5"/><path d="M12 16.5h.01"/>',
     doc: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6"/><path d="M9 17h4"/>',
     pen: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
@@ -202,7 +203,8 @@
     setTimeout(function () { if (t.parentNode) t.remove(); }, 2600);
   }
 
-  /** ปุ่มบนแถบเข้ม: (แชร์) + โหลดใหม่ + ออก — onShare มีเฉพาะหน้ารายวิชา */
+  /** ปุ่มบนแถบเข้ม: (แชร์) + โหลดใหม่ — onShare มีเฉพาะหน้ารายวิชา
+   *  "ออก" ย้ายไปท้ายหน้า (stuOut) — เดิมอยู่ติดปุ่มแชร์ นิ้วพลาดนิดเดียวก็ถูกเด้งไปกรอกเลขใหม่ */
   function heroActs(onShare) {
     var re = h('button', { class: 'hero-icon', type: 'button', 'aria-label': 'โหลดข้อมูลใหม่', title: 'โหลดข้อมูลใหม่' },
       svg(ICON.refresh));
@@ -212,8 +214,14 @@
         class: 'hero-icon', type: 'button', 'aria-label': 'แชร์ผลวิชานี้เป็นรูป', title: 'แชร์เป็นรูป',
         onclick: onShare
       }, svg(ICON.share)),
-      re,
-      h('button', { class: 'hero-out', type: 'button', onclick: signOut }, 'ออก'));
+      re);
+  }
+
+  /** ท้ายหน้า: ดูของเลขไหนอยู่ + ปุ่มออก (ลืมเลขในเครื่องนี้ด้วย — เครื่องที่ใช้ร่วมกันต้องกดก่อนส่งต่อ) */
+  function stuOut() {
+    return h('div', { class: 'stu-out' },
+      h('span', null, 'กำลังดูของเลขประจำตัว ', h('b', { class: 'tnum' }, VIEW.sid || '—')),
+      h('button', { class: 'btn btn-ghost', type: 'button', onclick: signOut }, svg(ICON.out), 'ออก'));
   }
 
   /** ระหว่างรอเซิร์ฟเวอร์: โครงหน้าแทนหน้ากรอกเลขที่ค้างนิ่ง — รู้ว่ากดแล้วและกำลังมา */
@@ -267,11 +275,19 @@
     return h('div', { class: 'seg stu-seg', role: 'tablist' },
       [['subject', 'รายวิชา'], ['summary', 'สรุปผลภาคเรียน']].map(function (m) {
         return h('button', {
-          role: 'tab', 'aria-selected': VIEW.mode === m[0] ? 'true' : 'false',
+          role: 'tab', id: 'tab-' + m[0], 'aria-controls': 'stu-panel',
+          'aria-selected': VIEW.mode === m[0] ? 'true' : 'false',
           'data-on': VIEW.mode === m[0] ? '1' : '0',
           onclick: function () { VIEW.mode = m[0]; draw(); }
         }, m[1]);
       }));
+  }
+
+  /** เนื้อหาใต้แท็บ รายวิชา / สรุปผล — ผูกกับแท็บให้โปรแกรมอ่านหน้าจอรู้ว่าแท็บไหนเปิดอยู่ */
+  function panelProps() {
+    var tabbed = summaryOn();
+    return { class: 'stu-wrap page-enter', id: 'stu-panel',
+      role: tabbed ? 'tabpanel' : null, 'aria-labelledby': tabbed ? 'tab-' + VIEW.mode : null };
   }
 
   function draw() {
@@ -287,7 +303,7 @@
 
     root.replaceChildren(
       hero(d, c),
-      h('div', { class: 'stu-wrap page-enter' },
+      h('div', panelProps(),
         modeSwitch(),
         todoCard(c),
         phaseCard(c, 1),
@@ -297,7 +313,8 @@
 
         h('div', { class: 'tip' },
           'แตะงานแต่ละชิ้นเพื่อดูคำสั่งจากครู · ข้อมูลอัปเดตตามที่ครูบันทึก' +
-          ' · ถ้าคะแนนไม่ตรง แจ้งครูประจำวิชา')
+          ' · ถ้าคะแนนไม่ตรง แจ้งครูประจำวิชา'),
+        stuOut()
       ));
     window.scrollTo({ top: 0 });
     centerPill();
@@ -509,7 +526,8 @@
     var list = d.classes;
     var done = list.filter(function (c) { return c.termDone; }).length;
     var risk = list.filter(function (c) {
-      return c.letter === 'มส' || c.letter === '0' || (c.att && c.att.risk);
+      var g = gradeOf(c).letter;
+      return g === 'มส' || g === '0' || (c.att && c.att.risk);
     }).length;
     var owe = list.reduce(function (n, c) { return n + todoItems(c).length; }, 0);
     var many = list.length > 1;
@@ -520,21 +538,22 @@
         h('div', { class: 'hero-row' },
           h('div', { style: { flex: '1', minWidth: '0' } },
             h('div', { class: 'hero-kick' }, 'สรุปผลการเรียน · ' + list.length + ' วิชา'),
-            h('div', { class: 'hero-name' }, d.name || '—')),
+            h('div', { class: 'hero-name', role: 'heading', 'aria-level': '1' }, d.name || '—')),
           heroActs()),
         h('div', { class: 'hero-mini' },
           mini('งานค้าง', owe ? owe + ' ชิ้น' : 'ไม่มี', owe ? 'bad' : ''),
           mini('ต้องระวัง', risk ? risk + ' วิชา' : 'ไม่มี', risk ? 'bad' : ''),
           mini('จบภาคแล้ว', done + '/' + list.length))),
 
-      h('div', { class: 'stu-wrap page-enter' },
+      h('div', panelProps(),
         modeSwitch(),
         many && overviewCard(list),
         many && h('div', { class: 'sec-h' }, 'รายละเอียดแต่ละวิชา'),
         list.map(function (c, i) { return summaryCard(c, i, many); }),
         h('div', { class: 'tip' },
           'คะแนนรวมเต็ม 100 ต่อวิชา · เกรดคิดตามเกณฑ์ที่ครูตั้งไว้' +
-          (done < list.length ? ' · วิชาที่ยังไม่จบภาคเรียน เกรดยังเปลี่ยนได้' : ''))
+          (done < list.length ? ' · วิชาที่ยังไม่จบภาคเรียน เกรดยังเปลี่ยนได้' : '')),
+        stuOut()
       ));
     window.scrollTo({ top: 0 });
   }
@@ -542,12 +561,21 @@
   /**
    * เกรดที่จะโชว์ + สีของมัน
    *   ครูยังปิดคะแนนสอบ → "รอ" · ยังไม่มีคะแนน หรือชีตรุ่นเก่าไม่ส่งเกรดมา → ขีด
+   *   ยังไม่จบภาค → เกรดประมาณ (est) คิดจากคะแนนที่ตรวจแล้ว — เกรดจริงคิดจากเต็ม 100
+   *   ซึ่งกลางภาคยังไงก็ต่ำ (ปลายภาค 30 คะแนนยังว่าง) คนที่ทำได้ 88% เลยเห็นเกรด 2
+   *   ชีตก่อน 2.21.0 ไม่ส่ง projLetter มา → ขีดไว้ก่อน ดีกว่าโชว์เกรดที่ทำให้ตกใจเปล่า ๆ
    */
   function gradeOf(c) {
     var hasLetter = c.letter !== undefined && c.letter !== null && c.letter !== '';
     var noData = !(c.outOf > 0);
     var locked = lockedOf(c).length > 0;
     if (locked && !noData) return { letter: 'รอ', tone: 'wait', has: false, noData: false, locked: true };
+    if (!noData && hasLetter && !c.termDone && String(c.letter) !== 'มส') {
+      var p = c.projLetter, hasP = p !== undefined && p !== null && p !== '';
+      // ยังเป็นค่าประมาณ — 0 ใช้สีเตือน ไม่ใช่สีตก
+      var tone = !hasP ? 'dim' : String(p) === '0' ? 'warn' : letterTone(String(p));
+      return { letter: hasP ? String(p) : '—', tone: tone, has: hasP, noData: false, locked: false, est: true };
+    }
     var letter = noData || !hasLetter ? '—' : String(c.letter);
     return { letter: letter, tone: noData || !hasLetter ? 'dim' : letterTone(letter), has: hasLetter, noData: noData, locked: false };
   }
@@ -574,10 +602,10 @@
             h('b', null, c.subject || '—'),
             h('small', null, g.noData ? 'ยังไม่มีคะแนน'
               : g.locked ? 'รอครูประกาศคะแนนสอบ'
-              : c.termDone ? 'จบภาคเรียนแล้ว' : 'ยังไม่จบภาค')),
+              : c.termDone ? 'จบภาคเรียนแล้ว' : g.has ? 'เกรดประมาณ' : 'ยังไม่จบภาค')),
           h('span', { class: 'ov-total tnum' }, g.noData ? '—' : nf(totalOf(c)),
             !g.noData && h('small', null, '/' + nf(fullOf(c)))),
-          h('span', { class: 'ov-grade' }, h('i', { class: 'gpill ' + g.tone }, g.letter)),
+          h('span', { class: 'ov-grade' }, h('i', { class: 'gpill ' + g.tone }, (g.est && g.has ? '≈' : '') + g.letter)),
           svg(ICON.right, 'ico ov-go'));
       }));
   }
@@ -640,8 +668,10 @@
       note = h('div', { class: 'sum-note bad' },
         'เวลาเรียน ' + c.att.pct + '% ต่ำกว่าเกณฑ์ ' + c.att.minPct + '% — รีบคุยกับครูผู้สอน');
     } else if (!c.termDone) {
-      note = h('div', { class: 'sum-note' },
-        'ยังมีคะแนนรอเก็บอีก ' + nf(left) + ' คะแนน — เกรดนี้คิดจากคะแนนตอนนี้ เปลี่ยนได้อีก');
+      note = h('div', { class: 'sum-note' }, g.has
+        ? 'ได้ ' + nf(c.earned) + ' จาก ' + nf(c.outOf) + ' คะแนนที่ตรวจแล้ว (' + Math.round(c.earned / c.outOf * 100) + '%)'
+          + ' — ถ้ารักษาระดับนี้ได้ จบภาคจะได้ราวเกรด ' + g.letter + ' · ยังมีคะแนนรอเก็บอีก ' + nf(left) + ' คะแนน'
+        : 'ยังมีคะแนนรอเก็บอีก ' + nf(left) + ' คะแนน — เกรดจะขึ้นเมื่อจบภาคเรียน');
     } else if (c.pending > 0) {
       note = h('div', { class: 'sum-note warn' },
         'ครูยังตรวจไม่ครบ ' + c.pending + ' รายการ — คะแนนและเกรดอาจเปลี่ยนได้');
@@ -654,7 +684,7 @@
           h('div', { class: 'sum-code' },
             [c.subjectCode, [c.grade, c.room].filter(Boolean).join('/')].filter(Boolean).join(' · ') || ' ')),
         compact ? status : h('div', { class: 'sum-grade ' + g.tone },
-          h('span', null, 'เกรด'),
+          h('span', null, g.est ? 'เกรดประมาณ' : 'เกรด'),
           h('b', null, g.locked ? '—' : g.letter))),
 
       !compact && h('div', { class: 'sum-total' },
@@ -669,7 +699,7 @@
         stepBox(c, 'ปลายภาค', ['fin'])),
 
       note,
-      !noData && !g.has && !g.locked && h('div', { class: 'sum-note' },
+      !noData && !g.has && !g.locked && !g.est && h('div', { class: 'sum-note' },
         'ระบบของครูยังไม่ได้อัปเดต จึงยังแสดงเกรดไม่ได้ (คะแนนรวมถูกต้อง)'),
 
       h('button', {
@@ -689,7 +719,7 @@
       h('div', { class: 'hero-row' },
         h('div', { style: { flex: '1', minWidth: '0' } },
           h('div', { class: 'hero-kick' }, kick || ' '),
-          h('div', { class: 'hero-name' }, d.name || '—')),
+          h('div', { class: 'hero-name', role: 'heading', 'aria-level': '1' }, d.name || '—')),
         heroActs(function () { shareSheet(d, c); })),
 
       many && h('nav', { class: 'hero-subj', 'aria-label': 'เลือกรายวิชา' },
@@ -709,7 +739,8 @@
             h('b', null, c.outOf > 0 ? nf(c.earned) : '—'),
             h('span', null, '/ ' + nf(fullOf(c))))),
         h('div', { class: 'hero-att' + (c.att && c.att.risk ? ' risk' : '') },
-          h('span', null, 'เวลาเรียน'),
+          // ต่ำกว่าเกณฑ์ต้องบอกด้วยคำ ไม่ใช่แค่ขอบสีแดง (คนตาบอดสีแยกไม่ออก)
+          h('span', null, c.att && c.att.risk ? 'เวลาเรียนต่ำ' : 'เวลาเรียน'),
           h('b', { class: 'tnum' }, c.att && c.att.checked > 0 ? c.att.pct + '%' : '—'))),
       heroBar(c));
   }
@@ -915,8 +946,11 @@
     text('/' + nf(full), pad + bw + 8, 790 + size * 0.86, F(600, 64), T.ink2);
 
     // ตราเกรด — วงกลมเอียงแบบสติกเกอร์ · ไม่มีเกรดให้โชว์ = บอกว่าตรวจไปแล้วกี่ %
+    // ยังไม่จบภาค ไม่ใส่เกรดประมาณลงรูป — รูปถูกส่งต่อไปถึงคนที่ไม่รู้ว่าเป็นค่าประมาณ
+    // โชว์ "ทำได้ xx%" ของส่วนที่ตรวจแล้วแทน (ตัวเดียวกับที่ใช้เลือกวลีหัวรูป)
     var g = gradeOf(c);
-    var showGrade = g.has && !g.locked && !g.noData;
+    var showGrade = g.has && !g.locked && !g.noData && !g.est;
+    var showRate = !showGrade && g.est && has;
     var sx = W - pad - 128, sy = 900, sr = 128;
     x.save();
     x.translate(sx, sy); x.rotate(-0.16);
@@ -925,8 +959,11 @@
     x.setLineDash([6, 8]); x.lineWidth = 3; x.strokeStyle = T.onAccent;
     x.beginPath(); x.arc(0, 0, sr - 16, 0, Math.PI * 2); x.stroke(); x.setLineDash([]);
     if (showGrade) {
-      text(c.termDone ? 'เกรด' : 'เกรดตอนนี้', 0, -36, F(700, 25), T.onAccent, 'center');
+      text('เกรด', 0, -36, F(700, 25), T.onAccent, 'center');
       text(g.letter, 0, 62, F(700, g.letter.length > 2 ? 76 : 104), T.onAccent, 'center');
+    } else if (showRate) {
+      text('ทำได้', 0, -30, F(700, 28), T.onAccent, 'center');
+      text(Math.round(Math.min(1, c.earned / c.outOf) * 100) + '%', 0, 52, F(700, 76), T.onAccent, 'center');
     } else {
       text('ตรวจแล้ว', 0, -30, F(700, 28), T.onAccent, 'center');
       text(has ? Math.round(Math.min(1, c.outOf / full) * 100) + '%' : '—', 0, 52, F(700, 76), T.onAccent, 'center');
@@ -991,6 +1028,7 @@
     var img = h('img', { class: 'story-img', alt: 'ตัวอย่างรูปผลวิชา ' + (c.subject || '') });
     var frame = h('div', { class: 'story-frame busy' }, img);
     var nameChk = h('input', { type: 'checkbox', checked: true });
+    var hint = h('p', { class: 'hint' }, 'รูปขนาด 1080×1920 พอดีสตอรี่ไอจี · กดแชร์แล้วเลือก Instagram → สตอรี่');
     var shareBtn = h('button', { class: 'btn btn-block', type: 'button', disabled: true },
       svg(ICON.share), 'แชร์ลงสตอรี่');
     var saveBtn = h('button', { class: 'btn btn-ghost btn-block', type: 'button', disabled: true },
@@ -1032,6 +1070,11 @@
         frame.classList.remove('busy');
         // แชร์ไฟล์ได้เฉพาะมือถือ/เบราว์เซอร์ที่รองรับ — คอมส่วนใหญ่เหลือปุ่มบันทึกรูปอย่างเดียว
         shareBtn.hidden = !(navigator.canShare && navigator.canShare({ files: [file] }));
+        // แชร์ตรงไม่ได้ (คอม / เบราว์เซอร์ในแอปบางตัว) — บันทึกรูปกลายเป็นปุ่มหลัก และบอกทางไปไอจีให้ตรงกับปุ่มที่มี
+        saveBtn.classList.toggle('btn-ghost', !shareBtn.hidden);
+        hint.textContent = shareBtn.hidden
+          ? 'รูปขนาด 1080×1920 พอดีสตอรี่ไอจี · กดบันทึกรูป แล้วเปิดไอจี → สตอรี่ → เลือกรูปนี้'
+          : 'รูปขนาด 1080×1920 พอดีสตอรี่ไอจี · กดแชร์แล้วเลือก Instagram → สตอรี่';
         shareBtn.disabled = saveBtn.disabled = false;
       }).catch(function (e) {
         close();
@@ -1061,7 +1104,7 @@
           h('div', { class: 'story-themes', role: 'group', 'aria-label': 'เลือกสีของรูป' }, swatches),
           h('label', { class: 'gate-keep story-opt' }, nameChk, h('span', null, 'ใส่ชื่อในรูป'))),
         h('div', { class: 'story-acts' }, shareBtn, saveBtn),
-        h('p', { class: 'hint' }, 'รูปขนาด 1080×1920 พอดีสตอรี่ไอจี · กดแชร์แล้วเลือก Instagram → สตอรี่'),
+        hint,
         h('button', { class: 'story-close', type: 'button', onclick: function () { close(); } }, 'ปิด')));
 
     function onKey(e) { if (e.key === 'Escape') close(); }
@@ -1154,7 +1197,7 @@
           h('button', { class: 'hero-back', 'aria-label': 'กลับ', onclick: function () { draw(); } }, svg(ICON.left)),
           h('div', { class: 'hero-kick', style: { flex: '1' } },
             (it.exam ? 'การสอบ' : 'ส่งงาน') + ' · ' + (it.phase === 1 ? 'ก่อนกลางภาค' : 'หลังกลางภาค'))),
-        h('div', { class: 'hero-name', style: { marginTop: '10px' } }, it.label),
+        h('div', { class: 'hero-name', role: 'heading', 'aria-level': '1', style: { marginTop: '10px' } }, it.label),
         h('div', { class: 'hero-mini' },
           mini('วิชา', c.subject),
           mini('คะแนนเต็ม', nf(it.max)),

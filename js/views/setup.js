@@ -139,7 +139,7 @@ function stepSignIn() {
     api.conn.save(api.conn.url, k);
     try {
       await api.call('ping');
-      toast('เชื่อมต่อสำเร็จ 🎉', 'ok');
+      toast('เชื่อมต่อสำเร็จ', 'ok');
       location.reload();
     } catch (e) {
       api.conn.save(api.conn.url, '');

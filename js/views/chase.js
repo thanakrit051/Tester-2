@@ -20,7 +20,7 @@ const NOTE_KEY = 'ac.chaseNote';
 
 export function openCopyList({ title, sub, topic, groups }) {
   const usable = groups.filter(g => g.people.length);
-  if (!usable.length) return toast('ไม่มีใครค้างแล้ว 🎉', 'ok');
+  if (!usable.length) return toast('ไม่มีใครค้างแล้ว', 'ok');
 
   const ui = {
     gid: usable[0].id,

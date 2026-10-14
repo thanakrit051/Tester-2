@@ -298,8 +298,28 @@ export function computeClass(cls, S) {
     r.flag = flags.join(' · ');
     // ยังไม่มีข้อมูลสักช่อง = ยังตัดเกรดไม่ได้ (อย่าโชว์ 0 ให้เข้าใจผิดว่าตก)
     r.grade = dataN === 0 ? '—' : (lowTime ? 'มส' : gradeOf(r.total, S.cuts));
+
+    /* ── เกรดประมาณการ (ยังไม่จบภาค) ──
+     * total คิดจากเต็ม 100 ตลอด ช่วงกลางภาคช่องปลายภาค 30 คะแนนยังว่าง
+     * คนที่ทำได้ 88% ของที่ตรวจแล้วจึงเห็นเกรด 0–1 ในรายงาน ครูกับนักเรียนตกใจกันทั้งห้อง
+     * ประมาณการ = ได้ ÷ คะแนนเต็มของช่องที่มีข้อมูลแล้ว × 100 ("ถ้ารักษาระดับนี้ได้")
+     * ใช้แสดงผลอย่างเดียว — total/grade ตัวจริงที่ลง SGS และชีตไม่เปลี่ยน (parity ไม่แตะ)
+     * จบภาค (กรอกปลายภาคแล้ว) = ใช้เกรดจริง */
+    r.outOf = BUCKETS.reduce((a, b) => a + (r['_has_' + b.id] ? Number(S.weight[b.id]) || 0 : 0), 0);
+    r.final = termDone;
+    r.proj = r.outOf > 0 ? roundScore(Math.min(100, r.total / r.outOf * 100), S.digits, S.roundMode) : 0;
+    r.projGrade = dataN === 0 || !(r.outOf > 0) ? '—' : (lowTime ? 'มส' : gradeOf(r.proj, S.cuts));
     return r;
   });
+}
+
+/**
+ * เกรดที่ควรโชว์ตอนนี้ — จบภาคแล้วใช้เกรดจริง · ยังไม่จบใช้ประมาณการ
+ * @returns {{ g: string, est: boolean, score: number }} est = เป็นค่าประมาณ (ต้องบอกผู้ใช้)
+ */
+export function gradeNow(r) {
+  if (r.final || r.grade === 'มส' || r.grade === '—') return { g: r.grade, est: false, score: r.total };
+  return { g: r.projGrade, est: true, score: r.proj };
 }
 
 /** สรุปสถิติการเช็คชื่อรายคาบ (ใช้ในหน้าเช็คชื่อ) */

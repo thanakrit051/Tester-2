@@ -35,14 +35,32 @@ function studentViewFor_(view, cfg) {
   cfg = cfg || getConfig_();
   var on = studentSummaryOn_(cfg);
   var hide = ['mid', 'fin'].filter(function (id) { return !studentExamOn_(id, cfg); });
+  var S = on ? scoreSettings_(cfg) : null;
   var out = JSON.parse(JSON.stringify(view));
   out.summary = on;
   out.hidden = hide;
   (out.classes || []).forEach(function (c) {
     if (hide.length) hideExams_(c, hide);
     if (!on) { delete c.total; delete c.letter; delete c.termDone; }
+    else studentProj_(c, S);
   });
   return out;
+}
+
+/**
+ * เกรดประมาณการ (ยังไม่จบภาค) — ได้ ÷ คะแนนเต็มของช่องที่ตรวจแล้ว × 100 แล้วตัดเกรดตามเกณฑ์
+ *
+ * เกรดจริงคิดจากเต็ม 100 ช่วงกลางภาคปลายภาคยังว่าง นักเรียนที่ทำได้ 88% จึงเห็นเกรด 2
+ * ตัวนี้ใช้แค่แสดงผลในหน้านักเรียน — ไม่เขียนลงชีต ไม่แตะเกรดจริงในบล็อกสรุป/SGS
+ * ⚠️ ต้องเรียกหลัง hideExams_ — คิดจาก earned/outOf ที่ตัดคะแนนสอบที่ครูปิดไว้แล้ว
+ *    ไม่งั้นเกรดประมาณจะบอกใบ้คะแนนสอบที่ยังไม่ประกาศ
+ * ⚠️ สูตรเดียวกับ r.proj / r.projGrade ใน js/score.js (หน้าครู)
+ */
+function studentProj_(c, S) {
+  if (!(c.outOf > 0)) return;
+  var pct = roundScore_(Math.min(100, c.earned / c.outOf * 100), S.digits, S.roundMode);
+  c.proj = pct;
+  c.projLetter = c.att && c.att.risk ? 'มส' : gradeOf_(pct, S.cuts);
 }
 
 /**

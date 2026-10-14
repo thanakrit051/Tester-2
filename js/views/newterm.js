@@ -27,7 +27,7 @@ function nextTerm(year, term) {
 /** @param {{ setMidDate?: () => void }} opts  setMidDate = ปุ่ม "ตั้งวันสอบกลางภาค" ในหน้าต่างแจ้งผล */
 export function openNewTerm({ setMidDate } = {}) {
   if (!serverSupports('newTerm', api.serverInfo)) {
-    return toast('โค้ดในชีตยังเป็นรุ่นเก่า ยังไม่มีคำสั่งขึ้นภาคเรียนใหม่ — อัปโค้ดในชีตก่อน (⚙️ ตั้งค่า → ตรวจสภาพระบบ)', 'err', 7000);
+    return toast('โค้ดในชีตยังเป็นรุ่นเก่า ยังไม่มีคำสั่งขึ้นภาคเรียนใหม่ — อัปโค้ดในชีตก่อน (ตั้งค่า → ตรวจสภาพระบบ)', 'err', 7000);
   }
   if (!api.net.online) return toast('ต้องต่อเน็ตก่อน — ขั้นตอนนี้ทำในชีตทั้งหมด', 'err');
 

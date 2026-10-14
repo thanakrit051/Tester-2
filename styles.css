@@ -7,6 +7,8 @@
      • เขียวน้ำทะเล  #0d7d6e  = สีทำงาน (สิ่งที่เลือกอยู่ / ลิงก์ / แถบวัด)
      • ไลม์         #c7f04a  = ปุ่มหลัก "สีเดียวในแอป"
                                เห็นไลม์ที่ไหน = ปุ่มที่ควรกดตอนนี้ ห้ามใช้พร่ำเพรื่อ
+                               ของที่ "เลือกอยู่" บนแถบเข้มใช้พื้นขาว/พื้น bar-3 แทน
+                               ป้ายสถานะ ตัวเลข แถบวัด ห้ามใช้ไลม์ (ยกเว้นโลโก้)
      • สีสถานะ (มา/สาย/ลา/ขาด) แยกจากสีแบรนด์ทั้งหมด
 
    ⚠️ คู่ มา↔สาย ยังห่างไม่พอสำหรับคนตาบอดสี — วัดด้วย OKLab ΔE×100
@@ -237,6 +239,14 @@ select {
 }
 ::placeholder { color: var(--ink-3); }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* บนแถบสีเข้ม วงโฟกัสสี accent (เขียวน้ำทะเล) กลืนกับพื้น ~3:1 — ใช้ไลม์แทน */
+.pagehead :focus-visible, .appbar :focus-visible, .hero :focus-visible,
+.stu-hero :focus-visible { outline-color: var(--lime); }
+/* ข้อความสำหรับโปรแกรมอ่านหน้าจออย่างเดียว (ชื่อหน้า ฯลฯ) */
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
 
 .tnum, .num, .stat-num, .score-inp, .stu-sid { font-variant-numeric: tabular-nums; }
 .ico { width: 20px; height: 20px; display: block; flex: none; }
@@ -288,8 +298,8 @@ select {
 .appbar-sub { font-size: var(--fs-xs); color: var(--bar-ink-2); font-weight: 500; }
 .appbar button { color: var(--bar-ink-2); border-radius: var(--r-sm); background: transparent; }
 .appbar button:hover { background: var(--bar-2); color: var(--bar-ink); }
-.appbar .icon-btn { background: var(--bar-2); color: var(--lime); width: 32px; height: 32px; }
-.appbar .icon-btn[data-on="1"] { background: var(--lime); color: var(--on-lime); }
+.appbar .icon-btn { background: var(--bar-2); color: var(--bar-ink); width: 32px; height: 32px; }
+.appbar .icon-btn[data-on="1"] { background: var(--bar-ink); color: var(--bar); }
 
 .icon-btn {
   width: 38px; height: 38px; display: grid; place-content: center;
@@ -536,6 +546,8 @@ select {
   display: grid; place-content: center; font-size: var(--fs-2xl);
   background: var(--surface-2); color: var(--ink-3);
 }
+.empty-icon .ico { width: 26px; height: 26px; }
+.empty-icon.ok { background: var(--accent-soft); color: var(--accent); }
 
 
 /* ── ตารางสรุป SGS ────────────────────────────────────────── */
@@ -666,7 +678,8 @@ table.grid td.total { background: var(--accent-soft) !important; font-weight: 70
 }
 .nav button {
   display: grid; justify-items: center; gap: 3px;
-  color: var(--ink-3); font-size: var(--fs-2xs); font-weight: 600;
+  /* 12px — 11px สระบน/ล่างของภาษาไทยซ้อนกันจนอ่านยาก (วัดได้ 2026-10-14) */
+  color: var(--ink-3); font-size: var(--fs-xs); font-weight: 600;
   transition: color .15s;
 }
 .nav button .ic { display: grid; place-content: center; }
@@ -698,6 +711,8 @@ table.grid td.total { background: var(--accent-soft) !important; font-weight: 70
 .field-row { display: flex; gap: 10px; }
 .field-row .field { flex: 1; }
 .hint { font-size: var(--fs-xs); color: var(--ink-3); margin-top: 5px; line-height: 1.6; }
+.hint-warn { display: flex; gap: 6px; align-items: flex-start; color: var(--warn-ink); }
+.hint-warn .ico { flex: none; margin-top: 2px; }
 
 /* ── หน้าตรวจสอบระบบ ──────────────────────────────────────── */
 .check-row {
@@ -729,6 +744,7 @@ table.grid td.total { background: var(--accent-soft) !important; font-weight: 70
 }
 .alert-bar.warn { background: var(--late-soft); color: var(--warn-ink); }
 .alert-bar span { flex: 1; }
+.alert-bar > .ico { width: 18px; height: 18px; flex: none; }
 
 .sep {
   display: flex; align-items: center; gap: 10px; margin: 18px 0 12px;
@@ -788,7 +804,7 @@ table.grid td.total { background: var(--accent-soft) !important; font-weight: 70
   }
   .appbar .nav button .ic { display: none; }
   .appbar .nav button[data-on="1"] {
-    background: var(--lime); color: var(--on-lime); font-weight: 600;
+    background: var(--bar-3); color: var(--bar-ink); font-weight: 600;
   }
   .appbar .nav button:hover { color: #fff; }
 
@@ -831,9 +847,24 @@ table.grid td.total { background: var(--accent-soft) !important; font-weight: 70
   font-size: var(--fs-sm); color: var(--bar-ink-2);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+/* ชื่อหน้าที่แตะแล้วเลือกได้ (คาบเรียน · ชิ้นงาน) — แทนแถว dropdown/กล่องเลือกที่เคยกินแถวเต็ม
+   ลูกศรสีไลม์บอกว่าแตะได้ · select ใสทับทั้งชื่อ ได้ตัวเลือกแบบของเครื่องเอง */
+.ph-title-pick {
+  position: relative; display: flex; align-items: center; gap: 4px;
+  max-width: 100%; text-align: left; cursor: pointer;
+  overflow: visible;   /* .ph-title ตัดล้นไว้ทำ … — ที่นี่ย้ายไปตัดที่ span แทน ไม่งั้นพื้นที่แตะที่ขยายด้วย ::after ถูกตัดทิ้ง */
+}
+.ph-title-pick > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ph-title-pick > .ico { flex: none; color: var(--lime); }
+.ph-title-pick select {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  opacity: 0; cursor: pointer; font-size: 16px;   /* 16px = iOS ไม่ซูมตอนแตะ */
+}
+.ph-title-pick:focus-within { outline: 2px solid var(--lime); outline-offset: 3px; border-radius: var(--r-sm); }
+.ph-back[aria-pressed="true"] { background: var(--bar-2); color: var(--bar-ink); }
 .ph-badge {
   flex: none; font-size: var(--fs-sm); font-weight: 700; font-variant-numeric: tabular-nums;
-  background: var(--lime); color: var(--on-lime); padding: 4px 12px; border-radius: var(--r-3);
+  background: var(--bar-3); color: var(--bar-ink); padding: 4px 12px; border-radius: var(--r-3);
 }
 .ph-badge.dim { background: var(--bar-2); color: var(--bar-ink-2); font-weight: 600; }
 
@@ -848,18 +879,7 @@ table.grid td.total { background: var(--accent-soft) !important; font-weight: 70
   background: var(--bar-2); color: var(--hero-ink); font-size: var(--fs-md); font-weight: 600;
 }
 .ph-side:hover { background: var(--bar-3); }
-.ph-side[data-on="1"] { background: var(--lime); color: var(--on-lime); }
-
-.ph-box {
-  display: flex; align-items: center; gap: 10px; width: 100%;
-  margin-top: 12px; padding: 12px 14px; border-radius: var(--r-1);
-  background: var(--bar-2); color: var(--bar-ink); text-align: left;
-}
-.ph-box:hover { background: var(--bar-3); }
-.ph-box b { flex: 1; min-width: 0; font-size: var(--fs-md); font-weight: 600;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ph-box span { font-size: var(--fs-xs); color: var(--bar-ink-2); flex: none; }
-.ph-box i { font-style: normal; color: var(--lime); font-size: var(--fs-sm); flex: none; }
+.ph-side[data-on="1"] { background: var(--bar-ink); color: var(--bar); }
 
 .ph-seg {
   display: flex; gap: 6px; margin-top: 12px;
@@ -869,39 +889,11 @@ table.grid td.total { background: var(--accent-soft) !important; font-weight: 70
   flex: 1; text-align: center; padding: 8px; border-radius: var(--r-sm);
   color: var(--bar-ink-2); font-size: var(--fs-sm);
 }
-.ph-seg button[data-on="1"] { background: var(--lime); color: var(--on-lime); font-weight: 600; }
+.ph-seg button[data-on="1"] { background: var(--bar-ink); color: var(--bar); font-weight: 600; }
 
-/* แถวเลือกคาบ — ใช้ dropdown แทนชิป จำนวนคาบจึงไม่กระทบความสูงแถบหัว */
+/* แถวเลือกคาบ + เพิ่มคาบ ใน ctxbar (PC) */
 .ph-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
 
-/* dropdown เลือกคาบบนแถบหัวสีเข้ม — ต้องเขียนสีเองทั้งชุด
-   เพราะ select สืบสีจากธีมสว่างมา แล้วตัวหนังสือจะจมหายไปกับพื้นเข้ม */
-.ph-pick {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 4px 6px 4px 12px; border-radius: var(--r-1);
-  background: var(--bar-2); border: 1px solid var(--bar-3);
-}
-.ph-pick > span { flex: none; font-size: var(--fs-sm); color: var(--bar-ink-2); }
-.ph-pick select {
-  border: none; background: none; box-shadow: none;
-  padding: 4px 22px 4px 2px; width: auto; min-height: 0;
-  font-size: var(--fs-md); font-weight: 600; color: #fff;
-  /* ลูกศรของเบราว์เซอร์เป็นสีเข้ม มองไม่เห็นบนพื้นเข้ม จึงวาดเอง */
-  appearance: none; -webkit-appearance: none;
-  background-image: linear-gradient(45deg, transparent 50%, var(--bar-ink-2) 50%),
-                    linear-gradient(135deg, var(--bar-ink-2) 50%, transparent 50%);
-  background-position: right 10px top 50%, right 5px top 50%;
-  background-size: 5px 5px, 5px 5px;
-  background-repeat: no-repeat;
-}
-.ph-pick select:focus { box-shadow: none; }
-/* รายการที่กางออกวาดด้วยธีมของระบบ ต้องบังคับให้อ่านออกทั้งสองโหมด */
-.ph-pick select option { background: var(--surface); color: var(--ink); }
-.ph-chip {
-  flex: none; padding: 6px 12px; border-radius: var(--r-3); font-size: var(--fs-sm);
-  background: var(--bar-2); color: var(--bar-ink-2);
-}
-.ph-chip.add { background: none; border: 1px dashed var(--bar-3); color: var(--bar-ink-2); }
 
 @media (min-width: 900px) { .pagehead { display: none; } }
 
@@ -1032,10 +1024,10 @@ table.grid td.total { background: var(--accent-soft) !important; font-weight: 70
 }
 
 /* ── สรุป SGS ─────────────────────────────────────────────── */
-table.grid thead tr.group th.h-total { background: var(--lime); color: var(--on-lime); }
-table.grid thead th.total-h { background: var(--lime); color: var(--on-lime); }
-table.grid thead th.total-h div { color: var(--on-lime) !important; }
-table.grid td.total { background: var(--lime-soft) !important; color: var(--ink); }
+table.grid thead tr.group th.h-total { background: var(--bar); color: var(--bar-ink); }
+table.grid thead th.total-h { background: var(--bar); color: var(--bar-ink); }
+table.grid thead th.total-h div { color: var(--bar-ink-2) !important; }
+table.grid td.total { background: var(--accent-soft) !important; color: var(--ink); }
 .dot-pend { color: var(--st-late); font-weight: 700; margin-left: 1px; }
 .sgs-note { display: flex; align-items: center; gap: 8px; font-size: var(--fs-sm);
   color: var(--ink-2); margin-top: 10px; line-height: 1.6; }
@@ -1284,6 +1276,12 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
   background: var(--ink); color: var(--on-ink); font-size: var(--fs-md); font-weight: 600;
 }
 .btn-dark:hover { background: var(--bar-2); }
+[data-theme="dark"] .btn-dark { background: var(--surface-3); color: var(--ink); }
+[data-theme="dark"] .btn-dark:hover { background: var(--line-2); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .btn-dark { background: var(--surface-3); color: var(--ink); }
+  :root:not([data-theme="light"]) .btn-dark:hover { background: var(--line-2); }
+}
 .home-grid { display: grid; gap: 12px; }
 .stats-card { padding: 14px; }
 .stats-card .stats { gap: 14px; }
@@ -1314,7 +1312,6 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
 /* ตัวสลับโหมดในแถบบริบท (รายชิ้นงาน ↔ รายคน) */
 .seg-inline { display: inline-grid; flex: none; padding: 3px; border-radius: var(--r-1); }
 .seg-inline button { padding: 8px 14px; font-size: var(--fs-sm); white-space: nowrap; }
-.pagehead .ph-seg + .ph-box { margin-top: 8px; }
 
 /* โหมดรายคน: คอลัมน์แรกเป็นชื่องาน ไม่ใช่เลขที่ จึงต้องกว้างกว่า */
 @media (min-width: 900px) {
@@ -1369,10 +1366,10 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
 .kind-cell .kc-ic    { font-size: var(--fs-md); line-height: 1.1; }
 .kind-cell .kc-label { font-size: var(--fs-xs); font-weight: 600; line-height: 1.25;
   max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.kind-cell .kc-w     { font-size: var(--fs-2xs); font-weight: 700; opacity: .6; font-variant-numeric: tabular-nums; }
+.kind-cell .kc-w     { font-size: var(--fs-2xs); font-weight: 700; color: var(--ink-2); font-variant-numeric: tabular-nums; }
 .kind-cell:hover     { color: var(--ink); }
 .kind-cell[data-on="1"] { background: var(--ink); color: var(--on-ink); }
-.kind-cell[data-on="1"] .kc-w { opacity: .8; }
+.kind-cell[data-on="1"] .kc-w { color: inherit; opacity: .85; }
 
 /* ช่วงมีแค่ 2 ตัวเลือก ปุ่มคู่จึงอ่านง่ายและกดเร็วกว่า select */
 .phase-seg { display: flex; align-items: center; gap: 8px; }
@@ -1466,13 +1463,28 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
   .icon-btn,
   .appbar .icon-btn         { width: 44px; height: 44px; }
   .ph-back                  { min-width: 44px; min-height: 44px; }
-  .chip, .kind-cell, .ph-chip,
+  .chip, .kind-cell,
   .todo-row, .btn, .btn-dark,
   .st-btn, .ctx-step        { min-height: 44px; }
   select,
   .pickbox select,
-  .ph-pick select           { min-height: 44px; }
-  .phase-seg .ps-btns button { min-height: 40px; }
+  .phase-seg .ps-btns button,
+  .nav button,
+  .class-card > button,
+  .score-inp                { min-height: 44px; }
+
+  /* ปุ่มที่หน้าตาต้องเล็ก (ชื่อหน้าที่แตะเลือกได้ · สลับรายชิ้นงาน/รายคน · ดึงใหม่)
+     ขยายพื้นที่แตะด้วย ::after ที่มองไม่เห็นแทนการขยายตัวปุ่ม แถบหัวที่เพิ่งยุบไว้จึงไม่กลับมาสูง
+     วัดบนจอ 375: ชื่อหน้า 27→45 · สลับโหมด 37→43 (กินขอบกรอบ) · ดึงใหม่ 29→45 */
+  .ph-title-pick select      { inset: -9px -6px; width: auto; height: auto; }
+  button.ph-title-pick::after,
+  .ph-seg button::after,
+  .rep-fresh-btn::after     { content: ''; position: absolute; }
+  button.ph-title-pick::after { inset: -9px -6px; }
+  .ph-seg button            { position: relative; }
+  .ph-seg button::after     { inset: -3px; }
+  .rep-fresh-btn            { position: relative; }
+  .rep-fresh-btn::after     { inset: -8px -4px; }
 }
 
 /* จอแคบมาก (320-360px) — คงความสูง 44px ไว้เพราะเป็นตัวชี้วัดความแม่นในการกด
@@ -1487,7 +1499,7 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
 .netbar {
   position: fixed; inset: 0 0 auto 0; height: 3px; z-index: 999;
   pointer-events: none; opacity: 0; transition: opacity .18s;
-  background: linear-gradient(90deg, transparent, var(--lime), transparent);
+  background: linear-gradient(90deg, transparent, var(--accent-2), transparent);
   background-size: 40% 100%; background-repeat: no-repeat;
 }
 .netbar[data-on="1"] { opacity: 1; animation: netbar-slide 1.1s linear infinite; }
@@ -1496,7 +1508,7 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
   to   { background-position: 140% 0; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .netbar[data-on="1"] { animation: none; background: var(--lime); background-size: 100% 100%; }
+  .netbar[data-on="1"] { animation: none; background: var(--accent-2); background-size: 100% 100%; }
 }
 
 
@@ -1520,7 +1532,10 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
 
 /* ══ v3.13 · ช่องค้นหาชื่อ/เลขที่ ═══════════════════════════ */
 /* แถวที่ถูกกรองออกต้องหายจริง — .stu-row ตั้ง display:flex ไว้ ซึ่งชนะ hidden ของเบราว์เซอร์ */
-.stu-row[hidden], .work-row[hidden], .find-clear[hidden], .att-nomatch[hidden] { display: none !important; }
+.stu-row[hidden], .work-row[hidden], .find-clear[hidden], .att-nomatch[hidden],
+.mark-rest[hidden], .fill-blank[hidden] { display: none !important; }
+/* เช็คครบแล้ว ปุ่มลายม์หายไป ป้าย "ครบแล้ว" ขยายเต็มแถวแทน แถบหัวไม่หดวูบ */
+.ph-main[hidden] + .ph-side { flex: 1; }
 .find-box {
   position: relative; display: flex; align-items: center; margin-bottom: 10px;
 }
@@ -1562,7 +1577,7 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
 /* ══ v3.13 · ไอคอนเส้นในแถบถังคะแนน (แทนอีโมจิ) ═════════════ */
 .kind-cell .kc-ic { display: grid; place-content: center; }
 .kind-cell .kc-ic .ico { width: 20px; height: 20px; color: var(--accent); }
-.kind-cell[data-on="1"] .kc-ic .ico { color: var(--lime); }
+.kind-cell[data-on="1"] .kc-ic .ico { color: inherit; }
 .chips .chip .ico { width: 16px; height: 16px; vertical-align: -3px; margin-right: 4px; }
 
 /* ปุ่มคู่สลับกลุ่ม (ใช้ในกล่องตามงาน) */
@@ -1585,16 +1600,16 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
 .now-pill {
   display: inline-flex; align-items: center; gap: 6px;
   padding: 3px 10px; border-radius: var(--r-pill); font-size: var(--fs-sm); font-weight: 700;
-  background: var(--lime); color: var(--on-lime);
+  background: var(--bar-ink); color: var(--hero);
 }
-.now-pill i { width: 7px; height: 7px; border-radius: 50%; background: var(--on-lime); }
+.now-pill i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
 .now-pill.next { background: rgba(255,255,255,.14); color: #fff; }
-.now-pill.next i { background: var(--lime); }
+.now-pill.next i { background: var(--hero-ink); }
 .now-time { margin-left: auto; font-size: var(--fs-sm); color: var(--hero-ink); font-variant-numeric: tabular-nums; }
 .now-card .hero-meta { margin-bottom: 10px; }
 .now-prog { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
 .now-track { flex: 1; height: 6px; border-radius: var(--r-xs); background: rgba(196,239,231,.22); overflow: hidden; }
-.now-track i { display: block; height: 100%; border-radius: var(--r-xs); background: var(--lime); }
+.now-track i { display: block; height: 100%; border-radius: var(--r-xs); background: var(--hero-ink); }
 .now-prog span { font-size: var(--fs-xs); color: var(--hero-ink); white-space: nowrap; }
 @media (min-width: 900px) {
   .now-card .now-prog { margin-bottom: 0; }
@@ -1608,7 +1623,7 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
   display: flex; align-items: center; gap: 12px; width: 100%; min-height: 48px;
   padding: 6px 14px; text-align: left; border-top: 1px solid var(--line); color: var(--ink);
 }
-.today-row[data-cur="1"] { background: var(--lime-soft); }
+.today-row[data-cur="1"] { background: var(--accent-soft); }
 .today-row[data-past="1"] .today-what { color: var(--ink-2); }
 .today-when { width: 48px; flex: none; display: grid; line-height: 1.25; }
 .today-when b { font-size: var(--fs-sm); }
@@ -1704,7 +1719,10 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
 }
 
 /* ══ v3.13 · สุ่มเรียกชื่อ ══════════════════════════════════ */
+.list-end { margin-top: 12px; }
 .find-row { display: flex; gap: 8px; align-items: flex-start; }
+/* มือถือ: ช่องค้นหาซ่อนจนกว่าจะแตะไอคอนบนแถบหัว (หน้าเช็คชื่อ) */
+@media (max-width: 899px) { .find-row.m-collapsed { display: none; } }
 .find-row > .find-box { flex: 1; min-width: 0; }
 .dice-btn {
   flex: none; width: 44px; height: 44px; border-radius: var(--r-1); font-size: var(--fs-xl);
@@ -1780,7 +1798,7 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
    ใช้ :where() ให้ความเจาะจงเป็นศูนย์ ปุ่มที่ตั้งท่ากดของตัวเองไว้แล้ว (.btn) ยังชนะเหมือนเดิม */
 :where(button):not(:disabled):active { transform: scale(.96); }
 /* ปุ่มกว้างเต็มแถว ยุบมากแล้วดูเหมือนทั้งแถวกระเด้ง — ยุบนิดเดียวพอ */
-:where(.btn-block, .ph-main, .ph-box, .hero .btn, .hero-alt, .todo-row, .today-row,
+:where(.btn-block, .ph-main, .hero .btn, .hero-alt, .todo-row, .today-row,
   .list-row > button, .class-card > button, .multi-btn, .tt-tip-main, .kind-cell):not(:disabled):active {
   transform: scale(.985);
 }
@@ -1814,20 +1832,28 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
   animation: save-pulse 1s ease-in-out infinite;
 }
 @keyframes save-pulse { 50% { opacity: .3; } }
+/* ออฟไลน์ / ส่งไม่ผ่าน = ไม่มีอะไรกำลังเกิดขึ้น จุดต้องนิ่ง กะพริบเฉพาะตอนกำลังส่งจริง */
+.savestate[data-mode="off"] .savestate-dot { animation: none; }
+/* ส่งไม่ผ่าน → ป้ายกดได้ · ปุ่มสูง 40 + ขอบป้าย 2+2 = แตะได้ 44 */
+.savestate[data-retry] { pointer-events: auto; padding: 2px 2px 2px 12px; }
+.savestate-retry {
+  min-height: 40px; padding: 0 14px; border-radius: var(--r-pill);
+  background: var(--surface); color: var(--warn-ink); font-weight: 700;
+}
+.savestate-retry:active { transform: scale(.97); }
 @media (min-width: 900px) { .savestate { left: auto; right: 20px; bottom: 20px; } }
 @media print { .savestate { display: none; } }
 
 /* ── ไอคอนเส้นบนปุ่ม (แทนอีโมจิ) ──
    ปุ่มที่ไม่ใช่ .btn ไม่ได้จัดแถวไว้ ไอคอนจะลอยอยู่เหนือตัวอักษร */
 .chip, .tagbtn, .tag-on, .tag-off, .rep-fresh-btn, .item-pill,
-.ph-main, .ph-side, .ph-chip, .btn-dark {
+.ph-main, .ph-side, .btn-dark {
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
 }
-.tag-on .ico-sm, .tag-off .ico-sm, .ph-chip .ico-sm { width: 14px; height: 14px; }
+.tag-on .ico-sm, .tag-off .ico-sm { width: 14px; height: 14px; }
 .ph-back .ico { width: 24px; height: 24px; }
-.ph-box i .ico { color: var(--lime); }
 /* ป้าย "ครบแล้ว" บนมือถือ — เดิมหน้าตาเหมือนปุ่มแต่กดไม่ได้ ตอนนี้เป็นป้ายสถานะ */
-.ph-side.done { background: none; color: var(--lime); padding-inline: 8px; }
+.ph-side.done { background: none; color: var(--hero-ink); padding-inline: 8px; }
 .ph-side.done:hover { background: none; }
 /* ตัวนับ "ไม่ปกติ" เป็นตัวเลขเฉย ๆ ไม่ใช่ตัวกรอง — อย่าให้ดูเหมือนกดได้ */
 .chip.static { background: none; box-shadow: none; cursor: default; }
@@ -1839,7 +1865,7 @@ table.grid td.total { background: var(--lime-soft) !important; color: var(--ink)
 .score-inp::placeholder { font-size: var(--fs-xs); font-weight: 600; color: var(--st-miss); opacity: 1; }
 
 /* ── กราฟเกรด: ขั้นที่ไม่มีใครได้ ── */
-.gcol.zero .gcol-n   { color: var(--ink-3); opacity: .6; }
+.gcol.zero .gcol-n   { color: var(--ink-2); }   /* เดิมจาง .6 = 3.6:1 ไม่ผ่าน · แท่งว่างบอกว่าเป็นศูนย์อยู่แล้ว */
 .gcol.zero .gcol-bar { background: var(--surface-3); }
 
 /* ── การ์ดคู่ (หน้าแรก · รายงาน) สูงเท่ากัน ──

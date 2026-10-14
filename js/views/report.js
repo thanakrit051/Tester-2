@@ -7,7 +7,7 @@
 import { h, fmtDate, nf, matchStudent } from '../dom.js';
 import { state, emit, settings, go, sync, refreshClass, fetchedAt } from '../state.js';
 import * as api from '../api.js';
-import { computeClass, parseWork, BUCKETS, ATT_CODES, passMarkOf, passOf, blankMissCols, effectiveRaw } from '../score.js';
+import { computeClass, gradeNow, parseWork, BUCKETS, ATT_CODES, passMarkOf, passOf, blankMissCols, effectiveRaw } from '../score.js';
 import { openCopyList } from './chase.js';
 import { exportClassCSV, loadingPage } from './common.js';
 import { icon, withIcon } from '../icons.js';
@@ -44,7 +44,7 @@ export function viewReport() {
   }
   if (!cls.students.length) {
     return h('div', { class: 'page' }, h('div', { class: 'card empty' },
-      h('div', { class: 'empty-icon' }, '👥'), 'ห้องนี้ยังไม่มีรายชื่อนักเรียน'));
+      h('div', { class: 'empty-icon' }, icon('users')), 'ห้องนี้ยังไม่มีรายชื่อนักเรียน'));
   }
 
   return h('div', { class: 'page' },
@@ -173,15 +173,18 @@ function classReport() {
   // ของเดิมโชว์เฉพาะเกรดที่มีคน แกนจึงเหลือแค่ 1.5 · 1 · 0 · มส อ่านไม่ออกว่าขั้นที่หายไปคือไม่มีใคร
   // หรือกราฟผิด และแท่งขยับตำแหน่งทุกครั้งที่มีคนเปลี่ยนเกรด
   const gradeOrder = [...new Set([...S.cuts.map(c => c.grade), 'มส'])];
+  // ยังไม่จบภาค ใช้เกรดประมาณการจากคะแนนที่ตรวจแล้ว (gradeNow) — เดิมนับจาก total เต็ม 100
+  // ช่วงกลางภาคครึ่งห้องจึงไปกองที่เกรด 0 สีแดง ทั้งที่ทำได้ดีในส่วนที่ตรวจไปแล้ว
   const gCount = {};
-  rows.forEach(r => { gCount[r.grade] = (gCount[r.grade] || 0) + 1; });
+  rows.forEach(r => { const g = gradeNow(r).g; gCount[g] = (gCount[g] || 0) + 1; });
+  const est = rows.some(r => r.dataN > 0 && gradeNow(r).est);
   const grades = gradeOrder.map(g => ({ g, n: gCount[g] || 0 }));
   const anyGrade = grades.some(x => x.n > 0);
   const gMax = Math.max(...grades.map(x => x.n), 1);
 
   // ผู้ที่ต้องติดตาม
   const watch = graded
-    .map(r => ({ r, score: (r.grade === 'มส' ? 1000 : 0) + r.pending * 10 + r.failN * 25 + Math.max(0, 60 - r.total) }))
+    .map(r => ({ r, score: (r.grade === 'มส' ? 1000 : 0) + r.pending * 10 + r.failN * 25 + Math.max(0, 60 - gradeNow(r).score) }))
     .filter(x => x.score > 0)
     .sort((a, b) => b.score - a.score)
     .slice(0, 12);
@@ -214,7 +217,7 @@ function classReport() {
       h('div', { class: 'card' },
         h('div', { class: 'rep-head' },
           h('h3', null, 'การกระจายเกรด'),
-          h('span', null, 'ประมาณการ')),
+          h('span', null, est ? 'ประมาณการจากคะแนนที่ตรวจแล้ว' : 'เกรดจริง')),
         !anyGrade
           ? h('div', { class: 'bar-empty' }, 'ยังไม่มีคะแนนพอจะตัดเกรด')
           : h('div', null,
@@ -223,7 +226,9 @@ function classReport() {
                   h('div', { class: 'gcol-n' }, String(x.n)),
                   h('div', {
                     // ดีไซน์: เกรด 1 = ส้มเตือน · เกรด 0 กับ มส = แดง
-                    class: 'gcol-bar' + ((x.g === 'มส' || x.g === '0') ? ' bad' : (x.g === '1' ? ' warn' : '')),
+                    // ยังเป็นค่าประมาณ เกรด 0 = ส้ม "เสี่ยง" ไม่ใช่แดง "ตกแล้ว" (มส แดงเสมอ — เวลาเรียนนับจริงแล้ว)
+                    class: 'gcol-bar' + (x.g === 'มส' || (x.g === '0' && !est) ? ' bad'
+                      : (x.g === '1' || x.g === '0' ? ' warn' : '')),
                     style: { height: x.n ? Math.round(8 + (x.n / gMax) * 56) + 'px' : '3px' },
                     title: `เกรด ${x.g} · ${x.n} คน`
                   })))),
@@ -255,9 +260,10 @@ function classReport() {
         h('h3', null, `ต้องติดตาม · ${watch.length} คน`),
         h('span', null, 'เรียงตามความเร่งด่วน')),
       watch.length === 0
-        ? h('div', { class: 'empty', style: { padding: '22px' } }, 'ไม่มีใครน่าเป็นห่วง 🎉')
+        ? h('div', { class: 'empty', style: { padding: '22px' } }, 'ไม่มีใครน่าเป็นห่วง')
         : watch.map(({ r }) => {
-            const bad = r.grade === 'มส' || r.flag.includes('เสี่ยงติด 0');
+            const now = gradeNow(r);
+            const bad = r.grade === 'มส' || r.flag.includes('เสี่ยงติด 0') || (now.est && now.g === '0');
             const warn = !bad && (r.attN > 0 && r.pct < S.minPct + 5);
             return h('button', {
               class: 'watch-row' + (bad ? ' bad' : (warn ? ' warn' : '')),
@@ -268,7 +274,8 @@ function classReport() {
                 (r.pct < S.minPct ? 'มส · ' : '') + `เวลาเรียน ${nf(r.pct, 0)}%`),
               r.failN > 0 && h('div', { class: 'w-tag bad' }, `ไม่ผ่าน ${r.failN} รายการ`),
               h('div', { class: 'w-tag ' + (bad ? 'bad' : 'dim') },
-                r.pending > 0 ? `ยังไม่ตรวจ ${r.pending} รายการ` : `รวม ${nf(r.total)}`),
+                r.pending > 0 ? `ยังไม่ตรวจ ${r.pending} รายการ`
+                  : now.est ? `ได้ ${nf(r.proj, 0)}% ของที่ตรวจแล้ว` : `รวม ${nf(r.total)}`),
               h('span', { class: 'w-go' }, '›'));
           })
     )
@@ -402,7 +409,8 @@ function followReport() {
     cols.length === 0
       ? h('div', { class: 'card empty' }, 'ยังไม่มีรายการงาน/สอบในช่วงนี้')
       : open.length === 0
-        ? h('div', { class: 'card empty', style: { padding: '26px' } }, 'ไม่มีใครค้างในหมวดนี้ 🎉')
+        ? h('div', { class: 'card empty', style: { padding: '26px' } },
+            h('div', { class: 'empty-icon ok' }, icon('check')), 'ไม่มีใครค้างในหมวดนี้')
         : open.map(({ c, g, groups }) => followCard(c, g, groups, S)),
 
     // ชิ้นที่ครบแล้ว — บอกไว้บรรทัดเดียว จะได้รู้ว่าไม่ได้หายไปไหน
@@ -472,6 +480,7 @@ function studentReport() {
   const rows = computeClass(cls, S);
   if (!ui.sid || !rows.some(r => r.sid === ui.sid)) ui.sid = rows[0].sid;
   const r = rows.find(x => x.sid === ui.sid);
+  const now = gradeNow(r);
 
   // กติกาเดียวกับช่องค้นหาหน้าเช็คชื่อ/กรอกคะแนน (เดิมพิมพ์ "3" ได้ทุกคนที่มีเลข 3 ในเลขประจำตัว)
   const q = ui.q.trim();
@@ -537,7 +546,7 @@ function studentReport() {
       }
     },
       h('div', { style: { fontSize: 'var(--fs-sm)', fontWeight: '700', color: r.grade === 'มส' ? 'var(--st-miss)' : 'var(--warn-ink)' } },
-        r.grade === 'มส' ? 'มส' : '⚠️'),
+        r.grade === 'มส' ? 'มส' : icon('alert')),
       h('div', { style: { fontSize: 'var(--fs-sm)', flex: '1', color: r.grade === 'มส' ? 'var(--st-miss)' : 'var(--warn-ink)' } },
         r.attN && r.pct < S.minPct
           ? `เวลาเรียน ${r.pct}% ต่ำกว่าเกณฑ์ ${S.minPct}% · ขาด ${att['ข']} คาบ`
@@ -549,9 +558,13 @@ function studentReport() {
         h('div', { style: { fontSize: 'var(--fs-md)', fontWeight: '700', flex: '1' } }, 'คะแนน 8 ช่อง'),
         h('div', {
           class: 'tnum',
-          style: { fontSize: 'var(--fs-xl)', fontWeight: '700', color: r.grade === 'มส' || r.grade === '0' ? 'var(--st-miss)' : 'var(--ink)' }
+          style: { fontSize: 'var(--fs-xl)', fontWeight: '700', color: !now.est && (r.grade === 'มส' || r.grade === '0') ? 'var(--st-miss)' : 'var(--ink)' }
         }, r.dataN ? nf(r.total) : '—'),
-        h('div', { style: { fontSize: 'var(--fs-sm)', color: 'var(--ink-2)' } }, `/100 · เกรด ${r.grade}`)),
+        h('div', { style: { fontSize: 'var(--fs-sm)', color: 'var(--ink-2)' } },
+          now.est ? `/100 · เกรดประมาณ ${now.g}` : `/100 · เกรด ${r.grade}`)),
+      // ยังไม่จบภาค ตัวเลข /100 ต่ำเพราะยังมีช่องที่ไม่ได้สอบ — บอกว่าเกรดประมาณมาจากไหน
+      now.est && h('div', { class: 'hint', style: { marginTop: '-6px', marginBottom: '12px' } },
+        `ได้ ${nf(r.total)} จาก ${nf(r.outOf)} คะแนนที่ตรวจแล้ว (${nf(r.proj, 0)}%) · ถ้ารักษาระดับนี้ได้ จบภาคจะได้ราวเกรด ${now.g}`),
       h('div', { class: 'score8' },
         BUCKETS.map(b => h('div', { class: 'score8-cell', title: `SGS ${b.sgs}` },
           // สอบกลางภาค/ปลายภาคมีครั้งเดียว ไม่ต้องมีเลขช่วงต่อท้าย

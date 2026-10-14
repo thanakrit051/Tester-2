@@ -107,7 +107,7 @@ function runChecks() {
       out.push({
         level: 'err', title: 'โค้ดในชีตเป็นเวอร์ชันเก่า (ก่อน 2.2)',
         detail: 'ชีตยังไม่รายงานเวอร์ชันกลับมา แปลว่ายังไม่ได้วางโค้ดใหม่หรือยังไม่ได้ Deploy',
-        fix: 'วางไฟล์ ALL-IN-ONE.gs ทับ → Deploy → Manage deployments → ✏️ → New version',
+        fix: 'วางไฟล์ ALL-IN-ONE.gs ทับ → Deploy → Manage deployments → รูปดินสอ → New version',
         action: { label: 'ดูวิธีทีละขั้น', run: showUpdateSteps }
       });
     } else if (cmp < 0) {
@@ -309,7 +309,7 @@ function showUpdateSteps() {
         h('code', null, 'ALL-IN-ONE.gs'), ' ทับ'),
       h('li', null, 'กด ', h('b', null, 'Ctrl+S'), ' บันทึก'),
       h('li', null, h('b', null, 'Deploy → Manage deployments')),
-      h('li', null, 'กดรูปดินสอ ✏️ → ช่อง ', h('b', null, 'Version'), ' เลือก ',
+      h('li', null, 'กดรูปดินสอ → ช่อง ', h('b', null, 'Version'), ' เลือก ',
         h('b', null, 'New version'), ' → ', h('b', null, 'Deploy'))
     ),
     h('div', {

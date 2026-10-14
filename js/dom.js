@@ -32,7 +32,31 @@ function add(el, kids) {
 
 export function clear(el) { while (el.firstChild) el.removeChild(el.firstChild); return el; }
 
-export function mount(el, ...children) { clear(el); add(el, children); return el; }
+export function mount(el, ...children) { clear(el); add(el, children); linkLabels(el); return el; }
+
+/**
+ * ผูก <label> ที่วางติดหน้าช่องกรอก (ไม่ได้ครอบช่องไว้) เข้ากับช่องนั้น
+ *
+ * ฟอร์มทั้งแอปเขียนแบบ h('label', null, 'ชื่อวิชา *'), input — เห็นติดกันบนจอ
+ * แต่เบราว์เซอร์ไม่รู้ว่าเป็นคู่กัน โปรแกรมอ่านหน้าจออ่านแค่ "ช่องแก้ไขข้อความ" ไม่บอกว่าช่องอะไร
+ * และแตะที่ชื่อช่องก็ไม่โฟกัสช่อง (วัดได้ราว 25 ช่อง 2026-10-14)
+ * แก้ที่เดียวตรงนี้แทนการไล่ใส่ for ทีละฟอร์ม — mount() กับ modal() เรียกให้ทุกครั้ง
+ */
+let labelSeq = 0;
+export function linkLabels(root) {
+  for (const lb of root.querySelectorAll('label:not([for])')) {
+    if (lb.control) continue;                       // ครอบช่องไว้เองแล้ว
+    let el = lb.nextElementSibling;
+    if (el && !/^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName)) {
+      // ช่องที่มีหน่วยต่อท้าย (div ครอบ input + "คะแนน") — ผูกเฉพาะเมื่อข้างในมีช่องเดียว
+      const inner = el.querySelectorAll('input,select,textarea');
+      el = inner.length === 1 ? inner[0] : null;
+    }
+    if (!el || el.labels?.length) continue;
+    if (!el.id) el.id = 'fld-' + (++labelSeq);
+    lb.htmlFor = el.id;
+  }
+}
 
 // ── Toast ───────────────────────────────────────────────────
 /**
@@ -45,6 +69,8 @@ export function toast(msg, kind = '', ms = 2400, action = null) {
     t.style.transition = 'opacity .2s'; t.style.opacity = '0';
     setTimeout(() => t.remove(), 220);
   };
+  // ข้อผิดพลาดต้องอยู่ให้อ่านทัน — 2.4 วิ อ่านข้อความไทยยาว ๆ ไม่จบ และโปรแกรมอ่านหน้าจออ่านไม่ทัน
+  if (kind === 'err') ms = Math.max(ms, 6000);
   const t = h('div', { class: 'toast ' + kind },
     h('span', null, msg),
     action && h('button', {
@@ -128,6 +154,10 @@ export function modal(builder) {
 
   back.addEventListener('click', () => close());
   box.append(builder(close));
+  linkLabels(box);
+  // ชื่อกล่องให้โปรแกรมอ่านหน้าจออ่านตอนเปิด — เดิมประกาศแค่ "กล่องโต้ตอบ"
+  const title = box.querySelector('h2');
+  if (title) { if (!title.id) title.id = 'dlg-' + (++labelSeq); box.setAttribute('aria-labelledby', title.id); }
   back.append(box);
   root.append(back);
   modalStack.push(close);
