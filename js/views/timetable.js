@@ -37,10 +37,7 @@ export function openTimetableEditor() {
       const rows = [];
       tt.times.forEach(([start, end], i) => {
         const p = i + 1;
-        // ช่วงพักยาว (เช่นพักกลางวัน) คั่นไว้ให้เห็นว่าเช้า/บ่ายแยกกันตรงไหน
-        if (i > 0 && toMin(start) - toMin(tt.times[i - 1][1]) >= 30) {
-          rows.push(h('div', { class: 'tt-break' }, `พัก ${tt.times[i - 1][1]}–${start}`));
-        }
+        // ไม่มีแถว "พักกลางวัน" คั่น — ผู้ใช้สั่งเอาออก 15 ต.ค. 69 (เวลาของแต่ละคาบยังอยู่ครบ)
         const sel = h('select', {
           'aria-label': `${dayInfo.name} คาบ ${p}`,
           'data-set': day[p] && known.has(day[p]) ? '1' : '0',
