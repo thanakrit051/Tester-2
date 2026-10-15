@@ -611,7 +611,7 @@ function studentReport() {
     h('div', { class: 'btn-row', style: { marginTop: '4px' } },
       h('button', {
         class: 'btn btn-ghost', style: { flex: '1 1 220px' },
-        onclick: () => printPage(slipFor(r, S), { title: `ใบรายงาน ${r.no} ${r.name || ''}` })
+        onclick: () => printPage(slipFor(r, S), { title: `ใบรายงาน ${r.no} ${r.name || ''}`, fit: '.slip' })
       }, withIcon('printer', 'ใบรายงานผู้ปกครอง')),
       h('button', {
         class: 'btn btn-ghost', style: { flex: '1 1 220px' },
@@ -647,13 +647,13 @@ function openSlipPrint() {
       h('br'), 'ส่งทางไลน์ได้ — ในหน้าพิมพ์เลือก "บันทึกเป็น PDF"'),
     cur && h('button', {
       class: 'btn btn-block', style: { marginBottom: '8px' },
-      onclick: () => { close(); printPage(slipFor(cur, S), { title: `ใบรายงาน ${cur.no} ${cur.name || ''}` }); }
+      onclick: () => { close(); printPage(slipFor(cur, S), { title: `ใบรายงาน ${cur.no} ${cur.name || ''}`, fit: '.slip' }); }
     }, withIcon('printer', `เฉพาะ ${cur.name || 'เลขที่ ' + cur.no}`)),
     h('button', {
       class: cur ? 'btn btn-ghost btn-block' : 'btn btn-block',
       onclick: () => {
         close();
-        printPage(rows.map(r => slipFor(r, S)), { title: `ใบรายงานผู้ปกครอง ${roomName()} ${state.cls.meta.subject}` });
+        printPage(rows.map(r => slipFor(r, S)), { title: `ใบรายงานผู้ปกครอง ${roomName()} ${state.cls.meta.subject}`, fit: '.slip' });
       }
     }, withIcon('users', `ทั้งห้อง · ${rows.length} แผ่น`))
   ));
@@ -675,7 +675,7 @@ function slipFor(r, S) {
   const mb = blankMissCols(cls);
   const miss = workColumns()
     .filter(c => parseWork(effectiveRaw((cls.values[c.key] || {})[r.sid], mb[c.key])).status === 'miss')
-    .map(c => c.label || c.id);
+    .map(c => `${c.label || c.id} — ${isExam(c) ? 'ไม่ได้สอบ' : 'ยังไม่ส่ง'}`);
   const offDays = attColumns().map(c => {
     const v = String((cls.values[c.key] || {})[r.sid] ?? '').trim();
     return v && v !== 'ม' && ATT_STYLE[v] ? `${fmtDate(c.date)} ${ATT_STYLE[v].label}` : null;
@@ -729,8 +729,8 @@ function slipFor(r, S) {
 
     h('h3', null, 'งานที่ต้องติดตาม'),
     miss.length || r.failN
-      ? h('ul', { class: 'slip-list' },
-          miss.map(x => h('li', null, `${x} — ยังไม่ส่ง`)),
+      ? h('ul', { class: 'slip-list' + (miss.length + r.failN > 4 ? ' cols' : '') },
+          miss.map(x => h('li', null, x)),
           (r.failed || []).map(x => h('li', null, `${x} — ยังไม่ผ่านเกณฑ์`)))
       : h('p', null, 'ไม่มีงานค้าง'),
 

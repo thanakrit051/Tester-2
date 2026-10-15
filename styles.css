@@ -1760,38 +1760,42 @@ kbd {
 /* ══ v3.13 · พิมพ์ (ใบเช็คชื่อเปล่า · สรุป SGS) ═══════════════
    เนื้อหาที่จะพิมพ์ถูกวางไว้ใน #print-area (ดู printPage ใน js/dom.js)
    ตอนพิมพ์ซ่อนทุกอย่างของแอป เหลือแค่กระดาษขาว ตัวอักษรดำ เส้นตารางชัด */
-#print-area { display: none; }
+#print-area { display: none; color: #000; font-size: 10.5pt; }
+/* วัดความสูงก่อนพิมพ์ (printPage ใน js/dom.js) — วางไว้นอกจอ กว้างเท่าพื้นที่พิมพ์ของ A4 */
+#print-area.measure { display: block; position: absolute; left: -10000px; top: 0; width: var(--pw, 190mm); }
 @media print {
-  body.printing { background: #fff !important; }
+  /* html ก็ต้องขาว — เดิมพื้นเทาของแอปโผล่ใต้เนื้อหา (เครื่องที่ติ๊ก "พิมพ์กราฟิกพื้นหลัง") */
+  html, body.printing { background: #fff !important; }
   body.printing > *:not(#print-area) { display: none !important; }
   body.printing #print-area { display: block; color: #000; font-size: 10.5pt; }
-  #print-area .print-head {
-    display: flex; justify-content: space-between; align-items: baseline; gap: 12px;
-    margin-bottom: 6mm; padding-bottom: 2mm; border-bottom: 1.5px solid #000;
-  }
-  #print-area .print-head b { font-size: 13pt; }
-  #print-area .print-foot {
-    display: flex; justify-content: space-between; gap: 12px; margin-top: 6mm; font-size: 9.5pt;
-  }
-  #print-area table.print-grid { width: 100%; border-collapse: collapse; }
-  #print-area .print-grid th,
-  #print-area .print-grid td {
-    border: 1px solid #000; padding: 3px 4px; color: #000 !important;
-    background: #fff !important; position: static !important; box-shadow: none !important;
-  }
-  #print-area .print-grid thead th { font-weight: 700; }
-  #print-area .print-grid tr { break-inside: avoid; }
-  #print-area .print-grid thead { display: table-header-group; }   /* หัวตารางซ้ำทุกหน้า */
-  #print-area .pg-no { width: 12mm; text-align: center; white-space: nowrap; }
-  #print-area .pg-sid { width: 24mm; white-space: nowrap; }
-  #print-area .pg-name { width: 52mm; white-space: nowrap; }
-  #print-area .pg-day { width: auto; }
-  #print-area .pg-sub th { font-weight: 400; font-size: 8.5pt; height: 7mm; }
-  #print-area tbody td { height: 6.5mm; }
-  /* ตาราง SGS มีสีพื้นหลัง/จุดเตือนตามจอ — กระดาษไม่ต้องใช้ */
-  #print-area .dot-pend { display: none; }
-  #print-area .print-grid div { color: #000 !important; }
 }
+/* กฎของเนื้อหาที่พิมพ์อยู่นอก @media print — ใช้ตอนวัดขนาดบนจอด้วย (บนจอ #print-area ซ่อนอยู่เสมอ) */
+#print-area .print-head {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 12px;
+  margin-bottom: 6mm; padding-bottom: 2mm; border-bottom: 1.5px solid #000;
+}
+#print-area .print-head b { font-size: 13pt; }
+#print-area .print-foot {
+  display: flex; justify-content: space-between; gap: 12px; margin-top: 6mm; font-size: 9.5pt;
+}
+#print-area table.print-grid { width: 100%; border-collapse: collapse; }
+#print-area .print-grid th,
+#print-area .print-grid td {
+  border: 1px solid #000; padding: 3px 4px; color: #000 !important;
+  background: #fff !important; position: static !important; box-shadow: none !important;
+}
+#print-area .print-grid thead th { font-weight: 700; }
+#print-area .print-grid tr { break-inside: avoid; }
+#print-area .print-grid thead { display: table-header-group; }   /* หัวตารางซ้ำทุกหน้า */
+#print-area .pg-no { width: 12mm; text-align: center; white-space: nowrap; }
+#print-area .pg-sid { width: 24mm; white-space: nowrap; }
+#print-area .pg-name { width: 52mm; white-space: nowrap; }
+#print-area .pg-day { width: auto; }
+#print-area .pg-sub th { font-weight: 400; font-size: 8.5pt; height: 7mm; }
+#print-area tbody td { height: 6.5mm; }
+/* ตาราง SGS มีสีพื้นหลัง/จุดเตือนตามจอ — กระดาษไม่ต้องใช้ */
+#print-area .dot-pend { display: none; }
+#print-area .print-grid div { color: #000 !important; }
 
 /* ══ v3.13 · QR ลิงก์หน้านักเรียน ═══════════════════════════ */
 .qr-box {
@@ -1810,31 +1814,32 @@ kbd {
   #print-area .qr-poster-link { margin-top: 12mm; font-size: 8.5pt; color: #444; word-break: break-all; }
 }
 
-/* ใบรายงานผู้ปกครอง (report.js · slipFor) — คนละแผ่น ขาวดำล้วน ถ่ายเอกสารต่อได้ */
-@media print {
-  #print-area .slip { break-after: page; font-size: 11pt; line-height: 1.45; }
-  #print-area .slip:last-child { break-after: auto; }
-  #print-area .slip-meta { font-size: 10pt; margin: -3mm 0 5mm; }
-  #print-area .slip-who { display: flex; align-items: baseline; gap: 4mm; margin-bottom: 4mm; }
-  #print-area .slip-who b { font-size: 16pt; }
-  #print-area .slip-boxes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3mm; margin-bottom: 3mm; }
-  #print-area .slip-box { border: 1px solid #000; border-radius: 2mm; padding: 2.5mm 3mm; display: grid; gap: .5mm; }
-  #print-area .slip-box span { font-size: 9.5pt; }
-  #print-area .slip-box b { font-size: 18pt; line-height: 1.2; font-variant-numeric: tabular-nums; }
-  #print-area .slip-box small { font-size: 8.5pt; }
-  #print-area .slip-note { font-size: 9.5pt; margin: 0 0 2mm; }
-  #print-area .slip h3 { font-size: 11.5pt; margin: 4mm 0 1mm; }
-  #print-area .slip p { margin: 0; }
-  #print-area .slip-table { width: 100%; }
-  #print-area .slip-table .n { width: 22mm; text-align: center; font-variant-numeric: tabular-nums; }
-  #print-area .slip-table tr.sum td { font-weight: 700; }
-  #print-area .slip-table tbody td { height: auto; padding-block: 1.5px; }
-  #print-area .slip-small { font-size: 9pt; margin-top: 1mm !important; }
-  #print-area .slip-list { margin: 0; padding-left: 6mm; }
-  #print-area .slip-lines i { display: block; height: 7mm; border-bottom: 1px dotted #000; }
-  #print-area .slip-sign { display: grid; grid-template-columns: 1fr 1fr; gap: 12mm; margin-top: 8mm; text-align: center; font-size: 10pt; }
-  #print-area .slip-sign i { display: block; border-bottom: 1px dotted #000; height: 8mm; margin-bottom: 1.5mm; }
-}
+/* ใบรายงานผู้ปกครอง (report.js · slipFor) — คนละแผ่น ขาวดำล้วน ถ่ายเอกสารต่อได้
+   อยู่นอก @media print เพื่อวัดความสูงบนจอก่อนพิมพ์ได้ (ย่อให้พอดี 1 แผ่น) */
+#print-area .slip { break-after: page; font-size: 11pt; line-height: 1.45; }
+#print-area .slip:last-child { break-after: auto; }
+#print-area .slip-meta { font-size: 10pt; margin: -3mm 0 5mm; }
+#print-area .slip-who { display: flex; align-items: baseline; gap: 4mm; margin-bottom: 4mm; }
+#print-area .slip-who b { font-size: 16pt; }
+#print-area .slip-boxes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3mm; margin-bottom: 3mm; }
+#print-area .slip-box { border: 1px solid #000; border-radius: 2mm; padding: 2.5mm 3mm; display: grid; gap: .5mm; }
+#print-area .slip-box span { font-size: 9.5pt; }
+#print-area .slip-box b { font-size: 18pt; line-height: 1.2; font-variant-numeric: tabular-nums; }
+#print-area .slip-box small { font-size: 8.5pt; }
+#print-area .slip-note { font-size: 9.5pt; margin: 0 0 2mm; }
+#print-area .slip h3 { font-size: 11.5pt; margin: 4mm 0 1mm; }
+#print-area .slip p { margin: 0; }
+#print-area .slip-table { width: 100%; }
+#print-area .slip-table .n { width: 22mm; text-align: center; font-variant-numeric: tabular-nums; }
+#print-area .slip-table tr.sum td { font-weight: 700; }
+#print-area .slip-table tbody td { height: auto; padding-block: 1.5px; }
+#print-area .slip-small { font-size: 9pt; margin-top: 1mm !important; }
+#print-area .slip-list { margin: 0; padding-left: 6mm; }
+#print-area .slip-list.cols { columns: 2; column-gap: 10mm; }
+#print-area .slip-list li { break-inside: avoid; }
+#print-area .slip-lines i { display: block; height: 7mm; border-bottom: 1px dotted #000; }
+#print-area .slip-sign { display: grid; grid-template-columns: 1fr 1fr; gap: 12mm; margin-top: 8mm; text-align: center; font-size: 10pt; }
+#print-area .slip-sign i { display: block; border-bottom: 1px dotted #000; height: 8mm; margin-bottom: 1.5mm; }
 
 /* ══ v3.16 · ความรู้สึกตอนใช้งาน ═══════════════════════════
    แอปทำงานเร็วอยู่แล้ว แต่ "รู้สึก" ไม่ลื่น เพราะกดแล้วไม่มีอะไรตอบสนอง

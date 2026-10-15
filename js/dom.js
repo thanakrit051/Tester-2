@@ -214,8 +214,10 @@ export async function copyText(text) {
  * พิมพ์เสร็จหรือกดยกเลิกแล้วเก็บกวาดคืนเอง
  *
  * @param landscape true = กระดาษแนวนอน (ใบเช็คชื่อมีหลายคอลัมน์วันที่)
+ * @param fit       selector ของ "แผ่น" ที่ต้องอยู่ในหน้าเดียว (เช่น '.slip') — ยาวเกินหน้า = ย่อลงให้พอดี
+ *                  ไม่ย่อเกิน 70% (เล็กกว่านั้นอ่านยาก ปล่อยขึ้นหน้าใหม่ดีกว่า)
  */
-export function printPage(content, { title = '', landscape = false } = {}) {
+export function printPage(content, { title = '', landscape = false, fit = '' } = {}) {
   const area = h('div', { id: 'print-area' }, content);
   const page = h('style', null, `@page { size: A4 ${landscape ? 'landscape' : 'portrait'}; margin: 10mm; }`);
   const oldTitle = document.title;
@@ -229,11 +231,30 @@ export function printPage(content, { title = '', landscape = false } = {}) {
 
   document.head.append(page);
   document.body.append(area);
+  if (fit) fitToPage(area, fit, landscape);
   document.body.classList.add('printing');
   if (title) document.title = title;          // ชื่อไฟล์ตอนเลือก "บันทึกเป็น PDF"
   window.addEventListener('afterprint', done);
   // ให้เบราว์เซอร์วาดเนื้อหาใหม่ก่อนเปิดหน้าพิมพ์ ไม่งั้นบางเครื่องพิมพ์ออกมาเป็นหน้าเปล่า
   setTimeout(() => { try { window.print(); } catch (e) { done(); } }, 60);
+}
+
+/**
+ * ย่อแต่ละแผ่นให้จบในหน้าเดียว — วัดความสูงจริงบนจอ (วางนอกจอ กว้างเท่าพื้นที่พิมพ์) ก่อนเปิดหน้าพิมพ์
+ * ข้อมูลจริงแต่ละคนยาวไม่เท่ากัน (ขาดหลายวัน · งานค้างหลายชิ้น) ความสูงตายตัวจึงล้นไปหน้า 2 ได้
+ */
+function fitToPage(area, selector, landscape) {
+  const mm = 96 / 25.4;
+  // A4 ลบขอบ 10mm สองด้าน · เผื่ออีก 12mm — Safari บน iPhone/iPad ใช้ขอบกระดาษของตัวเองกว้างกว่า @page
+  const avail = ((landscape ? 190 : 277) - 12) * mm;
+  area.style.setProperty('--pw', landscape ? '277mm' : '190mm');
+  area.classList.add('measure');
+  area.querySelectorAll(selector).forEach(el => {
+    el.style.zoom = '';
+    const tall = el.offsetHeight;
+    if (tall > avail) el.style.zoom = String(Math.max(0.7, Math.floor((avail / tall) * 100) / 100));
+  });
+  area.classList.remove('measure');
 }
 
 // ── ฟอร์แมต ─────────────────────────────────────────────────
