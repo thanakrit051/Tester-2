@@ -44,9 +44,10 @@ function stepper() {
     const n = i + 1;
     const done = n < cur, now = n === cur;
     if (i > 0) out.push(h('div', { class: 'step-line' + (n <= cur ? ' done' : '') }));
-    out.push(h('div', { style: { display: 'flex', alignItems: 'center', gap: '8px' } },
-      h('div', { class: 'step-dot' + (done ? ' done' : (now ? ' now' : '')) }, done ? '✓' : String(n)),
-      h('span', { class: 'step-name' + (done || now ? ' on' : '') }, label)));
+    out.push(h('div', { style: { display: 'flex', alignItems: 'center', gap: '8px' }, 'aria-current': now ? 'step' : null },
+      h('div', { class: 'step-dot' + (done ? ' done' : (now ? ' now' : '')), 'aria-hidden': 'true' }, done ? '✓' : String(n)),
+      h('span', { class: 'step-name' + (done || now ? ' on' : '') + (now ? ' now' : '') },
+        h('span', { class: 'sr-only' }, `ขั้น ${n} จาก ${STEPS.length}${done ? ' (เสร็จแล้ว)' : ''}: `), label)));
   });
   return h('div', { class: 'stepper' }, out);
 }

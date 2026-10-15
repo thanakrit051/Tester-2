@@ -282,7 +282,7 @@ function appbar() {
       class: 'icon-btn', title: 'ซิงค์ข้อมูล', 'aria-label': 'ซิงค์ข้อมูล',
       onclick: async (e) => {
         const s = e.currentTarget.firstElementChild;
-        if (s) s.style.animation = 'spin .7s linear infinite';
+        if (s) s.classList.add('spin-on');
         await sync({ loud: true });
         await bootAll();          // อ่านใหม่ทั้งตั้งค่าและห้องปัจจุบันในรอบเดียว
       }

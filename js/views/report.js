@@ -4,7 +4,7 @@
  * ทุกกราฟมีตัวเลขกำกับและมีตารางข้อมูลควบเสมอ ไม่สื่อความหมายด้วยสีอย่างเดียว
  */
 
-import { h, fmtDate, nf, matchStudent } from '../dom.js';
+import { h, fmtDate, nf, matchStudent, modal, printPage } from '../dom.js';
 import { state, emit, settings, go, sync, refreshClass, fetchedAt } from '../state.js';
 import * as api from '../api.js';
 import { computeClass, gradeNow, parseWork, BUCKETS, ATT_CODES, passMarkOf, passOf, blankMissCols, effectiveRaw } from '../score.js';
@@ -49,14 +49,20 @@ export function viewReport() {
 
   return h('div', { class: 'page' },
     // แท็บ + ปุ่มส่งออก — ดีไซน์วางไว้แถวบนสุด ปุ่มส่งออกชิดขวา
-    h('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' } },
+    h('div', { style: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px', marginBottom: '12px' } },
       h('button', { class: 'chip', 'data-on': ui.tab === 'class' ? '1' : '0', onclick: () => { ui.tab = 'class'; emit(); } }, 'ภาพรวม'),
       h('button', { class: 'chip', 'data-on': ui.tab === 'follow' ? '1' : '0', onclick: () => { ui.tab = 'follow'; ui.focus = ''; emit(); } }, 'ตามงาน'),
       h('button', { class: 'chip', 'data-on': ui.tab === 'student' ? '1' : '0', onclick: () => { ui.tab = 'student'; emit(); } }, 'รายคน'),
       h('button', {
-        class: 'chip', style: { marginLeft: 'auto' },
+        // มือถือแถวนี้แคบ — 2 ปุ่มนี้เหลือแค่ไอคอน (ชื่อเต็มอยู่ใน aria-label/title)
+        class: 'chip chip-ic', style: { marginLeft: 'auto' },
+        'aria-label': 'พิมพ์ใบรายงานผู้ปกครอง', title: 'พิมพ์ใบรายงานผู้ปกครอง',
+        onclick: () => openSlipPrint()
+      }, icon('printer', 'ico ico-sm'), h('span', { class: 'chip-lbl' }, 'พิมพ์')),
+      h('button', {
+        class: 'chip chip-ic', 'aria-label': 'ส่งออก CSV', title: 'ส่งออก CSV',
         onclick: () => exportClassCSV(computeClass(cls, settings()))
-      }, withIcon('download', 'CSV'))
+      }, icon('download', 'ico ico-sm'), h('span', { class: 'chip-lbl' }, 'CSV'))
     ),
     freshness(),
     ui.tab === 'class' ? classReport() : ui.tab === 'follow' ? followReport() : studentReport()
@@ -182,9 +188,11 @@ function classReport() {
   const anyGrade = grades.some(x => x.n > 0);
   const gMax = Math.max(...grades.map(x => x.n), 1);
 
-  // ผู้ที่ต้องติดตาม
+  // ผู้ที่ต้องติดตาม — นับเฉพาะเรื่องของนักเรียน (เวลาเรียน · ไม่ส่ง · ไม่ผ่าน · คะแนนต่ำ)
+  // เดิมนับ "ยังไม่ตรวจ" (งานค้างของครู) ด้วย คนที่ส่งครบแต่ครูยังไม่ตรวจจึงโผล่เป็นเด็กน่าห่วง
+  // งานค้างตรวจอยู่ในการ์ด "ยังต้องตามอยู่" ด้านบนแล้ว
   const watch = graded
-    .map(r => ({ r, score: (r.grade === 'มส' ? 1000 : 0) + r.pending * 10 + r.failN * 25 + Math.max(0, 60 - gradeNow(r).score) }))
+    .map(r => ({ r, score: (r.grade === 'มส' ? 1000 : 0) + r.missN * 15 + r.failN * 25 + Math.max(0, 60 - gradeNow(r).score) }))
     .filter(x => x.score > 0)
     .sort((a, b) => b.score - a.score)
     .slice(0, 12);
@@ -272,10 +280,10 @@ function classReport() {
               h('div', { class: 'w-name' }, r.name || '—', h('span', null, ` เลขที่ ${r.no}`)),
               r.attN > 0 && h('div', { class: 'w-tag ' + (r.pct < S.minPct ? 'bad' : (warn ? 'warn' : 'dim')) },
                 (r.pct < S.minPct ? 'มส · ' : '') + `เวลาเรียน ${nf(r.pct, 0)}%`),
+              r.missN > 0 && h('div', { class: 'w-tag bad' }, `ไม่ส่ง ${r.missN} รายการ`),
               r.failN > 0 && h('div', { class: 'w-tag bad' }, `ไม่ผ่าน ${r.failN} รายการ`),
               h('div', { class: 'w-tag ' + (bad ? 'bad' : 'dim') },
-                r.pending > 0 ? `ยังไม่ตรวจ ${r.pending} รายการ`
-                  : now.est ? `ได้ ${nf(r.proj, 0)}% ของที่ตรวจแล้ว` : `รวม ${nf(r.total)}`),
+                now.est ? `ได้ ${nf(r.proj, 0)}% ของที่ตรวจแล้ว` : `รวม ${nf(r.total)}`),
               h('span', { class: 'w-go' }, '›'));
           })
     )
@@ -600,10 +608,15 @@ function studentReport() {
           h('span', { style: { color: w.status === 'miss' ? 'var(--st-miss)' : 'var(--ink-3)', flex: 'none' } },
             statusLabel(w.status, c)))))),
 
-    h('button', {
-      class: 'btn btn-ghost btn-block', style: { marginTop: '4px' },
-      onclick: () => go('work')
-    }, withIcon('doc', 'ไปกรอกงาน / คะแนนของคนนี้'))
+    h('div', { class: 'btn-row', style: { marginTop: '4px' } },
+      h('button', {
+        class: 'btn btn-ghost', style: { flex: '1 1 220px' },
+        onclick: () => printPage(slipFor(r, S), { title: `ใบรายงาน ${r.no} ${r.name || ''}` })
+      }, withIcon('printer', 'ใบรายงานผู้ปกครอง')),
+      h('button', {
+        class: 'btn btn-ghost', style: { flex: '1 1 220px' },
+        onclick: () => go('work')
+      }, withIcon('doc', 'ไปกรอกงาน / คะแนน')))
   );
 }
 
@@ -614,3 +627,120 @@ function moveStudent(delta, rows) {
   emit();
 }
 
+// ── ใบรายงานผู้ปกครอง (พิมพ์ / บันทึกเป็น PDF) ─────────────────
+//
+// กระดาษ A4 คนละแผ่น ขาวดำอ่านได้ (ไม่พึ่งสี) · ใช้ตัวเลขชุดเดียวกับหน้าจอ (computeClass)
+// ไม่ใส่ "ยังไม่ตรวจ" — เป็นงานค้างของครู ไม่ใช่เรื่องที่ผู้ปกครองต้องตาม
+// ช่วงที่ยังไม่มีคะแนนปลายภาค เกรดเป็น "เกรดประมาณ" พร้อมบอกว่าคิดจากอะไร
+
+const PHASE = { 1: 'ก่อนกลางภาค', 2: 'หลังกลางภาค' };
+
+/** เลือกพิมพ์คนที่เปิดอยู่ หรือทั้งห้อง */
+function openSlipPrint() {
+  const S = settings();
+  const rows = computeClass(state.cls, S);
+  const cur = ui.tab === 'student' ? rows.find(r => r.sid === ui.sid) : null;
+  modal((close) => h('div', null,
+    h('h2', null, 'ใบรายงานผู้ปกครอง'),
+    h('p', { class: 'hint', style: { margin: '0 0 14px' } },
+      'คนละ 1 แผ่น A4 · คะแนน เกรด การมาเรียน งานที่ยังไม่ส่ง และช่องลงชื่อ',
+      h('br'), 'ส่งทางไลน์ได้ — ในหน้าพิมพ์เลือก "บันทึกเป็น PDF"'),
+    cur && h('button', {
+      class: 'btn btn-block', style: { marginBottom: '8px' },
+      onclick: () => { close(); printPage(slipFor(cur, S), { title: `ใบรายงาน ${cur.no} ${cur.name || ''}` }); }
+    }, withIcon('printer', `เฉพาะ ${cur.name || 'เลขที่ ' + cur.no}`)),
+    h('button', {
+      class: cur ? 'btn btn-ghost btn-block' : 'btn btn-block',
+      onclick: () => {
+        close();
+        printPage(rows.map(r => slipFor(r, S)), { title: `ใบรายงานผู้ปกครอง ${roomName()} ${state.cls.meta.subject}` });
+      }
+    }, withIcon('users', `ทั้งห้อง · ${rows.length} แผ่น`))
+  ));
+}
+
+function roomName() {
+  const m = state.cls.meta;
+  return [m.grade, m.room].filter(Boolean).join('/');
+}
+
+/** ใบรายงาน 1 แผ่นของนักเรียน 1 คน */
+function slipFor(r, S) {
+  const cls = state.cls;
+  const meta = cls.meta;
+  const cfg = state.config || {};
+  const now = gradeNow(r);
+  const att = attCount(r.sid);
+  const attN = att['ม'] + att['ส'] + att['ล'] + att['ข'];
+  const mb = blankMissCols(cls);
+  const miss = workColumns()
+    .filter(c => parseWork(effectiveRaw((cls.values[c.key] || {})[r.sid], mb[c.key])).status === 'miss')
+    .map(c => c.label || c.id);
+  const offDays = attColumns().map(c => {
+    const v = String((cls.values[c.key] || {})[r.sid] ?? '').trim();
+    return v && v !== 'ม' && ATT_STYLE[v] ? `${fmtDate(c.date)} ${ATT_STYLE[v].label}` : null;
+  }).filter(Boolean);
+  const room = roomName();
+
+  const box = (label, value, sub) => h('div', { class: 'slip-box' },
+    h('span', null, label), h('b', null, value), sub && h('small', null, sub));
+
+  return h('section', { class: 'slip' },
+    h('div', { class: 'print-head' },
+      h('b', null, 'รายงานผลการเรียน'),
+      h('span', null, `ภาคเรียนที่ ${cfg.term || '—'}/${cfg.year || '—'}`)),
+    h('div', { class: 'slip-meta' },
+      [`วิชา ${meta.subject}${meta.subjectCode ? ' (' + meta.subjectCode + ')' : ''}`,
+        room && `ชั้น ${room}`, cfg.teacher && `ครูผู้สอน ${cfg.teacher}`].filter(Boolean).join(' · ')),
+    h('div', { class: 'slip-who' },
+      h('b', null, r.name || '—'),
+      h('span', null, `เลขที่ ${r.no}${r.sid ? ' · เลขประจำตัว ' + r.sid : ''}`)),
+
+    h('div', { class: 'slip-boxes' },
+      box('คะแนนสะสม', r.dataN ? `${nf(r.total)} / 100` : '—',
+        now.est && r.dataN ? `ตรวจแล้ว ${nf(r.outOf)} จาก 100 คะแนน` : null),
+      box(now.est ? 'เกรดประมาณ' : 'เกรด', r.dataN ? now.g : '—',
+        now.est && r.dataN ? `ได้ ${nf(r.proj, 0)}% ของที่ตรวจแล้ว` : null),
+      box('เวลาเรียน', attN ? `${nf(r.pct, 0)}%` : '—',
+        attN ? `เกณฑ์ ${S.minPct}% · เช็คแล้ว ${attN} คาบ` : 'ยังไม่ได้เช็คชื่อ')),
+    now.est && r.dataN > 0 && h('p', { class: 'slip-note' },
+      `ยังไม่มีคะแนนสอบปลายภาค เกรดนี้คาดจากคะแนนที่ตรวจแล้ว — ถ้ารักษาระดับนี้ได้ จบภาคจะได้ราวเกรด ${now.g}`),
+    r.grade === 'มส' && h('p', { class: 'slip-note' },
+      `เวลาเรียน ${nf(r.pct, 0)}% ต่ำกว่าเกณฑ์ ${S.minPct}% — ถ้าไม่เพิ่มขึ้นจะได้ผล "มส" (ไม่มีสิทธิ์สอบ)`),
+
+    h('h3', null, 'คะแนนแต่ละส่วน'),
+    h('table', { class: 'print-grid slip-table' },
+      h('thead', null, h('tr', null,
+        h('th', null, 'ส่วน'), h('th', { class: 'n' }, 'ได้'), h('th', { class: 'n' }, 'เต็ม'))),
+      h('tbody', null,
+        BUCKETS.filter(b => Number(S.weight[b.id]) > 0).map(b => h('tr', null,
+          h('td', null, b.kind === 'MID' || b.kind === 'FIN' ? b.label : `${b.label} (${PHASE[b.phase]})`),
+          h('td', { class: 'n' }, r['_has_' + b.id] ? nf(r[b.id])
+            : (b.kind === 'MID' || b.kind === 'FIN' ? 'ยังไม่สอบ' : '—')),
+          h('td', { class: 'n' }, String(S.weight[b.id])))),
+        h('tr', { class: 'sum' },
+          h('td', null, 'รวม'), h('td', { class: 'n' }, r.dataN ? nf(r.total) : '—'), h('td', { class: 'n' }, '100')))),
+
+    h('h3', null, 'การมาเรียน'),
+    h('p', null, attN
+      ? `มา ${att['ม']} · สาย ${att['ส']} · ลา ${att['ล']} · ขาด ${att['ข']} คาบ`
+      : 'ยังไม่ได้เช็คชื่อ'),
+    offDays.length > 0 && h('p', { class: 'slip-small' }, offDays.join(' · ')),
+
+    h('h3', null, 'งานที่ต้องติดตาม'),
+    miss.length || r.failN
+      ? h('ul', { class: 'slip-list' },
+          miss.map(x => h('li', null, `${x} — ยังไม่ส่ง`)),
+          (r.failed || []).map(x => h('li', null, `${x} — ยังไม่ผ่านเกณฑ์`)))
+      : h('p', null, 'ไม่มีงานค้าง'),
+
+    h('h3', null, 'ความเห็นจากครู'),
+    h('div', { class: 'slip-lines' }, h('i'), h('i')),
+
+    h('div', { class: 'slip-sign' },
+      h('div', null, h('i'), 'ครูผู้สอน'),
+      h('div', null, h('i'), 'ผู้ปกครอง')),
+    h('div', { class: 'print-foot' },
+      h('span', null, 'ข้อมูล ณ ' + new Date().toLocaleDateString('th-TH', { dateStyle: 'long' }) + ' · คะแนนอาจเปลี่ยนเมื่อครูตรวจเพิ่ม'),
+      h('span', null, 'AssignCheck')));
+}

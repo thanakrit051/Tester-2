@@ -233,7 +233,7 @@ export function computeClass(cls, S) {
 
   return (cls.students || []).map(st => {
     const r = { sid: st.sid, no: st.no, name: st.name };
-    let attTotal = 0, attPresent = 0, pending = 0, filled = 0, late = 0, dataN = 0;
+    let attTotal = 0, attPresent = 0, pending = 0, filled = 0, late = 0, missN = 0, dataN = 0;
     const failed = [];   // ชื่อรายการที่คนนี้สอบไม่ผ่านเกณฑ์ (เรียงซ้าย→ขวาตามชีต)
 
     for (const b of BUCKETS) {
@@ -268,7 +268,7 @@ export function computeClass(cls, S) {
         if (cell.status === 'none') { blank++; if (S.ungraded === 'zero') max += full; continue; }
         max += full; filled++;
         if (cell.status === 'late') late++;
-        if (cell.status === 'miss') continue;
+        if (cell.status === 'miss') { missN++; continue; }
         got += cell.score;
       }
       pending += blank;
@@ -283,6 +283,7 @@ export function computeClass(cls, S) {
     r.dataN = dataN;          // จำนวนช่อง SGS ที่มีข้อมูลจริง (0 = ยังไม่ได้กรอกอะไรเลย)
     r.pending = pending;
     r.late = late;
+    r.missN = missN;          // ไม่ส่ง/ขาดสอบ (ฝั่งนักเรียน) — ต่างจาก pending ที่เป็นงานค้างตรวจของครู
     r.failed = failed;
     r.failN = failed.length;
 

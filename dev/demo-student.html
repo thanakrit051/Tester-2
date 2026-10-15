@@ -279,9 +279,22 @@ select {
 .ico { width: 20px; height: 20px; display: block; flex: none; }
 .ico-sm { width: 16px; height: 16px; }
 
+/* เครื่องที่ตั้ง "ลดการเคลื่อนไหว" — ตัดภาพเลื่อน/เด้ง/จางเข้าทั้งหมด
+   ยกเว้นตัวบอกว่า "กำลังทำงาน" (หมุนอยู่กับที่ · กระพริบช้า ๆ) ไม่งั้นดูเหมือนแอปค้าง */
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+  *, *::before, *::after {
+    animation-duration: .01ms !important; animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+  .boot-spin, .spin-on, .hero-icon.spinning .ico {
+    animation-duration: .9s !important; animation-iteration-count: infinite !important;
+  }
+  .skel i, .skel-hero i, .story-frame.busy::after {
+    animation: skel-calm 1.6s ease-in-out infinite alternate !important;
+  }
 }
+@keyframes skel-calm { to { opacity: .5; } }
+.spin-on { animation: spin .7s linear infinite; }
 
 /* ── หน้าจอโหลด ───────────────────────────────────────────── */
 .boot {
@@ -1243,7 +1256,8 @@ table.grid td.total { background: var(--accent-soft) !important; color: var(--in
 .step-line.done { background: var(--st-ok); }
 .step-name { font-size: var(--fs-sm); color: var(--ink-3); }
 .step-name.on { color: var(--ink); font-weight: 600; }
-@media (max-width: 700px) { .step-name { display: none; } }
+/* มือถือที่แคบ: ชื่อครบ 3 ขั้นไม่พอที่ — โชว์เฉพาะชื่อขั้นที่กำลังทำ (เดิมซ่อนหมด เหลือแต่จุดเลข) */
+@media (max-width: 700px) { .step-name:not(.now) { display: none; } }
 .setup-h { font-size: var(--fs-lg); font-weight: 700; color: var(--ink); }
 .setup-p { font-size: var(--fs-sm); color: var(--ink-2); margin-top: 4px; line-height: 1.65; }
 .setup-mono { font-family: ui-monospace, 'IBM Plex Mono', monospace; font-size: var(--fs-sm); }
@@ -1751,6 +1765,13 @@ table.grid td.total { background: var(--accent-soft) !important; color: var(--in
 /* มือถือ: ช่องค้นหาซ่อนจนกว่าจะแตะไอคอนบนแถบหัว (หน้าเช็คชื่อ) */
 @media (max-width: 899px) { .find-row.m-collapsed { display: none; } }
 .find-row > .find-box { flex: 1; min-width: 0; }
+/* บอกปุ่มลัดเช็คชื่อ (PC เท่านั้น — มือถือไม่มีแป้นพิมพ์จริง) */
+.kbd-hint { font-size: var(--fs-xs); color: var(--ink-2); margin: -2px 2px 10px; }
+kbd {
+  display: inline-block; min-width: 1.6em; padding: 0 5px; border-radius: var(--r-xs);
+  border: 1px solid var(--line-2); border-bottom-width: 2px; background: var(--surface);
+  font: inherit; font-weight: 600; text-align: center; color: var(--ink); line-height: 1.5;
+}
 .dice-btn {
   flex: none; width: 44px; height: 44px; border-radius: var(--r-1); font-size: var(--fs-xl);
   background: var(--surface); border: 1px solid var(--line-2);
@@ -1814,6 +1835,32 @@ table.grid td.total { background: var(--accent-soft) !important; color: var(--in
     display: inline-block; text-align: left; font-size: 15pt; line-height: 1.8; margin: 0;
   }
   #print-area .qr-poster-link { margin-top: 12mm; font-size: 8.5pt; color: #444; word-break: break-all; }
+}
+
+/* ใบรายงานผู้ปกครอง (report.js · slipFor) — คนละแผ่น ขาวดำล้วน ถ่ายเอกสารต่อได้ */
+@media print {
+  #print-area .slip { break-after: page; font-size: 11pt; line-height: 1.45; }
+  #print-area .slip:last-child { break-after: auto; }
+  #print-area .slip-meta { font-size: 10pt; margin: -3mm 0 5mm; }
+  #print-area .slip-who { display: flex; align-items: baseline; gap: 4mm; margin-bottom: 4mm; }
+  #print-area .slip-who b { font-size: 16pt; }
+  #print-area .slip-boxes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3mm; margin-bottom: 3mm; }
+  #print-area .slip-box { border: 1px solid #000; border-radius: 2mm; padding: 2.5mm 3mm; display: grid; gap: .5mm; }
+  #print-area .slip-box span { font-size: 9.5pt; }
+  #print-area .slip-box b { font-size: 18pt; line-height: 1.2; font-variant-numeric: tabular-nums; }
+  #print-area .slip-box small { font-size: 8.5pt; }
+  #print-area .slip-note { font-size: 9.5pt; margin: 0 0 2mm; }
+  #print-area .slip h3 { font-size: 11.5pt; margin: 4mm 0 1mm; }
+  #print-area .slip p { margin: 0; }
+  #print-area .slip-table { width: 100%; }
+  #print-area .slip-table .n { width: 22mm; text-align: center; font-variant-numeric: tabular-nums; }
+  #print-area .slip-table tr.sum td { font-weight: 700; }
+  #print-area .slip-table tbody td { height: auto; padding-block: 1.5px; }
+  #print-area .slip-small { font-size: 9pt; margin-top: 1mm !important; }
+  #print-area .slip-list { margin: 0; padding-left: 6mm; }
+  #print-area .slip-lines i { display: block; height: 7mm; border-bottom: 1px dotted #000; }
+  #print-area .slip-sign { display: grid; grid-template-columns: 1fr 1fr; gap: 12mm; margin-top: 8mm; text-align: center; font-size: 10pt; }
+  #print-area .slip-sign i { display: block; border-bottom: 1px dotted #000; height: 8mm; margin-bottom: 1.5mm; }
 }
 
 /* ══ v3.16 · ความรู้สึกตอนใช้งาน ═══════════════════════════
@@ -1884,6 +1931,10 @@ table.grid td.total { background: var(--accent-soft) !important; color: var(--in
 .ph-side.done:hover { background: none; }
 /* ตัวนับ "ไม่ปกติ" เป็นตัวเลขเฉย ๆ ไม่ใช่ตัวกรอง — อย่าให้ดูเหมือนกดได้ */
 .chip.static { background: none; box-shadow: none; cursor: default; }
+/* ชิปที่มีไอคอน + ชื่อสั้น — จอแคบเหลือแค่ไอคอน (ชื่อเต็มอยู่ใน aria-label) */
+.chip-ic .ico { margin: 0; }
+.chip-ic .chip-lbl { margin-left: 4px; }
+@media (max-width: 480px) { .chip-ic .chip-lbl { display: none; } .chip-ic { padding-inline: 12px; } }
 .chip.static:hover { color: var(--ink-2); }
 
 /* ── ช่องคะแนน ──
@@ -2412,7 +2463,7 @@ button.todo-item:hover { background: var(--surface-2); }
 <div id="boot" class="boot">
   <div class="boot-mark">A<span>✓</span></div>
   <div class="boot-title">ผลการเรียนของฉัน</div>
-  <div class="boot-ver">v3.18.0</div>
+  <div class="boot-ver">v3.19.0</div>
   <div class="boot-spin"></div>
 </div>
 

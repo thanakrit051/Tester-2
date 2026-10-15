@@ -334,6 +334,7 @@ function openDayMenu(dateISO, cols) {
 
 function checkScreen() {
   const { cls, available, key, st } = resolve();
+  bindKeys();
   const total = cls.students.length;
   const done = total - st.blank;
   const odd = st['ส'] + st['ล'] + st['ข'];
@@ -376,6 +377,9 @@ function checkScreen() {
       class: 'dice-btn pc-only', 'aria-label': 'สุ่มเรียกชื่อ', title: 'สุ่มเรียกชื่อ',
       onclick: () => openPicker(key)
     }, icon('shuffle'))),
+    h('div', { class: 'kbd-hint pc-only-block' },
+      'ใช้แป้นพิมพ์ได้: ', h('kbd', null, '1'), ' มา ', h('kbd', null, '2'), ' สาย ',
+      h('kbd', null, '3'), ' ลา ', h('kbd', null, '4'), ' ขาด · ', h('kbd', null, '↑'), h('kbd', null, '↓'), ' เลื่อนคน'),
 
     // ── แถวกรอง + ตัวนับ (ตามดีไซน์ วางอยู่เหนือรายชื่อ) ──
     h('div', { class: 'filter-row', style: { display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '10px' } },
@@ -395,7 +399,7 @@ function checkScreen() {
         h('b', { class: 't-miss', 'data-t': 'ข' }, `ขาด ${st['ข']}`))
     ),
 
-    h('div', { class: 'att-list' },
+    h('div', { class: 'att-list', 'data-key': key },
       shown.length
         ? shown.map(s => studentRow(s, key))
         : h('div', { class: 'card empty', style: { padding: '26px' } },
@@ -430,21 +434,81 @@ function studentRow(s, key) {
         title: ATT_NAMES[code], 'aria-label': ATT_NAMES[code],
         onclick: (e) => {
           const now = String(getCell(key, s.sid) || '');
-          const next = now === code ? '' : code;
-          ensureColumn(colSpecFromKey(key), { quiet: true });
-          setCells([{ key, sid: s.sid, value: next }], { quiet: true });
-          const group = e.currentTarget.parentElement;
-          [...group.children].forEach(b => {
-            const on = b.dataset.code === next;
-            b.dataset.on = on ? '1' : '0';
-            b.setAttribute('aria-pressed', on ? 'true' : 'false');
-          });
-          refreshStats(key);
+          markRow(e.currentTarget.parentElement, key, s.sid, now === code ? '' : code);
           buzz();
         }
       }, code))
     )
   );
+}
+
+/** ตั้งค่าเช็คชื่อของคนหนึ่ง แล้วอัปเดตปุ่มในแถวนั้นตรง ๆ (ไม่วาดหน้าใหม่ โฟกัสจึงไม่หลุด) */
+function markRow(group, key, sid, value) {
+  ensureColumn(colSpecFromKey(key), { quiet: true });
+  setCells([{ key, sid, value }], { quiet: true });
+  [...group.children].forEach(b => {
+    const on = b.dataset.code === value;
+    b.dataset.on = on ? '1' : '0';
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+  refreshStats(key);
+}
+
+/**
+ * เช็คชื่อด้วยแป้นพิมพ์ (PC)
+ *
+ * 1–4 (หรือ ม ส ล ข) = ตั้งค่าคนที่โฟกัสอยู่ แล้วไปคนถัดไป · ↑ ↓ = เลื่อนคน
+ * ยังไม่ได้โฟกัสแถวไหน = เริ่มที่คนแรกที่ยังว่าง
+ * ใช้ e.code ไม่ใช่ e.key — แป้นไทยแถวตัวเลขพิมพ์ออกมาเป็น ๅ / - ภ ไม่ใช่ 1 2 3 4
+ * กดซ้ำค่าเดิมไม่ล้างค่า (ต่างจากแตะปุ่ม) — ไล่กดรัว ๆ แล้วพลาดไปล้างของคนอื่นไม่ได้
+ */
+const KEY_CODES = { Digit1: 'ม', Digit2: 'ส', Digit3: 'ล', Digit4: 'ข', Numpad1: 'ม', Numpad2: 'ส', Numpad3: 'ล', Numpad4: 'ข' };
+
+function onAttKey(e) {
+  if (ui.mode !== 'check' || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
+  const list = document.querySelector('.att-list');
+  if (!list || document.querySelector('.modal-back')) return;
+  const t = e.target;
+  if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+
+  const code = KEY_CODES[e.code] || (ATT_CODES.includes(e.key) ? e.key : null);
+  const move = e.key === 'ArrowDown' ? 1 : e.key === 'ArrowUp' ? -1 : 0;
+  if (!code && !move) return;
+
+  const rows = [...list.querySelectorAll('.stu-row')].filter(r => !r.hidden);
+  if (!rows.length) return;
+  let row = t && t.closest ? t.closest('.att-list .stu-row') : null;
+  if (!row) {
+    if (move) row = rows[0];
+    else row = rows.find(r => !r.querySelector('.att-btn[data-on="1"]')) || null;
+    if (!row) return;
+    if (move) { e.preventDefault(); focusRow(row, null); return; }
+  }
+  e.preventDefault();
+
+  if (code) {
+    const key = list.dataset.key;
+    markRow(row.querySelector('.att-group'), key, row.dataset.sid, code);
+    buzz();
+  }
+  const i = rows.indexOf(row);
+  const next = rows[i + (move || 1)];
+  if (next) focusRow(next, code || t?.dataset?.code);
+  else if (code) focusRow(row, code);
+}
+
+/** โฟกัสปุ่มในแถว — ปุ่มที่ตรงกับค่าล่าสุด หรือปุ่ม "มา" */
+function focusRow(row, code) {
+  const btn = row.querySelector(`.att-btn[data-code="${code || 'ม'}"]`) || row.querySelector('.att-btn');
+  btn?.focus();
+  btn?.scrollIntoView({ block: 'nearest' });
+}
+
+let keysOn = false;
+function bindKeys() {
+  if (keysOn) return;
+  keysOn = true;
+  document.addEventListener('keydown', onAttKey);
 }
 
 /**
