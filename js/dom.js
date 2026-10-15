@@ -217,24 +217,39 @@ export async function copyText(text) {
  * @param fit       selector ของ "แผ่น" ที่ต้องอยู่ในหน้าเดียว (เช่น '.slip') — ยาวเกินหน้า = ย่อลงให้พอดี
  *                  ไม่ย่อเกิน 70% (เล็กกว่านั้นอ่านยาก ปล่อยขึ้นหน้าใหม่ดีกว่า)
  */
+let clearPrint = null;   // เก็บกวาดงานพิมพ์รอบก่อน (ถ้ายังค้างอยู่)
+
 export function printPage(content, { title = '', landscape = false, fit = '' } = {}) {
+  if (clearPrint) clearPrint();
   const area = h('div', { id: 'print-area' }, content);
   const page = h('style', null, `@page { size: A4 ${landscape ? 'landscape' : 'portrait'}; margin: 10mm; }`);
   const oldTitle = document.title;
 
   const done = () => {
-    window.removeEventListener('afterprint', done);
+    window.removeEventListener('afterprint', waitForReturn);
+    window.removeEventListener('pointerdown', done, true);
+    window.removeEventListener('keydown', done, true);
     area.remove(); page.remove();
     document.body.classList.remove('printing');
     document.title = oldTitle;
+    clearPrint = null;
   };
+  // อย่าเก็บกวาดทันทีที่ afterprint มา — Chrome บน Android/มือถือยิง afterprint ทันทีที่เรียก print()
+  // ก่อนระบบจะวาดหน้าพิมพ์เสร็จ เนื้อหาที่เตรียมไว้จึงหายไปก่อน แล้วพิมพ์หน้าจอแอปออกมาแทน (2-3 หน้า)
+  // รอให้ครูกลับมาแตะ/กดปุ่มในแอปก่อนค่อยเก็บ — ระหว่างนั้นบนจอมองไม่เห็นอะไร (#print-area ซ่อนบนจอเสมอ)
+  const waitForReturn = () => {
+    window.removeEventListener('afterprint', waitForReturn);
+    window.addEventListener('pointerdown', done, true);
+    window.addEventListener('keydown', done, true);
+  };
+  clearPrint = done;
 
   document.head.append(page);
   document.body.append(area);
   if (fit) fitToPage(area, fit, landscape);
   document.body.classList.add('printing');
   if (title) document.title = title;          // ชื่อไฟล์ตอนเลือก "บันทึกเป็น PDF"
-  window.addEventListener('afterprint', done);
+  window.addEventListener('afterprint', waitForReturn);
   // ให้เบราว์เซอร์วาดเนื้อหาใหม่ก่อนเปิดหน้าพิมพ์ ไม่งั้นบางเครื่องพิมพ์ออกมาเป็นหน้าเปล่า
   setTimeout(() => { try { window.print(); } catch (e) { done(); } }, 60);
 }
