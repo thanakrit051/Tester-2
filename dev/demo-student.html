@@ -408,6 +408,7 @@ select {
   font-size: var(--fs-md); text-align: center; font-weight: 600;
 }
 .hero-alt:hover { background: rgba(255,255,255,.08); }
+.hero-actions > .hero-alt:first-child { margin-top: 0; }
 
 /* รายการ "ค้างอยู่" */
 .todo-row {
@@ -734,18 +735,30 @@ table.grid td.total { background: var(--accent-soft) !important; font-weight: 70
 }
 @keyframes fade { from { opacity: 0; } }
 .modal {
+  position: relative;
   background: var(--surface); width: 100%; max-width: 560px;
   border-radius: var(--r-3) var(--r-3) 0 0;
-  padding: 8px 18px calc(20px + env(safe-area-inset-bottom));
+  padding: 0 18px calc(20px + env(safe-area-inset-bottom));
   max-height: 92vh; overflow: auto; box-shadow: var(--sh-3);
   animation: rise .22s cubic-bezier(.2,.8,.3,1);
 }
-.modal::before {
-  content: ''; display: block; width: 38px; height: 4px; border-radius: var(--r-pill);
-  background: var(--line-2); margin: 8px auto 14px;
+/* ขีดบนสุดของแผ่นล่าง — จับแล้วปัดลงเพื่อปิด (dom.js grabber) พื้นที่จับสูง 30px นิ้วโดนง่าย */
+.modal-grab {
+  height: 30px; margin: 0 -18px 4px; touch-action: none; cursor: grab;
+  display: grid; place-items: center;
 }
+.modal-grab::before {
+  content: ''; width: 38px; height: 4px; border-radius: var(--r-pill); background: var(--line-2);
+}
+.modal-x {
+  position: absolute; top: 6px; right: 8px; z-index: 1;
+  width: 40px; height: 40px; border-radius: 50%;
+  display: grid; place-items: center; color: var(--ink-2);
+}
+.modal-x:hover { background: var(--surface-2); color: var(--ink); }
+.modal-x .ico { width: 20px; height: 20px; }
 @keyframes rise { from { transform: translateY(28px); } }
-.modal h2 { margin: 0 0 12px; font-size: var(--fs-lg); letter-spacing: -.2px; }
+.modal h2 { margin: 0 0 12px; padding-right: 40px; font-size: var(--fs-lg); letter-spacing: -.2px; }
 .field { margin-bottom: 13px; }
 .field label { display: block; font-size: var(--fs-sm); font-weight: 600; color: var(--ink-2); margin-bottom: 5px; }
 .field-row { display: flex; gap: 10px; }
@@ -799,7 +812,8 @@ table.grid td.total { background: var(--accent-soft) !important; font-weight: 70
   display: grid; gap: 8px; width: max-content; max-width: 92vw;
 }
 .toast {
-  background: var(--bar); color: #fff; padding: 12px 18px; border-radius: var(--r-pill);
+  /* มุม 22px = แคปซูลพอดีตอนบรรทัดเดียว · ข้อความไทยยาวหลายบรรทัดเป็นกล่องมุมมน ไม่บวมเป็นวงรี */
+  background: var(--bar); color: #fff; padding: 12px 18px; border-radius: 22px; line-height: 1.5;
   font-size: var(--fs-md); font-weight: 600; box-shadow: var(--sh-3);
   animation: rise .2s ease;
   display: flex; align-items: center; gap: 14px;
@@ -851,9 +865,9 @@ table.grid td.total { background: var(--accent-soft) !important; font-weight: 70
   .shell { padding-bottom: 24px; }
   .class-pick { top: var(--header-h); }
   .modal-back { align-items: center; }
-  .modal { border-radius: var(--r-3); padding-bottom: 20px; }
-  .modal::before { display: none; }
-  .modal h2 { margin-top: 8px; }
+  .modal { border-radius: var(--r-3); padding-top: 16px; padding-bottom: 20px; }
+  .modal-grab { display: none; }
+  .modal h2 { margin-top: 4px; }
   .toasts { bottom: 24px; }
   .page { padding: 22px 22px 40px; }
   .stats { gap: 10px; }
@@ -1455,6 +1469,8 @@ table.grid td.total { background: var(--accent-soft) !important; color: var(--in
 }
 .tag-on  { background: var(--accent-soft); color: var(--accent-ink); }
 .tag-off { background: var(--surface-2);   color: var(--ink-2); font-weight: 400; }
+.tag-act { min-height: 32px; border: 1px solid transparent; }
+.tag-act:hover { border-color: var(--line-2); }
 
 /* แถวกรองในหน้าเช็คชื่อ — ดีไซน์ใช้เขียวน้ำทะเลกับชิปที่เลือกอยู่ */
 .filter-row .chip[data-on="1"] { background: var(--accent); color: var(--on-accent); }
@@ -1928,13 +1944,13 @@ kbd {
 /* ป้าย "ครบแล้ว" บนมือถือ — เดิมหน้าตาเหมือนปุ่มแต่กดไม่ได้ ตอนนี้เป็นป้ายสถานะ */
 .ph-side.done { background: none; color: var(--hero-ink); padding-inline: 8px; }
 .ph-side.done:hover { background: none; }
-/* ตัวนับ "ไม่ปกติ" เป็นตัวเลขเฉย ๆ ไม่ใช่ตัวกรอง — อย่าให้ดูเหมือนกดได้ */
-.chip.static { background: none; box-shadow: none; cursor: default; }
+/* ตัวนับ "ไม่ปกติ" เป็นตัวเลขเฉย ๆ ไม่ใช่ตัวกรอง — ข้อความธรรมดา ไม่มีกรอบแบบชิป */
+.filter-count { font-size: var(--fs-sm); color: var(--ink-2); padding-inline: 4px; }
 /* ชิปที่มีไอคอน + ชื่อสั้น — จอแคบเหลือแค่ไอคอน (ชื่อเต็มอยู่ใน aria-label) */
 .chip-ic .ico { margin: 0; }
 .chip-ic .chip-lbl { margin-left: 4px; }
 @media (max-width: 480px) { .chip-ic .chip-lbl { display: none; } .chip-ic { padding-inline: 12px; } }
-.chip.static:hover { color: var(--ink-2); }
+
 
 /* ── ช่องคะแนน ──
    เปลี่ยนเป็น type="text" + inputmode="decimal" แล้ว (ได้แป้นตัวเลขเหมือนเดิม)
@@ -1961,6 +1977,35 @@ kbd {
 }
 .skel i:first-child { height: 92px; }
 @keyframes skel-shine { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+
+/* ── ช่องคะแนนที่พิมพ์ค่าใช้ไม่ได้ (เกินเต็ม · ติดลบ · ไม่ใช่ตัวเลข) — ยังไม่บันทึก ──
+   ช่องแดงค้างไว้ + บอกเหตุใต้แถว ครูเห็นทันทีว่าแถวไหนยังไม่เข้า */
+.score-inp.bad { border-color: var(--st-miss); color: var(--st-miss); background: var(--miss-soft); }
+.score-err { font-size: var(--fs-sm); font-weight: 600; color: var(--st-miss); margin-top: 8px; line-height: 1.5; }
+@media (max-width: 899px) {
+  .work-list.st2 .work-row { flex-wrap: wrap; }
+  .work-list.st2 .work-row > .score-err { order: 4; flex-basis: 100%; margin-top: 0; text-align: right; }
+}
+@media (min-width: 900px) {
+  .work-list .work-row > .score-err { grid-column: 2 / -1; grid-row: 2; margin-top: 0; text-align: right; }
+}
+
+/* ── เมนู ⋯ แบบจัดกลุ่ม ── */
+.menu-list { display: grid; gap: 8px; }
+.menu-sep {
+  font-size: var(--fs-xs); font-weight: 600; color: var(--ink-3);
+  margin: 10px 2px -2px;
+}
+.menu-sep:first-child { margin-top: 0; }
+/* ล้างทั้งรายการ — ย้อนได้ (มีเลิกทำ) แต่กระทบทั้งห้อง จึงเป็นตัวหนังสือแดงบนปุ่มโปร่ง ต่างจากปุ่มลบจริง */
+.btn-ghost.is-danger { color: var(--st-miss); }
+
+/* ── หัวคอลัมน์สรุป SGS: ปุ่มคัดลอกทั้งช่อง ── */
+.th-copy {
+  display: block; width: 100%; padding: 0; margin: 0;
+  font: inherit; color: inherit; text-align: inherit; cursor: pointer; border-radius: var(--r-sm);
+}
+.th-copy:hover { text-decoration: underline; text-underline-offset: 3px; }
 /* สไตล์เฉพาะหน้าของนักเรียน — ต่อยอดจาก styles.css (ใช้ตัวแปรสีชุดเดียวกัน) */
 
 .stu-wrap { max-width: 620px; margin: 0 auto; padding: 16px 14px 40px; }
@@ -2462,7 +2507,7 @@ button.todo-item:hover { background: var(--surface-2); }
 <div id="boot" class="boot">
   <div class="boot-mark">A<span>✓</span></div>
   <div class="boot-title">ผลการเรียนของฉัน</div>
-  <div class="boot-ver">v3.19.4</div>
+  <div class="boot-ver">v3.20.0</div>
   <div class="boot-spin"></div>
 </div>
 

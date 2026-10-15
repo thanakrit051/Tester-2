@@ -125,16 +125,27 @@ export function settings() { return settingsFrom(state.config); }
  *    ชื่อ history อยู่ก่อนแล้ว เขียนสั้น ๆ ว่า history เมื่อไหร่จะไปโดนตัวนั้นแทน
  *    แล้วเงียบหายไปกับ catch ข้างล่างโดยไม่มีใครรู้
  */
-export function pushView(view, replace) {
+export function pushView(view, replace, sub = '', deep = false) {
   try {
-    const url = location.pathname + location.search + '#' + view;
+    const url = location.pathname + location.search + '#' + view + (sub ? '/' + encodeURIComponent(sub) : '');
     const h = window.history;
-    if (replace) h.replaceState({ acView: view }, '', url);
-    else h.pushState({ acView: view }, '', url);
+    const st = { acView: view, sub: sub || '', deep: !!deep };
+    if (replace) h.replaceState(st, '', url);
+    else h.pushState(st, '', url);
+    routeNow.view = view; routeNow.sub = st.sub; routeNow.deep = st.deep;
   } catch (e) {
     // ประวัติเป็นของแถม ห้ามทำให้การเปลี่ยนหน้าพัง
   }
 }
+
+/**
+ * รายการประวัติที่แอปเขียนไว้ล่าสุด — ใช้ตอนปุ่มย้อนกลับไปปิดกล่องแทน
+ * (ตอนนั้นเบราว์เซอร์ถอยไปแล้วหนึ่งรายการ ต้องเขียนรายการเดิมคืนให้ตรงกับที่ยังเห็นอยู่)
+ *
+ * sub = หน้าย่อยในหน้าเดียวกัน (ชิ้นงานที่เปิดกรอก · แท็บรายคน · หน้าประวัติเช็คชื่อ)
+ * deep = รายการนี้ซ้อนบนรายการหลักของหน้า → ออกจากหน้าย่อยในแอปต้องถอยประวัติคืนด้วย
+ */
+export const routeNow = { view: '', sub: '', deep: false };
 
 /**
  * เปลี่ยนหน้า
@@ -715,7 +726,7 @@ export async function deleteColumn(key) {
  *
  * จุดเสี่ยงพลาดสุดคือปุ่ม "แก้ทีเดียวทั้งคอลัมน์/ทั้งวัน" (✓ ทุกคนมา,
  * ตั้งเต็มทั้งห้อง, ล้างคะแนน, วางจาก Excel) เพราะย้อนกลับด้วยมือไม่ไหว
- * ช่องเดียวไม่บันทึกไว้ใช้เพราะกดปุ่มเดิมซ้ำ = ยกเลิกอยู่แล้ว (ดู work.js/attendance.js)
+ * ช่องเดียวก็บันทึก — ใช้กับ Ctrl+Z และปุ่มเลิกทำตอนแตะซ้ำแล้วล้างค่า (ดู app.js/attendance.js)
  */
 const HISTORY_MAX = 20;
 const editLog = [];   // [{ classId, cells: [{ key, sid, prev }] }] — ประวัติการแก้ สำหรับปุ่ม "เลิกทำ"
@@ -724,10 +735,10 @@ const editLog = [];   // [{ classId, cells: [{ key, sid, prev }] }] — ปร�
  * cells: [{ key, sid, value }]
  * quiet = true → ไม่วาดหน้าใหม่ (ให้ view อัปเดต DOM เองเพื่อความลื่น)
  */
-export function setCells(cells, { quiet = false } = {}) {
+export function setCells(cells, { quiet = false, record = true } = {}) {
   if (!cells.length || !state.cls) return;
 
-  editLog.push({
+  if (record) editLog.push({
     classId: state.classId,
     cells: cells.map(c => ({ key: c.key, sid: c.sid, prev: (state.cls.values[c.key] || {})[c.sid] ?? '' }))
   });
@@ -753,7 +764,8 @@ export function undoLastEdit() {
   const i = editLog.map(e => e.classId).lastIndexOf(state.classId);
   if (i < 0) return 0;
   const h = editLog.splice(i, 1)[0];
-  setCells(h.cells.map(c => ({ key: c.key, sid: c.sid, value: c.prev })));
+  // record: false — ไม่งั้นการเลิกทำกลายเป็นการแก้ครั้งล่าสุด กด Ctrl+Z ซ้ำจะสลับไปมาแทนที่จะถอยต่อ
+  setCells(h.cells.map(c => ({ key: c.key, sid: c.sid, value: c.prev })), { record: false });
   return h.cells.length;
 }
 

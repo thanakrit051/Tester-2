@@ -116,9 +116,10 @@ function overviewCard(showHero = true) {
       h('div', { class: 'hero-title' }, cls.meta.subject),
       h('div', { class: 'hero-meta' },
         `${rows.length} คน · ` + (attToday ? 'เช็คชื่อวันนี้แล้ว' : 'ยังไม่ได้เช็คชื่อวันนี้'))),
+    // ไลม์ = สิ่งที่ต้องกดตอนนี้ — เช็ควันนี้ไปแล้วปุ่มนี้ถอยเป็นปุ่มรอง ไม่แย่งสายตาทั้งวัน
     h('div', { class: 'hero-actions' },
-      h('button', { class: 'btn', onclick: () => go('att') },
-        attToday ? 'เช็คชื่อ' : 'เช็คชื่อวันนี้'),
+      h('button', { class: attToday ? 'hero-alt' : 'btn', onclick: () => go('att') },
+        attToday ? 'เช็คชื่ออีกครั้ง' : 'เช็คชื่อวันนี้'),
       h('button', { class: 'hero-alt', onclick: () => go('work') }, 'กรอกคะแนน'))
   );
 
@@ -159,10 +160,12 @@ function overviewCard(showHero = true) {
 
       h('div', { class: 'card stats-card' },
         h('div', { class: 'stats' },
-          stat('g', rows.length, 'นักเรียน'),
-          stat('b', avg === null ? '—' : avg.toFixed(1), anyEst ? 'เฉลี่ย % ของที่ตรวจแล้ว' : 'คะแนนเฉลี่ย /100'),
-          stat('a', risk, 'เสี่ยง มส'),
-          stat('r', zero, 'เสี่ยงติดศูนย์')),
+          // สีสถานะใช้เฉพาะตัวเลขที่เป็นสัญญาณเตือนและมีจริง (> 0) — จำนวนคน/ค่าเฉลี่ยเป็นตัวเลขธรรมดา
+          // เดิมค่าเฉลี่ยเป็นสีฟ้าของ "ลา" และ 0 ก็ยังเป็นสีแดง/ส้ม ทำให้ดูเหมือนมีปัญหาตลอด
+          stat('', rows.length, 'นักเรียน'),
+          stat('', avg === null ? '—' : avg.toFixed(1), anyEst ? 'เฉลี่ย % ของที่ตรวจแล้ว' : 'คะแนนเฉลี่ย /100'),
+          stat(risk ? 'a' : '', risk, 'เสี่ยง มส'),
+          stat(zero ? 'r' : '', zero, 'เสี่ยงติดศูนย์')),
         avg === null && h('div', { class: 'hint' },
           'ยังไม่ได้เช็คชื่อหรือกรอกคะแนน — ตัวเลขจะขึ้นเมื่อเริ่มบันทึกข้อมูล'))
     )

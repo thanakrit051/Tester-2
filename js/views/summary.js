@@ -72,7 +72,7 @@ export function viewSummary() {
 
   return h('div', { class: 'page page-wide' },
 
-    h('div', { class: 'chips' },
+    h('div', { class: 'chips', role: 'group', 'aria-label': 'ช่วงที่แสดง' },
       [[0, 'ทั้งปี'], [1, 'ก่อนกลางภาค'], [2, 'หลังกลางภาค']].map(([v, l]) =>
         h('button', { class: 'chip', 'data-on': ui.phase === v ? '1' : '0', onclick: () => { ui.phase = v; emit(); } }, l))
     ),
@@ -88,15 +88,16 @@ export function viewSummary() {
            anyEst ? 'เกรดเป็นค่าประมาณจนกว่าจะกรอกคะแนนปลายภาค' : ''].filter(Boolean).join(' · '))),
       h('button', { class: 'btn btn-ghost btn-sm', onclick: () => { ui.fill = true; ui.fi = 0; emit(); } }, withIcon('users', 'โหมดกรอกทีละคน')),
       // ไม่ใช่ไลม์ — แอปบันทึกลงชีตเองอยู่แล้ว ปุ่มนี้แค่สั่งชีตคิดสรุปใหม่ ไม่ใช่สิ่งที่ต้องกดทุกครั้ง
+      // ชื่อเดิม "บันทึกลงชีต" ทำให้ครูเข้าใจว่าต้องกดบันทึกเอง ไม่งั้นข้อมูลไม่ขึ้นชีต
       h('button', {
-        class: 'btn btn-ghost btn-sm',
+        class: 'btn btn-ghost btn-sm', title: 'ข้อมูลขึ้นชีตเองทุกครั้งที่กรอก — ปุ่มนี้สั่งให้แผ่นสรุปในชีตคำนวณใหม่ทันที',
         onclick: async (e) => {
-          const b = e.currentTarget; b.disabled = true; b.textContent = 'กำลังบันทึก…';
-          try { await recalcOnServer(); toast('เขียนลงชีตแล้ว', 'ok'); }
+          const b = e.currentTarget; b.disabled = true; b.textContent = 'กำลังคำนวณ…';
+          try { await recalcOnServer(); toast('แผ่นสรุปในชีตคำนวณใหม่แล้ว', 'ok'); }
           catch (err) { toast(err.message, 'err', 5000); }
-          finally { b.disabled = false; b.replaceChildren(...withIcon('save', 'บันทึกลงชีต')); }
+          finally { b.disabled = false; b.replaceChildren(...withIcon('refresh', 'คำนวณสรุปในชีตใหม่')); }
         }
-      }, withIcon('save', 'บันทึกลงชีต'))
+      }, withIcon('refresh', 'คำนวณสรุปในชีตใหม่'))
     ),
 
     h('div', { class: 'card card-tight' },
@@ -153,6 +154,12 @@ viewSummary.head = function () {
       h('button', { class: 'ph-badge', onclick: () => { ui.fill = false; emit(); } }, 'ออก')
     )
   );
+};
+
+/** หน้าย่อย = โหมดกรอกทีละคน — ปุ่มย้อนกลับของเครื่องออกจากโหมดนี้ (ดู syncRoute ใน app.js) */
+viewSummary.route = {
+  get: () => (ui.fill ? 'fill' : ''),
+  set: (sub) => { ui.fill = sub === 'fill'; }
 };
 
 /** โหมดกรอกทีละคน — อ่านคะแนน 8 ช่องเรียงตามลำดับที่ SGS ให้กรอก */
@@ -232,15 +239,17 @@ function table(rows, cols, S, pend) {
       h('tr', { class: 'group' },
         h('th', { class: 'sticky-l c-no' }, '#'),
         h('th', { class: 'sticky-l c-name' }, 'ชื่อ-นามสกุล'),
-        cols.map(c => h('th', {
-          class: c.cls,
-          title: `แตะเพื่อคัดลอกช่องนี้ทั้งห้อง · เต็ม ${S.weight[c.id]}`,
-          style: { cursor: 'pointer' },
-          onclick: () => copyColumn(rows, c)
-        },
-          h('div', { style: { fontWeight: '700' } }, c.head),
-          h('div', { style: { fontWeight: '400', fontSize: 'var(--fs-2xs)', opacity: '.8' } },
-            c.sub || String(S.weight[c.id]))
+        // ปุ่มจริงในหัวคอลัมน์ — เดิมคลิกที่ th ได้อย่างเดียว กด Tab ไปไม่ถึง โปรแกรมอ่านหน้าจอไม่รู้ว่ากดได้
+        cols.map(c => h('th', { class: c.cls, scope: 'col' },
+          h('button', {
+            class: 'th-copy',
+            title: `แตะเพื่อคัดลอกช่องนี้ทั้งห้อง · เต็ม ${S.weight[c.id]}`,
+            'aria-label': `คัดลอกช่อง ${c.head}${c.sub ? ' ' + c.sub : ''} ทั้งห้อง (เต็ม ${S.weight[c.id]})`,
+            onclick: () => copyColumn(rows, c)
+          },
+            h('div', { style: { fontWeight: '700' } }, c.head),
+            h('div', { style: { fontWeight: '400', fontSize: 'var(--fs-2xs)', opacity: '.8' } },
+              c.sub || String(S.weight[c.id])))
         )),
         h('th', { class: 'h-total' }, 'รวม'),
         h('th', { class: 'h1' }, 'เกรด')

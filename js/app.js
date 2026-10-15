@@ -2,7 +2,7 @@
 
 import { h, mount, toast, closeTopModal, copyText } from './dom.js';
 import * as api from './api.js';
-import { state, subscribe, bootAll, sync, isSyncing, savedAt, go, pushView } from './state.js';
+import { state, subscribe, bootAll, sync, isSyncing, savedAt, go, pushView, routeNow, undoLastEdit, emit } from './state.js';
 import { auth, restoreSession } from './auth.js';
 import { icon } from './icons.js';
 import { applyTheme, watchSystemTheme } from './theme.js';
@@ -348,6 +348,7 @@ function render() {
   // ดีไซน์ให้ "บริบทของหน้า" อยู่ในแถบเข้มบนมือถือ — แถบนั้นจึงมาแทน
   // แถบ AssignCheck ทั่วไป ไม่ใช่ซ้อนกันสองชั้น (บน PC แถบทั่วไปอยู่คงที่)
   const head = (!wide() && typeof view.head === 'function') ? view.head() : null;
+  const moved = !!shownView && state.view !== shownView;   // เปลี่ยนหน้าจริง (ไม่ใช่วาดซ้ำในหน้าเดิม)
 
   mount(app,
     h('div', { class: 'shell' },
@@ -359,12 +360,55 @@ function render() {
       !wide() && nav(),
       !head && classPicker(),
       // ชื่อหน้าสำหรับโปรแกรมอ่านหน้าจอ — เดิมทุกหน้าไม่มีหัวข้อเลย กระโดดตามหัวข้อไม่ได้
-      h('h1', { class: 'sr-only' }, pageName()),
+      h('h1', { class: 'sr-only', tabindex: '-1' }, pageName()),
       enter(view())
     )
   );
 
+  syncRoute(view);
+  // เปลี่ยนหน้าแล้วย้ายโฟกัสไปที่ชื่อหน้า — โปรแกรมอ่านหน้าจออ่านชื่อหน้าใหม่ให้
+  // เดิมโฟกัสหายไปกับปุ่มเมนูที่ถูกวาดใหม่ คนที่มองไม่เห็นไม่รู้ว่าหน้าเปลี่ยนแล้ว
+  if (moved) { try { app.querySelector('h1.sr-only').focus({ preventScroll: true }); } catch (e) {} }
+
   if (readyToShow()) reveal();
+}
+
+/* ── หน้าย่อยในประวัติของเบราว์เซอร์ ──────────────────────────
+ *
+ * เดิมประวัติรู้จักแค่ 5 แท็บ หน้าย่อย (ชิ้นงานที่เปิดกรอก · ประวัติเช็คชื่อ · แท็บรายคน
+ * · โหมดกรอกทีละคน) ไม่อยู่ในประวัติ กดย้อนกลับของมือถือตอนกรอกคะแนน
+ * จึงเด้งข้ามไปแท็บก่อนหน้า แทนที่จะกลับไปรายการงาน
+ *
+ * แต่ละหน้าบอกหน้าย่อยของตัวเองผ่าน view.route = { get(), set(sub) }
+ * ตรงนี้เทียบกับรายการประวัติหลังวาดทุกครั้ง: เข้าหน้าย่อย = เพิ่มรายการ ·
+ * ออกด้วยปุ่มในแอป = ถอยประวัติคืน (ไม่งั้นต้องกดย้อนกลับเปล่า ๆ หนึ่งครั้ง)
+ */
+let routeView = '';      // หน้าที่ผูกหน้าย่อยไว้ล่าสุด
+let popGuard = false;    // ถอยประวัติเองอยู่ — popstate รอบนั้นไม่ต้องทำอะไร
+
+const viewOf = (id) => EXTRA_VIEWS[id] || (NAV.find(n => n.id === id) || {}).view;
+
+function syncRoute(view) {
+  if (popGuard) return;
+  let want = '';
+  try { want = (view && view.route && view.route.get()) || ''; } catch (e) {}
+  const hs = window.history.state || {};
+  if (hs.acView && hs.acView !== state.view) return;
+  const fresh = routeView !== state.view;
+  routeView = state.view;
+  const have = hs.sub || '';
+  if (want === have && hs.acView) return;
+  // เพิ่งเข้าหน้านี้ = เขียนทับรายการของหน้า (ย้อนกลับครั้งเดียวออกจากหน้าได้เลย)
+  if (fresh || !hs.acView) return pushView(state.view, true, want, false);
+  if (!have) return pushView(state.view, false, want, true);
+  if (want) return pushView(state.view, true, want, !!hs.deep);
+  if (hs.deep) { popGuard = true; window.history.back(); return; }
+  pushView(state.view, true, '', false);
+}
+
+function setSub(id, sub) {
+  const v = viewOf(id);
+  try { if (v && v.route) v.route.set(sub || ''); } catch (e) {}
 }
 
 function pageName() {
@@ -440,20 +484,57 @@ function resolveView(id) {
   return id;
 }
 
-const viewFromHash = () => {
-  try { return decodeURIComponent(String(location.hash || '').replace(/^#/, '')); }
-  catch (e) { return ''; }
+/** #work/i%2FWORK|1|w3 → { view: 'work', sub: 'i/WORK|1|w3' } */
+const routeFromHash = () => {
+  let s = '';
+  try { s = decodeURIComponent(String(location.hash || '').replace(/^#/, '')); } catch (e) {}
+  const i = s.indexOf('/');
+  return i < 0 ? { view: s, sub: '' } : { view: s.slice(0, i), sub: s.slice(i + 1) };
 };
 
 window.addEventListener('popstate', (e) => {
+  if (popGuard) { popGuard = false; return; }
+
   // มีกล่องเปิดค้างอยู่ → ปุ่มย้อนกลับปิดกล่องก่อน (พฤติกรรมที่คนใช้มือถือคาดหวัง)
   // แล้วคืนตำแหน่งในประวัติกลับที่เดิม เพื่อไม่ให้หน้าเปลี่ยนตามไปด้วย
-  if (closeTopModal()) { pushView(state.view); return; }
+  if (closeTopModal()) { pushView(routeNow.view || state.view, false, routeNow.sub, routeNow.deep); return; }
 
-  const want = (e.state && e.state.acView) || viewFromHash() || 'home';
+  const st = e.state || {};
+  const fromHash = routeFromHash();
+  const want = st.acView || fromHash.view || 'home';
   const ok = resolveView(want) || 'home';
+  routeNow.view = ok; routeNow.sub = st.acView ? (st.sub || '') : fromHash.sub; routeNow.deep = !!st.deep;
+  setSub(ok, ok === want ? routeNow.sub : '');
+  routeView = ok;
   go(ok, { silent: true });
+  emit();                                // หน้าเดิม go() ไม่วาดใหม่ แต่หน้าย่อยเปลี่ยนแล้ว
   if (ok !== want) pushView(ok, true);   // เปิดหน้าที่ขอไม่ได้ → แก้ URL ให้ตรงกับที่เห็นจริง
+});
+
+/* Ctrl+Z = เลิกทำการแก้ล่าสุด (ทั้งแตะทีละช่องและแก้ทีเดียวหลายช่อง)
+ * เดิมเลิกทำได้ทางเดียวคือปุ่มใน toast ที่หายไปใน 5 วินาที คนใช้แป้นพิมพ์กดไม่ทัน
+ * ในช่องพิมพ์ปล่อยให้เป็น Ctrl+Z ของช่องนั้นเอง (ย้อนตัวอักษร) */
+window.addEventListener('keydown', (e) => {
+  if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey || e.code !== 'KeyZ') return;
+  const t = e.target;
+  if (t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable)) return;
+  if (document.querySelector('.modal-back') || !state.cls) return;
+  e.preventDefault();
+  const n = undoLastEdit();
+  toast(n ? `เลิกทำแล้ว · ${n} ช่อง` : 'ไม่มีอะไรให้เลิกทำ', n ? 'ok' : '');
+});
+
+/* / = ไปช่องค้นหาของหน้า (เช็คชื่อ · กรอกคะแนน) — บน PC หน้ากรอกมีปุ่มราว 15 ปุ่มก่อนถึงรายชื่อ
+ * กด / พิมพ์เลขที่ แล้ว Enter = ลงช่องคะแนนของคนนั้นเลย ไม่ต้องไล่ Tab */
+window.addEventListener('keydown', (e) => {
+  if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey) return;
+  const t = e.target;
+  if (t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable)) return;
+  if (document.querySelector('.modal-back')) return;
+  const box = [...document.querySelectorAll('#app input[type="search"]')].find(el => el.getClientRects().length);
+  if (!box) return;
+  e.preventDefault();
+  box.focus(); box.select();
 });
 
 // ── เริ่มทำงาน ──────────────────────────────────────────────
@@ -576,8 +657,10 @@ window.addEventListener('appinstalled', () => { state.installPrompt = null; safe
 
       // เปิดหน้าตามที่อยู่ใน URL — ต้องหลัง bootAll เพราะก่อนหน้านั้น
       // ยังไม่รู้ว่ามีห้องเรียนค้างไว้ไหม หน้าที่ต้องใช้ห้องจึงตัดสินไม่ได้
-      const first = resolveView(viewFromHash()) || 'home';
+      const asked = routeFromHash();
+      const first = resolveView(asked.view) || 'home';
       state.view = first;
+      if (first === asked.view) setSub(first, asked.sub);   // เปิดลิงก์/รีเฟรชค้างที่หน้าย่อย
       pushView(first, true);
     }
     safeRender();

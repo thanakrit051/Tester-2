@@ -103,6 +103,12 @@ export function viewAttendance() {
   return ui.mode === 'check' ? checkScreen() : dayListScreen();
 }
 
+/** หน้าย่อย = หน้าประวัติ/เลือกวัน — ปุ่มย้อนกลับของเครื่องพากลับหน้าเช็ค (ดู syncRoute ใน app.js) */
+viewAttendance.route = {
+  get: () => (ui.mode === 'list' ? 'days' : ''),
+  set: (sub) => { ui.mode = sub === 'days' ? 'list' : 'check'; }
+};
+
 /**
  * คาบที่มีของวันที่เลือก + สถิติของคาบปัจจุบัน
  * ใช้ร่วมกันระหว่างแถบหัว (มือถือ) กับตัวหน้า — ต้องได้ค่าเดียวกันเสมอ
@@ -165,7 +171,11 @@ viewAttendance.head = function () {
    *  · ป้าย 15/20 เอาออก — ปุ่ม "ยังว่าง 5" กับแถวตัวนับบอกเรื่องเดียวกันอยู่แล้ว */
   return h('header', { class: 'pagehead' },
     h('div', { class: 'ph-row' },
-      h('button', { class: 'ph-back', 'aria-label': 'กลับ', onclick: () => { ui.mode = 'list'; emit(); } }, icon('back')),
+      // ปุ่มนี้พาไปหน้าประวัติ/เลือกวัน ไม่ได้ถอยกลับ — เดิมเป็นลูกศร ‹ ชื่อ "กลับ" ซึ่งความหมายไม่ตรงกับที่ทำ
+      h('button', {
+        class: 'ph-back', 'aria-label': 'ประวัติการเช็ค / เลือกวันอื่น', title: 'ประวัติการเช็ค / เลือกวันอื่น',
+        onclick: () => { ui.mode = 'list'; emit(); }
+      }, icon('calendar')),
       h('div', { class: 'ph-grow' },
         available.length > 1
           ? h('label', { class: 'ph-title ph-title-pick' },
@@ -379,7 +389,8 @@ function checkScreen() {
     }, icon('shuffle'))),
     h('div', { class: 'kbd-hint pc-only-block' },
       'ใช้แป้นพิมพ์ได้: ', h('kbd', null, '1'), ' มา ', h('kbd', null, '2'), ' สาย ',
-      h('kbd', null, '3'), ' ลา ', h('kbd', null, '4'), ' ขาด · ', h('kbd', null, '↑'), h('kbd', null, '↓'), ' เลื่อนคน'),
+      h('kbd', null, '3'), ' ลา ', h('kbd', null, '4'), ' ขาด · ', h('kbd', null, '↑'), h('kbd', null, '↓'), ' เลื่อนคน · ',
+      h('kbd', null, '/'), ' ค้นหา · ', h('kbd', null, 'Ctrl'), '+', h('kbd', null, 'Z'), ' เลิกทำ'),
 
     // ── แถวกรอง + ตัวนับ (ตามดีไซน์ วางอยู่เหนือรายชื่อ) ──
     h('div', { class: 'filter-row', style: { display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '10px' } },
@@ -391,7 +402,8 @@ function checkScreen() {
         class: 'chip', 'data-on': ui.onlyBlank ? '1' : '0',
         onclick: () => { ui.onlyBlank = st.blank > 0 ? !ui.onlyBlank : false; emit(); }
       }, h('span', { 'data-t': 'blank' }, `ยังว่าง ${st.blank}`)),
-      h('span', { class: 'chip static' }, h('span', { 'data-t': 'odd' }, `ไม่ปกติ ${odd}`)),
+      // ตัวนับเฉย ๆ — เดิมหน้าตาเป็นชิปเหมือนปุ่มข้าง ๆ แต่กดแล้วไม่มีอะไรเกิดขึ้น
+      h('span', { class: 'filter-count' }, h('span', { 'data-t': 'odd' }, `ไม่ปกติ ${odd}`)),
       h('div', { class: 'tally', style: { marginLeft: 'auto' } },
         h('b', { class: 't-ok', 'data-t': 'ม' }, `มา ${st['ม']}`),
         h('b', { class: 't-late', 'data-t': 'ส' }, `สาย ${st['ส']}`),
@@ -414,9 +426,25 @@ function checkScreen() {
         'บันทึกอัตโนมัติทุกครั้งที่แตะ · ออฟไลน์ก็เช็คได้ ระบบส่งให้เมื่อมีเน็ต'),
       h('button', {
         class: 'btn btn-solid', 'data-t': 'finish',
-        onclick: () => { ui.mode = 'list'; ui.onlyBlank = false; emit(); }
+        onclick: () => finishCheck(key)
       }, finishLabel()))
   );
+}
+
+/**
+ * จบการเช็ค — กลับหน้าแรกพร้อมยอดของคาบนี้
+ * เดิมตกไปหน้ารายการประวัติ ซึ่งไม่ใช่ที่ที่ครูอยากไปต่อ และไม่มีอะไรบอกว่าเช็คได้เท่าไร
+ * ครั้งหน้าที่เข้ามาเริ่มที่วันนี้เสมอ (ไม่ค้างวันที่เพิ่งเช็คย้อนหลัง)
+ */
+function finishCheck(key) {
+  const st = attStats(state.cls, key);
+  const when = isToday(ui.date) ? 'วันนี้' : fmtDate(ui.date);
+  const saved = finishLabel().includes('ในเครื่อง') ? 'เก็บไว้ในเครื่อง ส่งเมื่อมีเน็ต' : 'บันทึกแล้ว';
+  toast(`เช็คชื่อ${when}เสร็จ · มา ${st['ม']} สาย ${st['ส']} ลา ${st['ล']} ขาด ${st['ข']}` +
+    (st.blank ? ` · ยังว่าง ${st.blank}` : '') + ` · ${saved}`, 'ok', 4200);
+  ui.mode = 'check'; ui.date = todayISO(); ui.period = 1; ui.pending = null;
+  ui.onlyBlank = false; ui.q = ''; ui.findOpen = false;
+  go('home');
 }
 
 function studentRow(s, key) {
@@ -436,6 +464,8 @@ function studentRow(s, key) {
           const now = String(getCell(key, s.sid) || '');
           markRow(e.currentTarget.parentElement, key, s.sid, now === code ? '' : code);
           buzz();
+          // แตะซ้ำ = ล้างค่า — แตะพลาดตอนถือมือเดียวแล้วค่าหาย จึงมีเลิกทำให้กดคืน
+          if (now === code) toast(`ล้างแล้ว · ${s.name || 'เลขที่ ' + s.no}`, '', 3000, undoAction());
         }
       }, code))
     )
@@ -618,7 +648,9 @@ function openMenu(available, key) {
 
   modal((close) => h('div', null,
     h('h2', null, fmtDayFull(ui.date)),
-    h('div', { style: { display: 'grid', gap: '8px' } },
+    // จัดกลุ่ม: ในห้อง · คาบและวัน · ช่วงคะแนน · ลบอยู่ท้ายสุด — เดิมเรียง 8 อย่างติดกันไม่มีหัวข้อ
+    h('div', { class: 'menu-list' },
+      h('div', { class: 'menu-sep' }, 'ในห้อง'),
 
       // มือถือย้ายปุ่มนี้ออกจากข้างช่องค้นหามาไว้ที่นี่ (ผู้ใช้เลือก 2026-10-14) · PC ยังมีไอคอนข้างช่องค้นหา
       h('button', {
@@ -628,22 +660,24 @@ function openMenu(available, key) {
 
       h('button', {
         class: 'btn btn-ghost btn-block',
-        onclick: () => { close(); addPeriod(available, ui.date); }
-      }, withIcon('plus', 'เพิ่มคาบของวันนี้')),
-
-      h('button', {
-        class: 'btn btn-ghost btn-block',
         onclick: () => { close(); printBlankSheet(); }
       }, withIcon('printer', 'พิมพ์ใบเช็คชื่อเปล่า')),
 
-      // บน PC ไม่มีปุ่ม ‹ แบบมือถือ ทางเข้าหน้าประวัติจึงต้องอยู่ในเมนูนี้
+      h('div', { class: 'menu-sep' }, 'คาบและวัน'),
+      h('button', {
+        class: 'btn btn-ghost btn-block',
+        onclick: () => { close(); addPeriod(available, ui.date); }
+      }, withIcon('plus', 'เพิ่มคาบของวันนี้')),
+
+      // บน PC ไม่มีปุ่มปฏิทินบนแถบหัวแบบมือถือ ทางเข้าหน้าประวัติจึงต้องอยู่ในเมนูนี้ด้วย
       h('button', {
         class: 'btn btn-ghost btn-block',
         onclick: () => { close(); ui.mode = 'list'; emit(); }
       }, withIcon('calendar', 'ประวัติการเช็ค / เลือกวันอื่น')),
 
-      h('div', { style: { fontSize: 'var(--fs-sm)', color: 'var(--ink-2)', marginTop: '6px' } },
-        `ช่วงคะแนน: ${half === 1 ? 'ก่อนกลางภาค' : 'หลังกลางภาค'}`,
+      h('div', { class: 'menu-sep' }, 'ช่วงคะแนน'),
+      h('div', { style: { fontSize: 'var(--fs-sm)', color: 'var(--ink-2)' } },
+        `ตอนนี้: ${half === 1 ? 'ก่อนกลางภาค' : 'หลังกลางภาค'}`,
         midSet ? ' (คำนวณจากวันสอบกลางภาค)' : ' — ยังไม่ได้ตั้งวันสอบกลางภาค'),
       h('div', { class: 'btn-row' },
         h('button', {
@@ -659,15 +693,28 @@ function openMenu(available, key) {
         onclick: () => { close(); go('settings'); }
       }, withIcon('gear', 'ไปตั้งวันสอบกลางภาค (ตั้งครั้งเดียวจบ)')),
 
+      exists && h('div', { class: 'menu-sep' }, 'ลบ'),
       exists && h('button', {
-        class: 'btn btn-danger btn-block', style: { marginTop: '10px' },
+        class: 'btn btn-danger btn-block',
         onclick: async () => {
           close();
           const lbl = available.length > 1 ? `คาบ ${ui.period} ของ${fmtDate(ui.date)}` : fmtDate(ui.date);
           if (!await confirmBox('ลบการเช็คชื่อ?', `ข้อมูลของ ${lbl} จะหายไป`, 'ลบ')) return;
+          // เก็บของเดิมไว้ให้กดเลิกทำได้ — เดิมลบแล้วหายเลย ทั้งที่การลบคาบเกิดจากกดพลาดได้ง่าย
+          const was = { ...(state.cls.values[key] || {}) };
+          const at = { date: ui.date, period: ui.period };
           await deleteColumn(key);
-          ui.period = 1; ui.mode = 'list';
-          toast('ลบแล้ว', 'ok');
+          ui.period = 1; ui.mode = 'list'; emit();
+          toast('ลบแล้ว', 'ok', 6000, {
+            label: 'เลิกทำ',
+            onclick: () => {
+              ensureColumn(colSpecFromKey(key), { quiet: true });
+              const cells = Object.entries(was).map(([sid, value]) => ({ key, sid, value }));
+              if (cells.length) setCells(cells, { quiet: true, record: false });
+              enterCheck(at.date, at.period);
+              toast('กู้คืนแล้ว', 'ok');
+            }
+          });
         }
       }, withIcon('trash', 'ลบการเช็คครั้งนี้'))
     )

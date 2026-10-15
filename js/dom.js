@@ -1,5 +1,7 @@
 /* AssignCheck V2 — ตัวช่วย DOM ขนาดเล็ก (ไม่มี framework) */
 
+import { icon } from './icons.js';
+
 /**
  * สร้าง element
  *   h('div', { class:'card', onclick: fn }, 'ข้อความ', h('b', null, 'ตัวหนา'))
@@ -17,6 +19,13 @@ export function h(tag, props, ...children) {
       else if (k === 'value' || k === 'checked' || k === 'disabled' || k === 'hidden') el[k] = v;
       else el.setAttribute(k, v === true ? '' : v);
     }
+  }
+  /* ปุ่มเลือก/สลับทั้งแอปบอกว่า "ติดอยู่" ด้วย data-on อย่างเดียว ซึ่งเป็นแค่สี
+   * โปรแกรมอ่านหน้าจออ่าน "ภาพรวม ปุ่ม · ตามงาน ปุ่ม" ไม่รู้ว่าอันไหนเลือกอยู่
+   * ใส่ aria-pressed ให้ที่นี่ที่เดียว (ปุ่มที่บอกสถานะแบบอื่นไว้เองแล้ว เช่นเมนู aria-current ข้ามไป) */
+  if (tag === 'button' && props && props['data-on'] != null &&
+      props['aria-pressed'] == null && props['aria-current'] == null && props.role == null) {
+    el.setAttribute('aria-pressed', String(props['data-on']) === '1' ? 'true' : 'false');
   }
   add(el, children);
   return el;
@@ -70,8 +79,8 @@ export function toast(msg, kind = '', ms = 2400, action = null) {
     setTimeout(() => t.remove(), 220);
   };
   // ข้อผิดพลาดต้องอยู่ให้อ่านทัน — 2.4 วิ อ่านข้อความไทยยาว ๆ ไม่จบ และโปรแกรมอ่านหน้าจออ่านไม่ทัน
-  if (kind === 'err') ms = Math.max(ms, 6000);
-  const t = h('div', { class: 'toast ' + kind },
+  if (kind === 'err') ms = Math.max(ms, 8000);
+  const t = h('div', { class: 'toast ' + kind, role: kind === 'err' ? 'alert' : null },
     h('span', null, msg),
     action && h('button', {
       class: 'toast-action',
@@ -79,7 +88,12 @@ export function toast(msg, kind = '', ms = 2400, action = null) {
     }, action.label)
   );
   root.append(t);
-  setTimeout(remove, action ? Math.max(ms, 5000) : ms);
+  // ชี้เมาส์/โฟกัสค้างไว้ = ยังอ่านอยู่ หยุดนับเวลา (ปุ่ม "เลิกทำ" จะได้ไม่หายไปตอนกำลังจะกด)
+  let left = action ? Math.max(ms, 5000) : ms, since = Date.now(), timer = setTimeout(remove, left);
+  const hold = () => { clearTimeout(timer); left = Math.max(1200, left - (Date.now() - since)); };
+  const go = () => { since = Date.now(); clearTimeout(timer); timer = setTimeout(remove, left); };
+  t.addEventListener('pointerenter', hold); t.addEventListener('pointerleave', go);
+  t.addEventListener('focusin', hold); t.addEventListener('focusout', go);
 }
 
 // ── Modal ───────────────────────────────────────────────────
@@ -117,6 +131,10 @@ function focusables(box) {
  * ของเดิมปิดได้ทางเดียวคือคลิกฉากหลัง — คนที่ใช้คีย์บอร์ดจึงออกจากกล่องไม่ได้เลย
  * และกด Tab แล้วโฟกัสหลุดไปอยู่ปุ่มด้านหลังกล่องซึ่งมองไม่เห็น
  * ตอนนี้ปิดด้วย Esc ได้ · Tab วนอยู่ในกล่อง · ปิดแล้วโฟกัสกลับไปที่ปุ่มที่เปิดมัน
+ *
+ * มีปุ่ม ✕ ทุกกล่อง · ปัดขีดด้านบนลงเพื่อปิดได้ (มือถือ)
+ * แตะฉากหลัง/ปัดลง ตอนที่พิมพ์อะไรไว้ในกล่องแล้ว = ไม่ปิด — เดิมแตะพลาดนิดเดียว
+ * รายชื่อที่วางมาทั้งห้องหายหมด · ✕ กับ Esc ยังปิดได้เสมอ (ตั้งใจกดเอง)
  */
 export function modal(builder) {
   const root = document.getElementById('modal-root');
@@ -152,8 +170,18 @@ export function modal(builder) {
     else if (!e.shiftKey && here === last) { e.preventDefault(); first.focus(); }
   }
 
-  back.addEventListener('click', () => close());
-  box.append(builder(close));
+  let dirty = false;
+  box.addEventListener('input', () => { dirty = true; });
+  const softClose = () => {
+    if (!dirty) return close();
+    toast('ยังมีที่พิมพ์ค้างอยู่ — กด ✕ ถ้าจะปิดโดยไม่บันทึก');
+  };
+
+  back.addEventListener('click', softClose);
+  box.append(
+    grabber(box, softClose),
+    h('button', { class: 'modal-x', 'aria-label': 'ปิด', title: 'ปิด (Esc)', onclick: () => close() }, icon('close')),
+    builder(close));
   linkLabels(box);
   // ชื่อกล่องให้โปรแกรมอ่านหน้าจออ่านตอนเปิด — เดิมประกาศแค่ "กล่องโต้ตอบ"
   const title = box.querySelector('h2');
@@ -167,6 +195,37 @@ export function modal(builder) {
   const first = box.querySelector('input,select,textarea');
   setTimeout(() => (first || box).focus(), 60);
   return close;
+}
+
+/**
+ * ขีดบนสุดของแผ่นล่าง (มือถือ) — ปัดลงเพื่อปิด
+ * เดิมเป็นขีดตกแต่งที่ดูเหมือนปัดได้แต่ปัดไม่ได้ · จับเฉพาะที่ขีด ไม่แย่งการเลื่อนเนื้อหาในกล่อง
+ */
+function grabber(box, onClose) {
+  let y0 = null, dy = 0;
+  const end = () => {
+    if (y0 === null) return;
+    y0 = null;
+    box.style.transition = 'transform .18s cubic-bezier(.2,.8,.3,1)';
+    box.style.transform = '';
+    if (dy > 80) onClose();
+  };
+  return h('div', {
+    class: 'modal-grab', 'aria-hidden': 'true',
+    onpointerdown: (e) => {
+      if (box.scrollTop > 0) return;
+      y0 = e.clientY; dy = 0;
+      box.style.transition = 'none';
+      try { e.currentTarget.setPointerCapture(e.pointerId); } catch (err) {}
+    },
+    onpointermove: (e) => {
+      if (y0 === null) return;
+      dy = Math.max(0, e.clientY - y0);
+      box.style.transform = dy ? `translateY(${dy}px)` : '';
+    },
+    onpointerup: end,
+    onpointercancel: end
+  });
 }
 
 export function confirmBox(title, message, confirmLabel = 'ยืนยัน') {

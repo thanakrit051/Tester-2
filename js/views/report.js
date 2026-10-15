@@ -50,9 +50,10 @@ export function viewReport() {
   return h('div', { class: 'page' },
     // แท็บ + ปุ่มส่งออก — ดีไซน์วางไว้แถวบนสุด ปุ่มส่งออกชิดขวา
     h('div', { style: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px', marginBottom: '12px' } },
-      h('button', { class: 'chip', 'data-on': ui.tab === 'class' ? '1' : '0', onclick: () => { ui.tab = 'class'; emit(); } }, 'ภาพรวม'),
-      h('button', { class: 'chip', 'data-on': ui.tab === 'follow' ? '1' : '0', onclick: () => { ui.tab = 'follow'; ui.focus = ''; emit(); } }, 'ตามงาน'),
-      h('button', { class: 'chip', 'data-on': ui.tab === 'student' ? '1' : '0', onclick: () => { ui.tab = 'student'; emit(); } }, 'รายคน'),
+      h('div', { role: 'group', 'aria-label': 'มุมมองรายงาน', style: { display: 'contents' } },
+        h('button', { class: 'chip', 'data-on': ui.tab === 'class' ? '1' : '0', onclick: () => { ui.tab = 'class'; emit(); } }, 'ภาพรวม'),
+        h('button', { class: 'chip', 'data-on': ui.tab === 'follow' ? '1' : '0', onclick: () => { ui.tab = 'follow'; ui.focus = ''; emit(); } }, 'ตามงาน'),
+        h('button', { class: 'chip', 'data-on': ui.tab === 'student' ? '1' : '0', onclick: () => { ui.tab = 'student'; emit(); } }, 'รายคน')),
       h('button', {
         // มือถือแถวนี้แคบ — 2 ปุ่มนี้เหลือแค่ไอคอน (ชื่อเต็มอยู่ใน aria-label/title)
         class: 'chip chip-ic', style: { marginLeft: 'auto' },
@@ -65,9 +66,22 @@ export function viewReport() {
       }, icon('download', 'ico ico-sm'), h('span', { class: 'chip-lbl' }, 'CSV'))
     ),
     freshness(),
+    // หัวข้อของแท็บ (อ่านด้วยโปรแกรมอ่านหน้าจอ) — หัวข้อย่อยในแต่ละแท็บเป็น h3 จึงต้องมี h2 คั่น
+    // เดิมกระโดดจากชื่อหน้า (h1) ไป h3 เลย โปรแกรมอ่านหน้าจอไล่ตามหัวข้อแล้วโครงหน้าขาดหาย
+    h('h2', { class: 'sr-only' }, { class: 'ภาพรวมของห้อง', follow: 'ตามงาน', student: 'รายคน' }[ui.tab] || ''),
     ui.tab === 'class' ? classReport() : ui.tab === 'follow' ? followReport() : studentReport()
   );
 }
+
+/** หน้าย่อย = แท็บตามงาน / รายคน — ปุ่มย้อนกลับของเครื่องพากลับภาพรวม (ดู syncRoute ใน app.js) */
+viewReport.route = {
+  get: () => (ui.tab === 'follow' ? 'f' : ui.tab === 'student' ? 's/' + (ui.sid || '') : ''),
+  set: (sub) => {
+    if (sub === 'f') { ui.tab = 'follow'; return; }
+    if (sub.startsWith('s/')) { ui.tab = 'student'; if (sub.length > 2) ui.sid = sub.slice(2); return; }
+    ui.tab = 'class';
+  }
+};
 
 /**
  * บอกว่าตัวเลขในหน้านี้เป็นของเมื่อไหร่ + ปุ่มดึงใหม่
