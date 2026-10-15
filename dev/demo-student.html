@@ -1849,7 +1849,7 @@ kbd {
 #print-area .slip-who { display: flex; align-items: baseline; gap: 4mm; margin-bottom: 4mm; }
 #print-area .slip-who b { font-size: 16pt; }
 #print-area .slip-boxes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3mm; margin-bottom: 3mm; }
-#print-area .slip-box { border: 1px solid #000; border-radius: 2mm; padding: 2.5mm 3mm; display: grid; gap: .5mm; }
+#print-area .slip-box { border: 1px solid #000; border-radius: 2mm; padding: 2.5mm 3mm; display: grid; gap: .5mm; align-content: start; }
 #print-area .slip-box span { font-size: 9.5pt; }
 #print-area .slip-box b { font-size: 18pt; line-height: 1.2; font-variant-numeric: tabular-nums; }
 #print-area .slip-box small { font-size: 8.5pt; }
@@ -1865,8 +1865,6 @@ kbd {
 #print-area .slip-list.cols { columns: 2; column-gap: 10mm; }
 #print-area .slip-list li { break-inside: avoid; }
 #print-area .slip-lines i { display: block; height: 7mm; border-bottom: 1px dotted #000; }
-#print-area .slip-sign { display: grid; grid-template-columns: 1fr 1fr; gap: 12mm; margin-top: 8mm; text-align: center; font-size: 10pt; }
-#print-area .slip-sign i { display: block; border-bottom: 1px dotted #000; height: 8mm; margin-bottom: 1.5mm; }
 
 /* ══ v3.16 · ความรู้สึกตอนใช้งาน ═══════════════════════════
    แอปทำงานเร็วอยู่แล้ว แต่ "รู้สึก" ไม่ลื่น เพราะกดแล้วไม่มีอะไรตอบสนอง
@@ -2468,7 +2466,7 @@ button.todo-item:hover { background: var(--surface-2); }
 <div id="boot" class="boot">
   <div class="boot-mark">A<span>✓</span></div>
   <div class="boot-title">ผลการเรียนของฉัน</div>
-  <div class="boot-ver">v3.19.2</div>
+  <div class="boot-ver">v3.19.3</div>
   <div class="boot-spin"></div>
 </div>
 
