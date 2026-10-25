@@ -4,7 +4,7 @@ import { h, modal, toast, confirmBox, todayISO } from '../dom.js';
 import {
   state, go, emit, loadClass, createClass, updateClassMeta, deleteClass, setStudents, settings, bootAll
 } from '../state.js';
-import { computeClass, gradeNow, parseWork } from '../score.js';
+import { computeClass, gradeNow } from '../score.js';
 import * as api from '../api.js';
 import { store } from '../storage.js';
 import { DAYS, currentSlot, slotsOn, hasTimetable, weeklyCount } from '../timetable.js';
@@ -26,7 +26,9 @@ export function viewHome() {
   return h('div', { class: 'page' },
     cur && nowCard(cur),
     today.length > 0 && todayCard(today, cur),
-    state.cls && overviewCard(!cur),
+    // ตารางสอนรายสัปดาห์อยู่แทนที่การ์ด "ค้างอยู่" เดิม (ผู้ใช้สั่ง 25 ต.ค. 69)
+    state.cls ? overviewCard(!cur, hasTimetable(tt) && weekCard(tt, known, cur))
+      : hasTimetable(tt) && weekCard(tt, known, cur),
 
     h('div', { style: { display: 'flex', alignItems: 'center', gap: '12px', margin: '18px 0 12px' } },
       h('div', { style: { fontSize: 'var(--fs-base)', fontWeight: '700', flex: '1' } },
@@ -60,9 +62,6 @@ export function viewHome() {
           h('button', { class: 'btn', onclick: () => openClassForm() }, 'สร้างห้องเรียนแรก'))
       : h('div', { class: 'class-grid' }, state.classes.map(classCard)),
 
-    // ตารางสอนทั้งสัปดาห์แบบตาราง — ดูว่าวันไหนคาบไหนสอนห้องอะไร โดยไม่ต้องเปิดกล่องแก้ไข
-    hasTimetable(tt) && weekCard(tt, known, cur),
-
     // ชวนตั้งตารางสอนอยู่ท้ายหน้า — ของเดิมคั่นกลางระหว่างภาพรวมกับรายการห้อง ดูเหมือนหน้ายังทำไม่เสร็จ
     !hasTimetable(tt) && ttTip()
   );
@@ -90,13 +89,13 @@ function classCard(c) {
   );
 }
 
-function overviewCard(showHero = true) {
+function overviewCard(showHero = true, week = null) {
   const rows = computeClass(state.cls, settings());
   if (!rows.length) {
-    return h('div', { class: 'card empty' },
+    return h('div', null, week, h('div', { class: 'card empty' },
       h('div', { class: 'empty-icon' }, icon('users')),
       h('div', { style: { fontWeight: '600', marginBottom: '10px' } }, 'ห้องนี้ยังไม่มีรายชื่อนักเรียน'),
-      h('button', { class: 'btn', onclick: () => openRoster(state.cls) }, 'นำเข้ารายชื่อ'));
+      h('button', { class: 'btn', onclick: () => openRoster(state.cls) }, 'นำเข้ารายชื่อ')));
   }
   const S = settings();
   const risk  = rows.filter(r => r.attN > 0 && r.pct < S.minPct).length;
@@ -126,40 +125,12 @@ function overviewCard(showHero = true) {
       h('button', { class: 'hero-alt', onclick: () => go('work') }, 'กรอกคะแนน'))
   );
 
-  // ── สิ่งที่ยังค้าง ──
-  /* นับเป็น "ชิ้น" จริง ๆ ไม่ใช่จำนวนช่องในชีต · งานกับการสอบแยกบรรทัดกัน
-   * เดิมรวมช่องว่างของทุกอย่าง (สอบกลางภาค/ปลายภาค 20 คน = 20) แล้วขึ้นว่า "งานรอตรวจ 27 ชิ้น"
-   * ทั้งที่งานค้างจริงมีชิ้นเดียว ที่เหลือคือข้อสอบที่ยังไม่ได้กรอกคะแนน */
-  const todos = [];
-  const { works, exams } = pendingItems(cls);
-  if (works > 0) {
-    todos.push({ c: 'var(--st-late)', t: `งานที่ยังไม่ได้ตรวจ ${works} ชิ้น`, go: 'work', cta: 'ตรวจ' });
-  }
-  if (exams > 0) {
-    todos.push({ c: 'var(--st-late)', t: `คะแนนสอบที่ยังกรอกไม่ครบ ${exams} รายการ`, go: 'work', cta: 'กรอก' });
-  }
-  if (!String(state.config.mid_date || '').trim()) {
-    todos.push({ c: 'var(--st-miss)', t: 'ยังไม่ได้ตั้งวันสอบกลางภาค', go: 'settings', cta: 'ตั้งค่า' });
-  }
-  if (risk > 0) {
-    todos.push({ c: 'var(--st-miss)', t: `เสี่ยงติด มส ${risk} คน`, go: 'report', cta: 'ดู' });
-  }
-  if (!attToday) {
-    todos.push({ c: 'var(--accent)', t: 'ยังไม่ได้เช็คชื่อวันนี้', go: 'att', cta: 'เช็ค' });
-  }
-
   return h('div', null,
     showHero && hero,
 
-    // ดีไซน์วาง "ค้างอยู่" กับตัวเลขสรุปเคียงกันบน PC · ซ้อนกันบนมือถือ
-    h('div', { class: 'home-grid' },
-      h('div', { class: 'card' },
-        h('div', { style: { fontWeight: '700', fontSize: 'var(--fs-md)', marginBottom: '10px' } },
-          `ค้างอยู่ · ${[cls.meta.grade, cls.meta.room].filter(Boolean).join('/') || cls.meta.subject}`),
-        todos.length === 0
-          ? h('div', { style: { fontSize: 'var(--fs-sm)', color: 'var(--ink-2)' } }, 'ไม่มีอะไรค้าง')
-          : todos.map(t => h('button', { class: 'todo-row', onclick: () => go(t.go) },
-              h('i', { style: { background: t.c } }), t.t, h('b', null, t.cta + ' →')))),
+    // ตารางสอนกับตัวเลขสรุปเคียงกันบน PC · ซ้อนกันบนมือถือ · ไม่ได้ตั้งตาราง = ตัวเลขสรุปเต็มแถว
+    h('div', { class: 'home-grid', 'data-solo': week ? '0' : '1' },
+      week,
 
       h('div', { class: 'card stats-card' },
         h('div', { class: 'stats' },
@@ -173,25 +144,6 @@ function overviewCard(showHero = true) {
           'ยังไม่ได้เช็คชื่อหรือกรอกคะแนน — ตัวเลขจะขึ้นเมื่อเริ่มบันทึกข้อมูล'))
     )
   );
-}
-
-/**
- * สิ่งที่ครูยังต้องตรวจ/กรอก นับเป็นรายการ (ไม่ใช่รายช่อง)
- *   works = งานส่งที่ยังไม่ได้ตรวจใครเลย — งานที่เริ่มตรวจแล้ว ช่องว่าง = ไม่ส่ง ไม่ใช่งานค้างของครู
- *           (กติกาเดียวกับ blankMissCols ใน js/score.js)
- *   exams = สอบเก็บคะแนน / กลางภาค / ปลายภาค ที่ยังมีคนไม่ได้กรอกคะแนน
- */
-function pendingItems(cls) {
-  const V = cls.values || {};
-  const out = { works: 0, exams: 0 };
-  for (const c of cls.columns || []) {
-    if (!['WORK', 'QUIZ', 'MID', 'FIN'].includes(c.kind)) continue;
-    const vals = V[c.key] || {};
-    const blank = cls.students.filter(s => parseWork(vals[s.sid]).status === 'none').length;
-    if (c.kind === 'WORK') { if (cls.students.length && blank === cls.students.length) out.works++; }
-    else if (blank > 0) out.exams++;
-  }
-  return out;
 }
 
 // ── ตารางสอน: การ์ด "ตอนนี้" + คาบของวันนี้ ─────────────────
@@ -267,31 +219,32 @@ function todayCard(slots, cur) {
     }));
 }
 
-/** ตารางสอนรายสัปดาห์ · แถว = คาบ คอลัมน์ = วัน · กดช่องไหนเข้าเช็คชื่อห้องนั้น */
+/** ตารางสอนรายสัปดาห์ แนวนอน 16:9 · แถว = วัน คอลัมน์ = คาบ · กดช่องไหนเข้าเช็คชื่อห้องนั้น */
 function weekCard(tt, known, cur) {
   const dow = new Date().getDay();
   return h('div', { class: 'card card-tight week-card' },
     h('div', { class: 'today-head' },
       h('b', null, `ตารางสอน · ${weeklyCount(tt)} คาบ/สัปดาห์`),
       h('button', { class: 'today-edit', onclick: openTimetableEditor }, 'แก้ไข')),
-    h('div', { class: 'week-scroll' },
+    h('div', { class: 'week-frame' },
       h('table', { class: 'week-table' },
         h('thead', null, h('tr', null,
-          h('th', { scope: 'col', class: 'week-p' }, 'คาบ'),
-          DAYS.map(d => h('th', { scope: 'col', 'data-today': d.d === dow ? '1' : '0' },
-            h('span', { 'aria-hidden': 'true' }, d.short), h('span', { class: 'sr-only' }, d.name))))),
-        h('tbody', null, tt.times.map(([start, end], i) => {
-          const p = i + 1;
-          return h('tr', null,
-            h('th', { scope: 'row', class: 'week-p' }, h('b', null, p), h('small', null, start)),
-            DAYS.map(d => {
+          h('th', { scope: 'col', class: 'week-d' }, h('span', { class: 'sr-only' }, 'วัน')),
+          tt.times.map(([start], i) => h('th', { scope: 'col', class: 'week-p' },
+            h('b', null, i + 1), h('small', null, start))))),
+        h('tbody', null, DAYS.map(d => {
+          const isToday = d.d === dow;
+          return h('tr', { 'data-today': isToday ? '1' : '0' },
+            h('th', { scope: 'row', class: 'week-d' },
+              h('span', { 'aria-hidden': 'true' }, d.short), h('span', { class: 'sr-only' }, d.name)),
+            tt.times.map(([start, end], i) => {
+              const p = i + 1;
               const id = (tt.days[d.d] || {})[p];
               const c = id && known.has(id) ? classOf(id) : null;
-              const isToday = d.d === dow;
-              if (!c) return h('td', { 'data-today': isToday ? '1' : '0' });
+              if (!c) return h('td');
               const isCur = isToday && !!cur && cur.slot.period === p;
               const slot = { period: p, classId: id, start, end };
-              return h('td', { 'data-today': isToday ? '1' : '0' },
+              return h('td', null,
                 h('button', {
                   class: 'week-cell', 'data-cur': isCur ? '1' : '0',
                   title: `${d.name} คาบ ${p} ${start}–${end} · ${roomOf(c)} ${c.subject}`,
