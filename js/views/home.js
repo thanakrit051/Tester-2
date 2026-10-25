@@ -253,8 +253,7 @@ function weekCard(tt, known, cur) {
                   title: `${d.name} คาบ ${p} ${start}–${end} · ${roomOf(c)} ${c.subject}` + (done ? ' · เช็คชื่อแล้ว' : ''),
                   // วันอื่นไม่ใช่วันนี้ — เปิดห้องนั้นเฉย ๆ ไม่ตั้งคาบเช็คชื่อให้ (เช็คชื่อลงวันนี้เสมอ)
                   onclick: () => isToday ? openSlot(slot, 'att') : (loadClass(id), go('att'))
-                }, done && h('i', { class: 'week-ok', 'aria-hidden': 'true' }, '✓'),
-                  h('b', null, roomOf(c)), h('small', null, c.subject)));
+                }, h('b', null, roomOf(c)), h('small', null, c.subject)));
             }));
         })))));
 }
