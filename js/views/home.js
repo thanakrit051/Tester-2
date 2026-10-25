@@ -236,21 +236,25 @@ function weekCard(tt, known, cur) {
           const isToday = d.d === dow;
           return h('tr', { 'data-today': isToday ? '1' : '0' },
             h('th', { scope: 'row', class: 'week-d' },
-              h('span', { 'aria-hidden': 'true' }, d.short), h('span', { class: 'sr-only' }, d.name)),
+              h('span', { 'aria-hidden': 'true' }, d.short), h('span', { class: 'sr-only' }, d.name),
+              isToday && h('small', null, 'วันนี้')),
             tt.times.map(([start, end], i) => {
               const p = i + 1;
               const id = (tt.days[d.d] || {})[p];
               const c = id && known.has(id) ? classOf(id) : null;
               if (!c) return h('td');
               const isCur = isToday && !!cur && cur.slot.period === p;
+              // เช็คแล้วรู้ได้เฉพาะวันนี้ — คอลัมน์เช็คชื่อผูกกับวันที่ ไม่ใช่วันในสัปดาห์
+              const done = isToday && checkedAt(id, p);
               const slot = { period: p, classId: id, start, end };
               return h('td', null,
                 h('button', {
-                  class: 'week-cell', 'data-cur': isCur ? '1' : '0',
-                  title: `${d.name} คาบ ${p} ${start}–${end} · ${roomOf(c)} ${c.subject}`,
+                  class: 'week-cell', 'data-cur': isCur ? '1' : '0', 'data-done': done ? '1' : '0',
+                  title: `${d.name} คาบ ${p} ${start}–${end} · ${roomOf(c)} ${c.subject}` + (done ? ' · เช็คชื่อแล้ว' : ''),
                   // วันอื่นไม่ใช่วันนี้ — เปิดห้องนั้นเฉย ๆ ไม่ตั้งคาบเช็คชื่อให้ (เช็คชื่อลงวันนี้เสมอ)
                   onclick: () => isToday ? openSlot(slot, 'att') : (loadClass(id), go('att'))
-                }, h('b', null, roomOf(c)), h('small', null, c.subject)));
+                }, done && h('i', { class: 'week-ok', 'aria-hidden': 'true' }, '✓'),
+                  h('b', null, roomOf(c)), h('small', null, c.subject)));
             }));
         })))));
 }

@@ -1702,18 +1702,25 @@ table.grid td.total { background: var(--accent-soft) !important; color: var(--in
 .week-card { padding: 4px 0 10px; }
 .week-frame { aspect-ratio: 16 / 9; padding: 0 10px; }
 .week-table {
-  width: 100%; height: 100%; border-collapse: separate; border-spacing: 3px; table-layout: fixed;
+  width: 100%; height: 100%; border-collapse: separate; border-spacing: 0 3px; table-layout: fixed;
 }
 .week-table th { font-weight: 700; color: var(--ink-2); padding: 0; line-height: 1.15; }
 .week-table th.week-d { width: 30px; font-size: var(--fs-sm); }
 .week-table thead tr { height: 30px; }
 .week-p b { display: block; font-size: var(--fs-sm); color: var(--ink); }
 .week-p small { font-size: var(--fs-2xs); color: var(--ink-3); font-weight: 400; font-variant-numeric: tabular-nums; }
-.week-table tbody tr[data-today="1"] th { color: var(--accent-ink); }
-.week-table td { padding: 0; border-radius: var(--r-1); background: var(--surface-2); }
-.week-table tr[data-today="1"] td { background: var(--accent-soft); }
+/* ช่องห่างกันด้วย padding ไม่ใช่ border-spacing — แถววันนี้จึงเป็นแถบสีจางต่อกันทั้งแถว */
+.week-table td { padding: 0 1.5px; height: 1px; }
+.week-table td:empty::before {
+  content: ''; display: block; height: 100%; border-radius: var(--r-1); background: var(--surface-2);
+}
+.week-table tbody tr[data-today="1"] > * { background: var(--accent-soft); }
+.week-table tbody tr[data-today="1"] > th { color: var(--accent-ink); border-radius: var(--r-1) 0 0 var(--r-1); }
+.week-table tbody tr[data-today="1"] > td:last-child { border-radius: 0 var(--r-1) var(--r-1) 0; padding-right: 3px; }
+.week-table tbody tr[data-today="1"] td:empty::before { background: transparent; }
+.week-d small { display: block; font-size: 9px; font-weight: 600; }
 .week-cell {
-  width: 100%; height: 100%; display: grid; align-content: center; gap: 1px; overflow: hidden;
+  position: relative; width: 100%; height: 100%; display: grid; align-content: center; gap: 1px; overflow: hidden;
   padding: 2px; border-radius: var(--r-1); text-align: center; line-height: 1.15; color: var(--ink);
   background: var(--surface); border: 1px solid var(--line);
 }
@@ -1721,6 +1728,17 @@ table.grid td.total { background: var(--accent-soft) !important; color: var(--in
 .week-cell small { font-size: var(--fs-2xs); color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .week-cell[data-cur="1"] { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
 .week-cell[data-cur="1"] small { color: inherit; opacity: .8; }
+/* เช็คชื่อคาบนี้วันนี้แล้ว */
+.week-cell[data-done="1"] { border-color: var(--st-ok); }
+.week-ok {
+  position: absolute; top: 1px; right: 3px; font-style: normal; font-size: var(--fs-2xs); font-weight: 700;
+  line-height: 1; color: #116b32;
+}
+.week-cell[data-cur="1"] .week-ok { color: inherit; }
+[data-theme="dark"] .week-ok { color: var(--st-ok); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .week-ok { color: var(--st-ok); }
+}
 /* จอแคบ ช่องเล็กเกินจะใส่ชื่อวิชา — โชว์แค่ห้อง (ชื่อเต็มอยู่ใน title) */
 @media (max-width: 520px) {
   .week-cell small { display: none; }
@@ -2540,7 +2558,7 @@ button.todo-item:hover { background: var(--surface-2); }
 <div id="boot" class="boot">
   <div class="boot-mark">A<span>✓</span></div>
   <div class="boot-title">ผลการเรียนของฉัน</div>
-  <div class="boot-ver">v3.21.1</div>
+  <div class="boot-ver">v3.21.2</div>
   <div class="boot-spin"></div>
 </div>
 
