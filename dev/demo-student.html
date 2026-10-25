@@ -1698,6 +1698,28 @@ table.grid td.total { background: var(--accent-soft) !important; color: var(--in
   :root:not([data-theme="light"]) .today-state[data-tone="late"] { color: var(--st-late); }
 }
 
+/* ตารางสอนรายสัปดาห์บนหน้าแรก */
+.week-card { padding: 4px 0 8px; margin-top: 12px; }
+.week-scroll { overflow-x: auto; padding: 0 8px; }
+.week-table { width: 100%; border-collapse: separate; border-spacing: 3px; table-layout: fixed; }
+.week-table th { font-size: var(--fs-sm); font-weight: 700; color: var(--ink-2); padding: 4px 0; }
+.week-table thead th[data-today="1"] { color: var(--accent-ink); }
+.week-table th.week-p { width: 44px; }
+.week-p { line-height: 1.2; }
+.week-p b { display: block; font-size: var(--fs-sm); color: var(--ink); }
+.week-p small { font-size: var(--fs-2xs); color: var(--ink-3); font-weight: 400; font-variant-numeric: tabular-nums; }
+.week-table td { height: 46px; padding: 0; border-radius: var(--r-1); background: var(--surface-2); }
+.week-table td[data-today="1"] { background: var(--accent-soft); }
+.week-cell {
+  width: 100%; height: 100%; min-height: 46px; display: grid; align-content: center; gap: 1px;
+  padding: 4px; border-radius: var(--r-1); text-align: center; line-height: 1.2; color: var(--ink);
+  background: var(--surface); border: 1px solid var(--line);
+}
+.week-cell b { font-size: var(--fs-sm); }
+.week-cell small { font-size: var(--fs-2xs); color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.week-cell[data-cur="1"] { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+.week-cell[data-cur="1"] small { color: inherit; opacity: .8; }
+
 .tt-tip {
   display: flex; align-items: center; gap: 6px; margin: 12px 0 0;
   border: 1px dashed var(--line-2); border-radius: var(--r-2); padding: 4px 4px 4px 14px;
@@ -2507,7 +2529,7 @@ button.todo-item:hover { background: var(--surface-2); }
 <div id="boot" class="boot">
   <div class="boot-mark">A<span>✓</span></div>
   <div class="boot-title">ผลการเรียนของฉัน</div>
-  <div class="boot-ver">v3.20.0</div>
+  <div class="boot-ver">v3.21.0</div>
   <div class="boot-spin"></div>
 </div>
 

@@ -7,7 +7,7 @@ import {
 import { computeClass, gradeNow, parseWork } from '../score.js';
 import * as api from '../api.js';
 import { store } from '../storage.js';
-import { DAYS, currentSlot, slotsOn, hasTimetable } from '../timetable.js';
+import { DAYS, currentSlot, slotsOn, hasTimetable, weeklyCount } from '../timetable.js';
 import { readTimetable, openTimetableEditor } from './timetable.js';
 import { startCheckAt } from './attendance.js';
 import { icon, withIcon } from '../icons.js';
@@ -59,6 +59,9 @@ export function viewHome() {
             'สร้างห้องแรก เช่น "ม.1/1 · คณิตศาสตร์พื้นฐาน"'),
           h('button', { class: 'btn', onclick: () => openClassForm() }, 'สร้างห้องเรียนแรก'))
       : h('div', { class: 'class-grid' }, state.classes.map(classCard)),
+
+    // ตารางสอนทั้งสัปดาห์แบบตาราง — ดูว่าวันไหนคาบไหนสอนห้องอะไร โดยไม่ต้องเปิดกล่องแก้ไข
+    hasTimetable(tt) && weekCard(tt, known, cur),
 
     // ชวนตั้งตารางสอนอยู่ท้ายหน้า — ของเดิมคั่นกลางระหว่างภาพรวมกับรายการห้อง ดูเหมือนหน้ายังทำไม่เสร็จ
     !hasTimetable(tt) && ttTip()
@@ -262,6 +265,41 @@ function todayCard(slots, cur) {
         h('span', { class: 'today-what' }, `${roomOf(c)} · ${c.subject}`),
         h('span', { class: 'today-state', 'data-tone': tone }, txt));
     }));
+}
+
+/** ตารางสอนรายสัปดาห์ · แถว = คาบ คอลัมน์ = วัน · กดช่องไหนเข้าเช็คชื่อห้องนั้น */
+function weekCard(tt, known, cur) {
+  const dow = new Date().getDay();
+  return h('div', { class: 'card card-tight week-card' },
+    h('div', { class: 'today-head' },
+      h('b', null, `ตารางสอน · ${weeklyCount(tt)} คาบ/สัปดาห์`),
+      h('button', { class: 'today-edit', onclick: openTimetableEditor }, 'แก้ไข')),
+    h('div', { class: 'week-scroll' },
+      h('table', { class: 'week-table' },
+        h('thead', null, h('tr', null,
+          h('th', { scope: 'col', class: 'week-p' }, 'คาบ'),
+          DAYS.map(d => h('th', { scope: 'col', 'data-today': d.d === dow ? '1' : '0' },
+            h('span', { 'aria-hidden': 'true' }, d.short), h('span', { class: 'sr-only' }, d.name))))),
+        h('tbody', null, tt.times.map(([start, end], i) => {
+          const p = i + 1;
+          return h('tr', null,
+            h('th', { scope: 'row', class: 'week-p' }, h('b', null, p), h('small', null, start)),
+            DAYS.map(d => {
+              const id = (tt.days[d.d] || {})[p];
+              const c = id && known.has(id) ? classOf(id) : null;
+              const isToday = d.d === dow;
+              if (!c) return h('td', { 'data-today': isToday ? '1' : '0' });
+              const isCur = isToday && !!cur && cur.slot.period === p;
+              const slot = { period: p, classId: id, start, end };
+              return h('td', { 'data-today': isToday ? '1' : '0' },
+                h('button', {
+                  class: 'week-cell', 'data-cur': isCur ? '1' : '0',
+                  title: `${d.name} คาบ ${p} ${start}–${end} · ${roomOf(c)} ${c.subject}`,
+                  // วันอื่นไม่ใช่วันนี้ — เปิดห้องนั้นเฉย ๆ ไม่ตั้งคาบเช็คชื่อให้ (เช็คชื่อลงวันนี้เสมอ)
+                  onclick: () => isToday ? openSlot(slot, 'att') : (loadClass(id), go('att'))
+                }, h('b', null, roomOf(c)), h('small', null, c.subject)));
+            }));
+        })))));
 }
 
 /** ชวนตั้งตารางสอน — ปิดได้ จำไว้ในเครื่อง */
