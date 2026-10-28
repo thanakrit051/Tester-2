@@ -12,6 +12,8 @@ import { state, emit, ensureColumn, setCells, getCell, deleteColumn, go } from '
 import { ATT_CODES, ATT_NAMES, attStats } from '../score.js';
 import { undoAction, loadingPage } from './common.js';
 import { queue } from '../api.js';
+import { blockOf, periodText } from '../timetable.js';
+import { readTimetable } from './timetable.js';
 
 const ui = {
   // ดีไซน์ให้แตะ "เช็คชื่อ" แล้วเข้าหน้าเช็คของวันนี้เลย ไม่ต้องผ่านหน้าเลือกวัน
@@ -44,6 +46,61 @@ function periodsOn(dateISO) {
     .sort((a, b) => a.period - b.period);
 }
 
+const attVal = (key, sid) => {
+  const v = String(getCell(key, sid) ?? '').trim();
+  return ATT_CODES.includes(v) ? v : '';
+};
+
+/**
+ * คาบที่เช็คชื่อรวมกับคาบนี้ (คาบคู่ที่ติ๊กไว้ในตารางสอน) เรียงน้อย → มาก · ไม่ได้รวม = [period]
+ *
+ * ดูจากตารางสอนของวันในสัปดาห์นั้น และคาบนั้นต้องเป็นห้องที่เปิดอยู่
+ * คาบหลังที่เช็คไว้แล้วแต่ไม่ตรงกับคาบแรก (เช็คแยกกันไว้ก่อนติ๊กรวม) = แยกกันเหมือนเดิม
+ * ไม่งั้นแตะครั้งเดียวจะไปทับค่าคาบหลังที่ครูตั้งใจเช็คไว้ต่างกัน
+ */
+function linkedPeriods(dateISO, period) {
+  const dow = new Date(dateISO + 'T00:00:00').getDay();
+  const tt = readTimetable();
+  if (((tt.days || {})[dow] || {})[period] !== state.classId) return [period];
+  const ps = blockOf(tt, dow, period);
+  if (ps.length < 2) return ps;
+  const [main, ...rest] = ps.map(p => keyFor(dateISO, p));
+  const sids = state.cls.students.map(s => s.sid);
+  for (const k of rest) {
+    if (!sids.some(sid => attVal(k, sid))) continue;               // คาบหลังยังว่าง = ตามคาบแรกได้
+    if (sids.some(sid => attVal(k, sid) !== attVal(main, sid))) return [period];
+  }
+  return ps;
+}
+
+/** คีย์คอลัมน์ทุกคาบในชุดเดียวกับ key (คาบแรกก่อน) */
+function linkedKeys(key) {
+  const { date, period } = colSpecFromKey(key);
+  return linkedPeriods(date, period).map(p => key.replace(/-\d+$/, '-' + p));
+}
+
+/**
+ * เขียนค่าเช็คชื่อลงคาบ key — คาบคู่เขียนลงทุกคาบในชุดใน setCells ครั้งเดียว (เลิกทำทีเดียวกลับครบ)
+ * คาบหลังถูกทำให้เหมือนคาบแรกทั้งคอลัมน์ ไม่ใช่แค่ช่องที่แตะ — เผื่อเช็คคาบแรกไปบางคน
+ * ก่อนติ๊กรวมคาบ คาบหลังต้องได้ครบเหมือนกัน
+ */
+function writeAtt(key, cells, opts) {
+  const keys = linkedKeys(key);
+  const main = keys[0];
+  for (const k of keys) ensureColumn(colSpecFromKey(k), { quiet: true });
+  const out = cells.map(c => ({ key: main, sid: c.sid, value: c.value }));
+  if (keys.length > 1) {
+    const after = Object.fromEntries(state.cls.students.map(s => [s.sid, attVal(main, s.sid)]));
+    for (const c of cells) after[c.sid] = c.value;
+    for (const k of keys.slice(1)) {
+      for (const [sid, v] of Object.entries(after)) {
+        if (attVal(k, sid) !== v) out.push({ key: k, sid, value: v });
+      }
+    }
+  }
+  setCells(out, opts);
+}
+
 /** สรุปทั้งวัน (รวมทุกคาบ) ใช้โชว์ในรายการวัน */
 function daySummary(dateISO) {
   const cols = periodsOn(dateISO);
@@ -65,9 +122,8 @@ function enterCheck(dateISO, period, { markAllPresent = false } = {}) {
   ui.q = '';
   ui.findOpen = false;
   if (markAllPresent) {
-    const key = keyFor(dateISO, period);
-    ensureColumn(colSpecFromKey(key), { quiet: true });
-    setCells(state.cls.students.map(s => ({ key, sid: s.sid, value: 'ม' })), { quiet: true });
+    const key = keyFor(dateISO, linkedPeriods(dateISO, period)[0]);
+    writeAtt(key, state.cls.students.map(s => ({ sid: s.sid, value: 'ม' })), { quiet: true });
     toast('ทำเครื่องหมาย "มา" ทุกคนแล้ว — แตะแก้เฉพาะคนที่ไม่ปกติ', 'ok', 3200, undoAction());
   }
   emit();
@@ -121,12 +177,29 @@ function resolve() {
     available.push(ui.pending.period);
   }
   if (!available.length) available.push(1);
+  if (!available.includes(ui.period)) ui.period = Math.min(...available);
+
+  // คาบคู่ทำงานที่คาบแรกของชุดเสมอ (เปิดคาบหลังจากประวัติก็มาที่คาบแรก)
+  const linked = linkedPeriods(ui.date, ui.period);
+  ui.period = linked[0];
+  if (!available.includes(ui.period)) available.push(ui.period);
   available.sort((a, b) => a - b);
-  if (!available.includes(ui.period)) ui.period = available[0];
+
+  // ตัวเลือกคาบ — คาบที่รวมกันเป็นตัวเลือกเดียว "คาบ 3–4"
+  const choices = [];
+  for (const p of available) {
+    if (choices.some(c => c.includes(p))) continue;
+    choices.push(p === ui.period ? linked : linkedPeriods(ui.date, p));
+  }
 
   const key = keyFor(ui.date, ui.period);
-  return { cls, available, key, st: attStats(cls, key) };
+  return { cls, available, choices, linked, key, st: attStats(cls, key) };
 }
+
+/** ป้ายตัวเลือกคาบใน select */
+const choiceOptions = (choices, fmt) => choices.map(ps => h('option', {
+  value: String(ps[0]), selected: ps[0] === ui.period
+}, fmt(periodText(ps))));
 
 /** เลื่อนไปวันก่อนหน้า/ถัดไป (ปุ่ม ‹ › ในดีไซน์หน้า PC) */
 function stepDay(delta) {
@@ -161,9 +234,10 @@ viewAttendance.head = function () {
             `${[cls.meta.grade, cls.meta.room].filter(Boolean).join('/')} ${cls.meta.subject} · ${total} คาบ`))));
   }
 
-  const { available, key, st } = resolve();
+  const { available, choices, linked, key, st } = resolve();
   // คาบเดียวของวันก็บอกเลขคาบถ้าไม่ใช่คาบ 1 (มาจากตารางสอน) ครูจะได้มั่นใจว่าเช็คถูกคาบ
-  const title = fmtDate(ui.date) + (available.length > 1 || ui.period !== 1 ? ` · คาบ ${ui.period}` : '');
+  const title = fmtDate(ui.date) +
+    (choices.length > 1 || linked.length > 1 || ui.period !== 1 ? ` · คาบ ${periodText(linked)}` : '');
 
   /* แถบหัวเหลือ 2 แถว: ชื่อ + ปุ่มลัด — รายชื่อคนแรกขึ้นมาจาก ~300px เหลือ ~190px บนจอ 812
    *  · เลือกคาบ = แตะที่ชื่อหน้า (select ใสทับอยู่ ได้ตัวเลือกของเครื่องเอง) เดิมกินแถวเต็ม
@@ -177,15 +251,13 @@ viewAttendance.head = function () {
         onclick: () => { ui.mode = 'list'; emit(); }
       }, icon('calendar')),
       h('div', { class: 'ph-grow' },
-        available.length > 1
+        choices.length > 1
           ? h('label', { class: 'ph-title ph-title-pick' },
               h('span', null, title), icon('down', 'ico ico-sm'),
               h('select', {
                 'aria-label': 'เลือกคาบเรียน',
                 onchange: (e) => { ui.period = Number(e.target.value); ui.onlyBlank = false; emit(); }
-              }, available.map(pn => h('option', {
-                value: String(pn), selected: pn === ui.period
-              }, `คาบ ${pn}`))))
+              }, choiceOptions(choices, t => `คาบ ${t}`)))
           : h('div', { class: 'ph-title' }, title),
         h('div', { class: 'ph-sub' },
           `${[cls.meta.grade, cls.meta.room].filter(Boolean).join('/')} ${cls.meta.subject}`)),
@@ -303,31 +375,41 @@ function historyCard() {
 
 /** เมนูแก้ไข/ลบ ของวันหนึ่ง ๆ ในประวัติ */
 function openDayMenu(dateISO, cols) {
+  // คาบคู่ที่เช็ครวมกันเป็นปุ่มเดียว "คาบ 3–4" — แก้/ลบทีเดียวทั้งชุด
+  const groups = [];
+  for (const c of cols) {
+    const ps = linkedPeriods(dateISO, c.period);
+    const g = groups.find(x => x.ps[0] === ps[0]);
+    if (g) g.cols.push(c); else groups.push({ ps, cols: [c] });
+  }
+  const many = cols.length > 1;
+  const name = (g) => periodText(g.cols.map(c => c.period));
+
   modal((close) => h('div', null,
     h('h2', null, fmtDayFull(dateISO)),
     h('div', { class: 'hint', style: { marginBottom: '12px' } },
-      cols.length > 1 ? `วันนี้เช็คไว้ ${cols.length} คาบ` : 'เช็คไว้ 1 คาบ'),
+      many ? `วันนี้เช็คไว้ ${cols.length} คาบ` : 'เช็คไว้ 1 คาบ'),
     h('div', { style: { display: 'grid', gap: '8px' } },
 
-      ...cols.map(c => h('button', {
+      ...groups.map(g => h('button', {
         class: 'btn btn-ghost btn-block',
-        onclick: () => { close(); enterCheck(dateISO, c.period); }
-      }, withIcon('edit', cols.length > 1 ? `แก้ไขคาบ ${c.period}` : 'แก้ไขการเช็คชื่อ'))),
+        onclick: () => { close(); enterCheck(dateISO, g.cols[0].period); }
+      }, withIcon('edit', many ? `แก้ไขคาบ ${name(g)}` : 'แก้ไขการเช็คชื่อ'))),
 
       h('div', { class: 'sep' }, 'ลบ'),
 
-      ...cols.map(c => h('button', {
+      ...groups.map(g => h('button', {
         class: 'btn btn-danger btn-block',
         onclick: async () => {
           close();
-          const label = cols.length > 1 ? `คาบ ${c.period} ของ ${fmtDate(dateISO)}` : fmtDate(dateISO);
+          const label = many ? `คาบ ${name(g)} ของ ${fmtDate(dateISO)}` : fmtDate(dateISO);
           if (!await confirmBox('ลบการเช็คชื่อ?', `${label} จะถูกลบออกจากชีต และไม่ถูกนำไปคิดคะแนนอีก`, 'ลบ')) return;
-          await deleteColumn(c.key);
+          for (const c of g.cols) await deleteColumn(c.key);
           toast('ลบแล้ว', 'ok');
         }
-      }, withIcon('trash', cols.length > 1 ? `ลบคาบ ${c.period}` : 'ลบการเช็คชื่อวันนี้'))),
+      }, withIcon('trash', many ? `ลบคาบ ${name(g)}` : 'ลบการเช็คชื่อวันนี้'))),
 
-      cols.length > 1 && h('button', {
+      groups.length > 1 && h('button', {
         class: 'btn btn-danger btn-block',
         onclick: async () => {
           close();
@@ -343,7 +425,7 @@ function openDayMenu(dateISO, cols) {
 // ── หน้ากำลังเช็ค ───────────────────────────────────────────
 
 function checkScreen() {
-  const { cls, available, key, st } = resolve();
+  const { cls, available, choices, linked, key, st } = resolve();
   bindKeys();
   const total = cls.students.length;
   const done = total - st.blank;
@@ -360,18 +442,18 @@ function checkScreen() {
       h('div', null,
         h('div', { class: 'ctx-title' }, fmtDayFull(ui.date)),
         h('div', { class: 'ctx-sub' },
+          // คาบคู่ต้องบอกว่าเช็คครั้งนี้ลงกี่คาบ — ตัวเลือกคาบบอกแค่ "3–4" ซึ่งอาจไม่มีให้เห็นถ้าวันนั้นมีคาบเดียว
+          (linked.length > 1 ? `คาบ ${periodText(linked)} · เช็คครั้งเดียวลงทั้ง ${linked.length} คาบ · ` : '') +
           `คะแนนช่วง${halfOf(ui.date) === 1 ? 'ก่อนกลางภาค' : 'หลังกลางภาค'}`)),
       h('button', { class: 'ctx-step', 'aria-label': 'วันถัดไป', onclick: () => stepDay(1) }, icon('next')),
 
       h('div', { class: 'ph-chips', style: { marginTop: '0', gap: '6px' } },
-        available.length > 1 && h('label', { class: 'pickbox' },
+        choices.length > 1 && h('label', { class: 'pickbox' },
           h('span', null, 'คาบ'),
           h('select', {
             'aria-label': 'เลือกคาบเรียน',
             onchange: (e) => { ui.period = Number(e.target.value); ui.onlyBlank = false; emit(); }
-          }, available.map(pn => h('option', {
-            value: String(pn), selected: pn === ui.period
-          }, String(pn))))),
+          }, choiceOptions(choices, t => t))),
         h('button', { class: 'chip', onclick: () => addPeriod(available, ui.date) }, withIcon('plus', 'เพิ่มคาบ'))),
 
       h('div', { class: 'ctx-end' },
@@ -474,8 +556,7 @@ function studentRow(s, key) {
 
 /** ตั้งค่าเช็คชื่อของคนหนึ่ง แล้วอัปเดตปุ่มในแถวนั้นตรง ๆ (ไม่วาดหน้าใหม่ โฟกัสจึงไม่หลุด) */
 function markRow(group, key, sid, value) {
-  ensureColumn(colSpecFromKey(key), { quiet: true });
-  setCells([{ key, sid, value }], { quiet: true });
+  writeAtt(key, [{ sid, value }], { quiet: true });
   [...group.children].forEach(b => {
     const on = b.dataset.code === value;
     b.dataset.on = on ? '1' : '0';
@@ -698,18 +779,24 @@ function openMenu(available, key) {
         class: 'btn btn-danger btn-block',
         onclick: async () => {
           close();
-          const lbl = available.length > 1 ? `คาบ ${ui.period} ของ${fmtDate(ui.date)}` : fmtDate(ui.date);
+          // คาบคู่ลบทั้งชุด — เช็คครั้งเดียวลงหลายคาบ ลบก็ต้องหายทุกคาบ ไม่งั้นคาบหลังค้างอยู่ในชีตเงียบ ๆ
+          const keys = linkedKeys(key).filter(k => state.cls.columns.some(c => c.key === k));
+          const ps = keys.map(k => colSpecFromKey(k).period);
+          const lbl = available.length > 1 || ps.length > 1 ? `คาบ ${periodText(ps)} ของ${fmtDate(ui.date)}` : fmtDate(ui.date);
           if (!await confirmBox('ลบการเช็คชื่อ?', `ข้อมูลของ ${lbl} จะหายไป`, 'ลบ')) return;
           // เก็บของเดิมไว้ให้กดเลิกทำได้ — เดิมลบแล้วหายเลย ทั้งที่การลบคาบเกิดจากกดพลาดได้ง่าย
-          const was = { ...(state.cls.values[key] || {}) };
+          const was = keys.map(k => [k, { ...(state.cls.values[k] || {}) }]);
           const at = { date: ui.date, period: ui.period };
-          await deleteColumn(key);
+          for (const k of keys) await deleteColumn(k);
           ui.period = 1; ui.mode = 'list'; emit();
           toast('ลบแล้ว', 'ok', 6000, {
             label: 'เลิกทำ',
             onclick: () => {
-              ensureColumn(colSpecFromKey(key), { quiet: true });
-              const cells = Object.entries(was).map(([sid, value]) => ({ key, sid, value }));
+              const cells = [];
+              for (const [k, vals] of was) {
+                ensureColumn(colSpecFromKey(k), { quiet: true });
+                for (const [sid, value] of Object.entries(vals)) cells.push({ key: k, sid, value });
+              }
               if (cells.length) setCells(cells, { quiet: true, record: false });
               enterCheck(at.date, at.period);
               toast('กู้คืนแล้ว', 'ok');
@@ -798,8 +885,7 @@ const isBlankAt = (key, sid) => !ATT_CODES.includes(String(getCell(key, sid) ?? 
 function markRest(key) {
   const sids = state.cls.students.filter(s => isBlankAt(key, s.sid)).map(s => s.sid);
   if (!sids.length) return;
-  ensureColumn(colSpecFromKey(key), { quiet: true });
-  setCells(sids.map(sid => ({ key, sid, value: 'ม' })));
+  writeAtt(key, sids.map(sid => ({ sid, value: 'ม' })));
   toast(sids.length >= state.cls.students.length
     ? 'ทำเครื่องหมาย "มา" ทั้งห้อง'
     : `ให้ "มา" อีก ${sids.length} คนที่ยังว่าง`, 'ok', 1400, undoAction());

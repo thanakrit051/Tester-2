@@ -6,9 +6,13 @@
  *   { "v": 1,
  *     "times": [["08:30","09:20"], ...],      ← เวลาของคาบ 1, 2, 3, … ใช้ทุกวันเหมือนกัน
  *     "days":  { "1": { "2": "<classId>" } } ← วันจันทร์ (1) คาบ 2 สอนห้องไหน
+ *     "join":  { "1": [3] }                   ← วันจันทร์ คาบ 3 เช็คชื่อรวมกับคาบ 2 (คาบคู่)
  *   }
  *
  * วันใช้เลขแบบ Date.getDay(): 1 = จันทร์ … 5 = ศุกร์
+ *
+ * join ใช้ได้เฉพาะคาบติดกันที่เป็นห้องเดียวกัน — เปลี่ยนห้องของคาบไหนแล้ว การรวมคาบนั้นหลุดเอง
+ * แอปรุ่นเก่าที่ไม่รู้จัก join อ่านตารางได้ปกติ (เห็นเป็นคาบแยกกันเหมือนเดิม)
  */
 
 export const DEFAULT_TIMES = [
@@ -41,7 +45,36 @@ export function fromMin(min) {
 }
 
 export function emptyTimetable() {
-  return { v: 1, times: DEFAULT_TIMES.map(t => t.slice()), days: {} };
+  return { v: 1, times: DEFAULT_TIMES.map(t => t.slice()), days: {}, join: {} };
+}
+
+/** คาบ p ของวัน d เช็คชื่อรวมกับคาบก่อนหน้า (p − 1) ไหม */
+export function isJoined(tt, d, p) {
+  const day = (tt.days || {})[d] || {};
+  return !!day[p] && day[p] === day[p - 1] && ((tt.join || {})[d] || []).includes(Number(p));
+}
+
+/** คาบทั้งชุดที่เช็คชื่อรวมกับคาบ p เรียงน้อย → มาก · ไม่ได้รวมกับคาบไหน = [p] */
+export function blockOf(tt, d, p) {
+  let a = Number(p), b = Number(p);
+  while (isJoined(tt, d, a)) a--;
+  while (isJoined(tt, d, b + 1)) b++;
+  return Array.from({ length: b - a + 1 }, (_, i) => a + i);
+}
+
+/** "3" หรือ "3–4" */
+export const periodText = (periods) =>
+  periods.length > 1 ? `${periods[0]}–${periods[periods.length - 1]}` : String(periods[0]);
+
+/** เก็บเฉพาะการรวมคาบที่ยังใช้ได้ (ยังเป็นห้องเดียวกันอยู่) */
+function cleanJoin(tt) {
+  const out = {};
+  for (const [d, ps] of Object.entries(tt.join || {})) {
+    if (!Array.isArray(ps)) continue;
+    const keep = [...new Set(ps.map(Number))].filter(p => isJoined(tt, d, p)).sort((a, b) => a - b);
+    if (keep.length) out[d] = keep;
+  }
+  return out;
 }
 
 /**
@@ -78,6 +111,9 @@ export function parseTimetable(raw) {
       if (Object.keys(dst).length) out.days[day.d] = dst;
     }
   }
+  if (d.join && typeof d.join === 'object') {
+    out.join = cleanJoin({ days: out.days, join: d.join });
+  }
   return out;
 }
 
@@ -88,7 +124,8 @@ export function serializeTimetable(tt) {
     for (const [p, id] of Object.entries(slots || {})) if (id) keep[p] = id;
     if (Object.keys(keep).length) days[d] = keep;
   }
-  return JSON.stringify({ v: 1, times: tt.times, days });
+  const join = cleanJoin({ days, join: tt.join });
+  return JSON.stringify(Object.keys(join).length ? { v: 1, times: tt.times, days, join } : { v: 1, times: tt.times, days });
 }
 
 /** มีคาบที่ระบุห้องไว้อย่างน้อยหนึ่งคาบไหม */
@@ -110,7 +147,7 @@ export function withoutClasses(tt, ids) {
       if (Object.keys(keep).length) days[d] = keep;
     }
   }
-  return { v: 1, times: tt.times.map(t => t.slice()), days };
+  return { v: 1, times: tt.times.map(t => t.slice()), days, join: cleanJoin({ days, join: tt.join }) };
 }
 
 /** จำนวนคาบสอนต่อสัปดาห์ */
@@ -119,16 +156,20 @@ export function weeklyCount(tt) {
 }
 
 /**
- * คาบสอนของวันหนึ่ง เรียงตามเวลา
+ * คาบสอนของวันหนึ่ง เรียงตามเวลา — คาบคู่ที่เช็คชื่อรวมกันนับเป็นช่องเดียว
+ *   { period: คาบแรกของชุด, periods: [3, 4], start/end: เริ่มคาบแรก–เลิกคาบสุดท้าย }
  * @param known ชุด classId ที่ยังมีอยู่จริง — ห้องที่ถูกลบไปแล้วไม่ต้องโชว์
  */
 export function slotsOn(tt, dow, known) {
   const day = (tt.days || {})[dow] || {};
   return Object.entries(day)
+    .filter(([p]) => !isJoined(tt, dow, Number(p)))
     .map(([p, classId]) => {
-      const period = Number(p);
-      const t = tt.times[period - 1] || [];
-      return { period, classId, start: t[0], end: t[1], s: toMin(t[0]), e: toMin(t[1]) };
+      const periods = blockOf(tt, dow, Number(p));
+      const period = periods[0];
+      const t0 = tt.times[period - 1] || [];
+      const t1 = tt.times[periods[periods.length - 1] - 1] || [];
+      return { period, periods, classId, start: t0[0], end: t1[1], s: toMin(t0[0]), e: toMin(t1[1]) };
     })
     .filter(x => x.classId && !isNaN(x.s) && !isNaN(x.e) && (!known || known.has(x.classId)))
     .sort((a, b) => a.s - b.s || a.period - b.period);

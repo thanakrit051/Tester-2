@@ -9,7 +9,7 @@
  */
 import {
   parseTimetable, serializeTimetable, currentSlot, slotsOn, toMin, fromMin,
-  hasTimetable, weeklyCount, emptyTimetable, withoutClasses
+  hasTimetable, weeklyCount, emptyTimetable, withoutClasses, isJoined, blockOf, periodText
 } from '../js/timetable.js';
 
 let n = 0;
@@ -72,6 +72,29 @@ eq('ล้างทั้งหมด เวลาคาบยังอยู่
 eq('ไม่ลบห้องไหน ตารางเหมือนเดิม', withoutClasses(tt3, []).days, tt3.days);
 eq('ไม่แก้ตารางต้นฉบับ', tt3.days[1], { 1: 'A', 2: 'B' });
 eq('อ่านกลับจากชีตได้เท่าเดิม', parseTimetable(serializeTimetable(withoutClasses(tt3, ['A']))).days, { 1: { 2: 'B' }, 3: { 2: 'B' } });
+
+// ── คาบคู่ เช็คชื่อรวมกัน ──
+const T4 = [['08:30', '09:20'], ['09:20', '10:10'], ['10:10', '11:00'], ['11:00', '11:50']];
+const jt = parseTimetable({ times: T4, days: { 1: { 1: 'A', 2: 'A', 3: 'A', 4: 'B' } }, join: { 1: [2, 3, 4] } });
+eq('รวมได้เฉพาะห้องเดียวกัน (คาบ 4 คนละห้อง ทิ้ง)', jt.join, { 1: [2, 3] });
+eq('ชุดของคาบกลาง = ทั้งชุด', blockOf(jt, 1, 2), [1, 2, 3]);
+eq('คาบที่ไม่ได้รวม = ตัวเอง', blockOf(jt, 1, 4), [4]);
+eq('ข้อความคาบ', [periodText([3, 4]), periodText([2])], ['3–4', '2']);
+eq('คาบคู่นับเป็นช่องเดียว', slotsOn(jt, 1).map(s => [s.period, s.periods, s.start, s.end]),
+  [[1, [1, 2, 3], '08:30', '11:00'], [4, [4], '11:00', '11:50']]);
+eq('จำนวนคาบ/สัปดาห์ยังนับทุกคาบ', weeklyCount(jt), 4);
+const jr = currentSlot(jt, at('09:40'));
+eq('กลางคาบคู่ = ตอนนี้ทั้งชุด เหลือถึงท้ายชุด', jr && [jr.state, jr.slot.period, jr.left], ['now', 1, 80]);
+
+const jt2 = parseTimetable(serializeTimetable(jt));
+eq('ไปกลับ: การรวมคาบยังอยู่', jt2.join, { 1: [2, 3] });
+jt2.days[1][2] = 'C';
+eq('เปลี่ยนห้องคาบหนึ่ง การรวมที่ติดคาบนั้นหลุดเอง', [isJoined(jt2, 1, 2), isJoined(jt2, 1, 3)], [false, false]);
+eq('บันทึกแล้วไม่เก็บการรวมที่ใช้ไม่ได้', JSON.parse(serializeTimetable(jt2)).join, undefined);
+eq('ไม่มีการรวม = ไม่เขียน join ลงชีต', 'join' in JSON.parse(serializeTimetable(back)), false);
+eq('join เพี้ยนไม่พัง', parseTimetable({ times: T4, days: { 1: { 1: 'A', 2: 'A' } }, join: { 1: 'x', 2: [9] } }).join, {});
+eq('ขึ้นภาคใหม่ เอาห้องออก การรวมของห้องนั้นหายด้วย', withoutClasses(jt, ['A']).join, {});
+eq('ขึ้นภาคใหม่ ห้องที่เหลือยังรวมคาบอยู่', withoutClasses(jt, ['B']).join, { 1: [2, 3] });
 
 if (fails.length) {
   console.error(`❌ ตารางสอน: ไม่ผ่าน ${fails.length} จาก ${n} ข้อ`);

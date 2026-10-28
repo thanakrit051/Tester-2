@@ -7,7 +7,7 @@ import {
 import { computeClass, gradeNow } from '../score.js';
 import * as api from '../api.js';
 import { store } from '../storage.js';
-import { DAYS, currentSlot, slotsOn, hasTimetable, weeklyCount } from '../timetable.js';
+import { DAYS, currentSlot, slotsOn, hasTimetable, weeklyCount, isJoined, blockOf, periodText } from '../timetable.js';
 import { readTimetable, openTimetableEditor } from './timetable.js';
 import { startCheckAt } from './attendance.js';
 import { icon, withIcon } from '../icons.js';
@@ -178,7 +178,7 @@ function nowCard(r) {
   return h('div', { class: 'hero now-card' },
     h('div', { class: 'hero-body' },
       h('div', { class: 'now-top' },
-        h('span', { class: 'now-pill' + (isNow ? '' : ' next') }, h('i'), isNow ? `กำลังสอน · คาบ ${slot.period}` : `คาบถัดไป · คาบ ${slot.period}`),
+        h('span', { class: 'now-pill' + (isNow ? '' : ' next') }, h('i'), `${isNow ? 'กำลังสอน' : 'คาบถัดไป'} · คาบ ${periodText(slot.periods)}`),
         h('span', { class: 'now-time' }, `${slot.start}–${slot.end}`)),
       h('div', { class: 'hero-title' }, `${roomOf(c)} · ${c.subject}`),
       h('div', { class: 'hero-meta' },
@@ -213,7 +213,7 @@ function todayCard(slots, cur) {
         class: 'today-row', 'data-cur': isCur ? '1' : '0', 'data-past': past && !isCur ? '1' : '0',
         onclick: () => openSlot(slot, 'att')
       },
-        h('span', { class: 'today-when' }, h('b', null, `คาบ ${slot.period}`), h('small', null, slot.start)),
+        h('span', { class: 'today-when' }, h('b', null, `คาบ ${periodText(slot.periods)}`), h('small', null, slot.start)),
         h('span', { class: 'today-what' }, `${roomOf(c)} · ${c.subject}`),
         h('span', { class: 'today-state', 'data-tone': tone }, txt));
     }));
@@ -238,19 +238,23 @@ function weekCard(tt, known, cur) {
             h('th', { scope: 'row', class: 'week-d' },
               h('span', { 'aria-hidden': 'true' }, d.short), h('span', { class: 'sr-only' }, d.name),
               isToday && h('small', null, 'วันนี้')),
-            tt.times.map(([start, end], i) => {
+            tt.times.map(([start], i) => {
               const p = i + 1;
               const id = (tt.days[d.d] || {})[p];
               const c = id && known.has(id) ? classOf(id) : null;
               if (!c) return h('td');
+              // คาบคู่ที่เช็ครวมกัน = ช่องเดียวกินหลายคอลัมน์ (คาบหลังไม่ต้องวาดช่องของตัวเอง)
+              if (isJoined(tt, d.d, p)) return null;
+              const periods = blockOf(tt, d.d, p);
+              const end = (tt.times[periods[periods.length - 1] - 1] || [])[1];
               const isCur = isToday && !!cur && cur.slot.period === p;
               // เช็คแล้วรู้ได้เฉพาะวันนี้ — คอลัมน์เช็คชื่อผูกกับวันที่ ไม่ใช่วันในสัปดาห์
               const done = isToday && checkedAt(id, p);
-              const slot = { period: p, classId: id, start, end };
-              return h('td', null,
+              const slot = { period: p, periods, classId: id, start, end };
+              return h('td', { colspan: periods.length > 1 ? String(periods.length) : null },
                 h('button', {
                   class: 'week-cell', 'data-cur': isCur ? '1' : '0', 'data-done': done ? '1' : '0',
-                  title: `${d.name} คาบ ${p} ${start}–${end} · ${roomOf(c)} ${c.subject}` + (done ? ' · เช็คชื่อแล้ว' : ''),
+                  title: `${d.name} คาบ ${periodText(periods)} ${start}–${end} · ${roomOf(c)} ${c.subject}` + (done ? ' · เช็คชื่อแล้ว' : ''),
                   // วันอื่นไม่ใช่วันนี้ — เปิดห้องนั้นเฉย ๆ ไม่ตั้งคาบเช็คชื่อให้ (เช็คชื่อลงวันนี้เสมอ)
                   onclick: () => isToday ? openSlot(slot, 'att') : (loadClass(id), go('att'))
                 }, h('b', null, roomOf(c)), h('small', null, c.subject)));

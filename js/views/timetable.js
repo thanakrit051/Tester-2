@@ -7,7 +7,7 @@
 import { h, modal, mount, toast } from '../dom.js';
 import { state, saveConfig } from '../state.js';
 import {
-  DAYS, MAX_PERIODS, parseTimetable, serializeTimetable, weeklyCount, toMin, fromMin
+  DAYS, MAX_PERIODS, parseTimetable, serializeTimetable, weeklyCount, toMin, fromMin, isJoined
 } from '../timetable.js';
 
 /** ตารางสอนที่ตั้งไว้ตอนนี้ (อ่านจากค่าตั้งค่าล่าสุดเสมอ) */
@@ -49,6 +49,23 @@ export function openTimetableEditor() {
           h('option', { value: '' }, 'ว่าง — ไม่มีสอน'),
           state.classes.map(c => h('option', { value: c.classId, selected: day[p] === c.classId }, classLabel(c))));
 
+        // คาบติดกันห้องเดียวกัน (คาบคู่) — ติ๊กเองทีละคู่ว่าจะเช็คชื่อครั้งเดียวไหม (ผู้ใช้เลือก 28 ต.ค. 69)
+        // เช็คครั้งเดียวแต่ลงชีตครบทุกคาบ ชั่วโมงเรียนจึงนับเท่าเดิม
+        if (p > 1 && day[p] && day[p] === day[p - 1] && known.has(day[p])) {
+          const on = isJoined(tt, ui.day, p);
+          rows.push(h('label', { class: 'tt-join', 'data-on': on ? '1' : '0' },
+            h('input', {
+              type: 'checkbox', checked: on,
+              onchange: (e) => {
+                const js = (tt.join ||= {})[ui.day] = (tt.join[ui.day] || []).filter(x => x !== p);
+                if (e.target.checked) js.push(p);
+                render();
+              }
+            }),
+            h('span', null, h('b', null, `คาบ ${p - 1}–${p} เช็คชื่อครั้งเดียว`),
+              h('small', null, 'ลงชีตทั้ง 2 คาบ ชั่วโมงเรียนนับครบ'))));
+        }
+
         rows.push(h('div', { class: 'tt-row' },
           h('div', { class: 'tt-when' },
             h('b', null, `คาบ ${p}`),
@@ -76,7 +93,11 @@ export function openTimetableEditor() {
           h('b', null, dayInfo.name),
           ui.day !== 1 && h('button', {
             class: 'btn btn-ghost btn-sm',
-            onclick: () => { tt.days[ui.day] = { ...(tt.days[1] || {}) }; render(); }
+            onclick: () => {
+              tt.days[ui.day] = { ...(tt.days[1] || {}) };
+              (tt.join ||= {})[ui.day] = [...(tt.join[1] || [])];
+              render();
+            }
           }, 'คัดลอกจากวันจันทร์'),
           h('button', {
             class: 'btn btn-ghost btn-sm', 'aria-pressed': ui.times ? 'true' : 'false',
